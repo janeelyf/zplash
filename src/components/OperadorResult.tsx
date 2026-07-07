@@ -15,7 +15,7 @@ import {
   uid,
   vencimientoPorDefectoISO,
 } from "@/lib/helpers";
-import type { Cliente, Venta } from "@/types";
+import type { Cliente, Ingreso, Venta } from "@/types";
 
 export default function OperadorResult({ clearPlate }: { clearPlate: () => void }) {
   const { ui } = useApp();
@@ -332,6 +332,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
 function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () => void }) {
   const { data, ui, commit, patchUi } = useApp();
   const [tipoDoc, setTipoDoc] = useState("Boleta");
+  const [err, setErr] = useState("");
   const qNombreRef = useRef<HTMLInputElement>(null);
   const qTelefonoRef = useRef<HTMLInputElement>(null);
   const qEmailRef = useRef<HTMLInputElement>(null);
@@ -396,7 +397,43 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
     }
     const tempData = { ...data, clientes: [...data.clientes, nuevo], ventas };
     const ingresoPatch = registrarIngreso(tempData, nuevo, ui.operadorActual);
-    await commit({ clientes: ingresoPatch.clientes, ventas, ingresos: ingresoPatch.ingresos });
+    const ok = await commit({ clientes: ingresoPatch.clientes, ventas, ingresos: ingresoPatch.ingresos });
+    if (!ok) {
+      setErr(ERROR_GUARDADO);
+      return;
+    }
+    clearPlate();
+    patchUi({ operResult: null });
+  };
+
+  const ingresarSinRegistro = async () => {
+    const patente = normPlate(plate);
+    const ahora = new Date().toISOString();
+    const ingreso: Ingreso = {
+      id: "i" + Date.now(),
+      clienteId: "",
+      patente,
+      nombre: "Sin registro",
+      fecha: ahora,
+      planEstadoAlIngreso: "bad",
+      operador: ui.operadorActual || "",
+    };
+    const venta: Venta = {
+      id: "v" + Date.now(),
+      clienteId: "",
+      patente,
+      nombre: "Sin registro",
+      plan: "",
+      precio: PRECIO_LAVADO_UNICO,
+      tipo: "Lavado único",
+      fecha: ahora,
+      operador: ui.operadorActual || "",
+    };
+    const ok = await commit({ ingresos: [ingreso, ...data.ingresos], ventas: [venta, ...data.ventas] });
+    if (!ok) {
+      setErr(ERROR_GUARDADO);
+      return;
+    }
     clearPlate();
     patchUi({ operResult: null });
   };
@@ -407,8 +444,15 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
         <h3>Patente no registrada</h3>
         <span className="status-pill bad">{plate.toUpperCase()}</span>
       </div>
+      {err && <div className="err" style={{ marginBottom: 10 }}>{err}</div>}
       <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13 }}>
-        Registra un cliente rápido para dejarlo ingresado ahora mismo.
+        ¿Solo un lavado, sin ficha de cliente? Cóbralo directo sin registrar nada.
+      </div>
+      <button className="btn" style={{ marginBottom: 4 }} onClick={ingresarSinRegistro}>
+        Ingresar sin registro — Lavado único ({fmtCLP(PRECIO_LAVADO_UNICO)})
+      </button>
+      <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginTop: 14 }}>
+        O registra un cliente rápido para dejarlo ingresado ahora mismo.
       </div>
       <div className="quick-form">
         <div>
