@@ -80,6 +80,11 @@ export function findClient(clientes: Cliente[], plate: string): Cliente | undefi
   return clientes.find((c) => normPlate(c.patente) === normPlate(plate));
 }
 
+/** La carga masiva por Excel deja "Sin nombre" quemado cuando la fila no trae nombre. */
+export function esNombreVacio(nombre: string | undefined | null): boolean {
+  return !nombre || !nombre.trim() || nombre.trim() === "Sin nombre";
+}
+
 export function planStatus(c: Cliente): PlanStatus {
   if (!c.vencimiento) return { label: "Sin plan", cls: "bad" };
   const hoy = new Date();

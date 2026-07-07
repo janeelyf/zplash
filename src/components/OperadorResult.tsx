@@ -6,6 +6,7 @@ import { registrarIngreso, renovarPlan } from "@/lib/actions";
 import {
   PLANES,
   PRECIO_LAVADO_UNICO,
+  esNombreVacio,
   fmtCLP,
   normPlate,
   planStatus,
@@ -210,7 +211,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
       {guardarErr && <div className="err" style={{ marginBottom: 10 }}>{guardarErr}</div>}
       <div className="result-card found">
         <div className="result-head">
-          {c.nombre ? (
+          {!esNombreVacio(c.nombre) ? (
             <h3>{c.nombre}</h3>
           ) : (
             <div style={{ display: "flex", gap: 6, alignItems: "center", flex: 1, marginRight: 10 }}>
