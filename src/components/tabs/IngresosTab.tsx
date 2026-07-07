@@ -1,7 +1,7 @@
 "use client";
 
 import { useApp } from "@/context/AppContext";
-import { fmtFecha, fmtHora, normPlate } from "@/lib/helpers";
+import { fmtFecha, fmtHora, normPlate, tipoIngreso } from "@/lib/helpers";
 
 export default function IngresosTab() {
   const { data, ui, patchUi } = useApp();
@@ -30,7 +30,7 @@ export default function IngresosTab() {
             <th>Patente</th>
             <th>Cliente</th>
             <th>Operador</th>
-            <th>Garantía</th>
+            <th>Tipo de ingreso</th>
           </tr>
         </thead>
         <tbody>
@@ -41,16 +41,21 @@ export default function IngresosTab() {
               </td>
             </tr>
           ) : (
-            filtered.map((i) => (
-              <tr key={i.id}>
-                <td>{fmtFecha(i.fecha)}</td>
-                <td>{fmtHora(i.fecha)}</td>
-                <td className="plate-tag">{i.patente}</td>
-                <td>{i.nombre}</td>
-                <td>{i.operador || "-"}</td>
-                <td>{i.esGarantia ? "Sí" : "-"}</td>
-              </tr>
-            ))
+            filtered.map((i) => {
+              const tipo = tipoIngreso(i);
+              return (
+                <tr key={i.id}>
+                  <td>{fmtFecha(i.fecha)}</td>
+                  <td>{fmtHora(i.fecha)}</td>
+                  <td className="plate-tag">{i.patente}</td>
+                  <td>{i.nombre}</td>
+                  <td>{i.operador || "-"}</td>
+                  <td>
+                    <span className={`status-pill ${tipo.cls}`}>{tipo.label}</span>
+                  </td>
+                </tr>
+              );
+            })
           )}
         </tbody>
       </table>

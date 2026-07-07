@@ -29,6 +29,10 @@ export default function OperadorView() {
         onLogout={() => patchUi({ view: "login", operResult: null, operadorActual: null, loginMode: null })}
       />
       <div className="content">
+        <div className="stat-card" style={{ width: "fit-content", margin: "0 auto 20px", textAlign: "center" }}>
+          <div className="num">{data.ingresos.length}</div>
+          <div className="lbl">Autos ingresados en total</div>
+        </div>
         <div className="scan-panel">
           <h2>Validar patente</h2>
           <div className="hint">Ingresa la patente del vehículo para registrar el ingreso</div>

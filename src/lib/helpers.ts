@@ -102,6 +102,12 @@ export function planStatus(c: Cliente): PlanStatus {
   return { label: "Vigente", cls: "ok" };
 }
 
+export function tipoIngreso(i: Ingreso): { label: string; cls: "ok" | "warn" | "bad" } {
+  if (i.esGarantia) return { label: "Garantía", cls: "warn" };
+  if (i.planEstadoAlIngreso === "bad") return { label: fmtCLP(PRECIO_LAVADO_UNICO), cls: "bad" };
+  return { label: "Ingreso por plan", cls: "ok" };
+}
+
 export function uid(): string {
   return "c" + Date.now() + Math.floor(Math.random() * 1000);
 }
