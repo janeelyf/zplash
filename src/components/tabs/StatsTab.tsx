@@ -9,6 +9,9 @@ export default function StatsTab() {
   const ingresosHoy = data.ingresos.filter((i) => new Date(i.fecha).toDateString() === hoy).length;
   const vencidos = data.clientes.filter((c) => planStatus(c).cls === "bad").length;
   const porVencer = data.clientes.filter((c) => planStatus(c).cls === "warn").length;
+  const vigentes = data.clientes.filter((c) => planStatus(c).cls === "ok");
+  const vigentesWeb = vigentes.filter((c) => c.origen === "WEB").length;
+  const vigentesLocal = vigentes.length - vigentesWeb;
 
   return (
     <div className="stat-grid">
@@ -31,6 +34,18 @@ export default function StatsTab() {
       <div className="stat-card">
         <div className="num">{vencidos}</div>
         <div className="lbl">Planes vencidos</div>
+      </div>
+      <div className="stat-card">
+        <div className="num">{vigentes.length}</div>
+        <div className="lbl">Planes vigentes</div>
+      </div>
+      <div className="stat-card">
+        <div className="num">{vigentesWeb}</div>
+        <div className="lbl">Vigentes · Web</div>
+      </div>
+      <div className="stat-card">
+        <div className="num">{vigentesLocal}</div>
+        <div className="lbl">Vigentes · Local</div>
       </div>
     </div>
   );
