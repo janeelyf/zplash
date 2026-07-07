@@ -28,22 +28,23 @@ export default function CierreTab() {
     { tipo: "Lavado único", label: "Lavado único" },
     { tipo: "Plan nuevo", label: "Contratación de plan" },
     { tipo: "Renovación preferencial", label: "Renovación temprana" },
-    { tipo: "Renovación manual", label: "Renovación manual" },
   ];
   const ventasPorTipo = PRODUCTOS.map((p) => {
     const items = ventasPeriodo.filter((v) => v.tipo === p.tipo);
     return { ...p, cantidad: items.length, monto: items.reduce((s, v) => s + (v.precio || 0), 0) };
   });
-  const tiposConocidos = new Set(PRODUCTOS.map((p) => p.tipo));
+  const totalCantidadVentas = ventasPorTipo.reduce((s, f) => s + f.cantidad, 0);
+  const totalMontoVentas = ventasPorTipo.reduce((s, f) => s + f.monto, 0);
+
+  const modificacionesAdminItems = ventasPeriodo.filter((v) => v.tipo === "Renovación manual");
+  const modificacionesAdmin = {
+    label: "Modificación de planes desde perfil de administrador",
+    cantidad: modificacionesAdminItems.length,
+    monto: modificacionesAdminItems.reduce((s, v) => s + (v.precio || 0), 0),
+  };
+
+  const tiposConocidos = new Set([...PRODUCTOS.map((p) => p.tipo), "Renovación manual"]);
   const otrasVentas = ventasPeriodo.filter((v) => !tiposConocidos.has(v.tipo));
-  const filasVenta = [
-    ...ventasPorTipo,
-    ...(otrasVentas.length
-      ? [{ tipo: "otros", label: "Otros", cantidad: otrasVentas.length, monto: otrasVentas.reduce((s, v) => s + (v.precio || 0), 0) }]
-      : []),
-  ];
-  const totalCantidadVentas = filasVenta.reduce((s, f) => s + f.cantidad, 0);
-  const totalMontoVentas = filasVenta.reduce((s, f) => s + f.monto, 0);
 
   const facturaPendientesPeriodo = clientes
     .filter((c) => c.tipoDocumento === "Factura")
@@ -130,7 +131,7 @@ export default function CierreTab() {
           </tr>
         </thead>
         <tbody>
-          {filasVenta.map((f) => (
+          {ventasPorTipo.map((f) => (
             <tr key={f.tipo}>
               <td>{f.label}</td>
               <td>{f.cantidad}</td>
@@ -142,6 +143,20 @@ export default function CierreTab() {
             <td style={{ fontWeight: 700 }}>{totalCantidadVentas}</td>
             <td style={{ fontWeight: 700 }}>{fmtCLP(totalMontoVentas)}</td>
           </tr>
+          {modificacionesAdmin.cantidad > 0 && (
+            <tr>
+              <td>{modificacionesAdmin.label}</td>
+              <td>{modificacionesAdmin.cantidad}</td>
+              <td>{fmtCLP(modificacionesAdmin.monto)}</td>
+            </tr>
+          )}
+          {otrasVentas.length > 0 && (
+            <tr>
+              <td>Otros</td>
+              <td>{otrasVentas.length}</td>
+              <td>{fmtCLP(otrasVentas.reduce((s, v) => s + (v.precio || 0), 0))}</td>
+            </tr>
+          )}
         </tbody>
       </table>
       <div className="stat-grid" style={{ marginBottom: 24 }}>
