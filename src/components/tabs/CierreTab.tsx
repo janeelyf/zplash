@@ -2,7 +2,7 @@
 
 import { useApp } from "@/context/AppContext";
 import { descargarCierre, descargarFacturables } from "@/lib/actions";
-import { fmtCLP, fmtDate, inRange, normPlate, planStatus, todayYMD } from "@/lib/helpers";
+import { fmtCLP, fmtDate, inRange, normPlate, planStatus, tipoIngreso, todayYMD } from "@/lib/helpers";
 
 export default function CierreTab() {
   const { data, ui, patchUi } = useApp();
@@ -246,15 +246,14 @@ export default function CierreTab() {
             </tr>
           ) : (
             ingresosPeriodo.map((i) => {
-              const lbl = i.planEstadoAlIngreso === "bad" ? "Vencido" : i.planEstadoAlIngreso === "warn" ? "Por vencer" : "Vigente";
-              const cls = i.planEstadoAlIngreso || "ok";
+              const tipo = tipoIngreso(i);
               return (
                 <tr key={i.id}>
                   <td>{fmtDate(i.fecha)}</td>
                   <td className="plate-tag">{i.patente}</td>
                   <td>{i.nombre}</td>
                   <td>
-                    <span className={`status-pill ${cls}`}>{lbl}</span>
+                    <span className={`status-pill ${tipo.cls}`}>{tipo.label}</span>
                   </td>
                 </tr>
               );
