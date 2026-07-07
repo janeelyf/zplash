@@ -27,7 +27,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
   const [err, setErr] = useState("");
 
   const guardar = () => {
-    const nombre = nombreRef.current?.value.trim() || "";
+    const nombre = (nombreRef.current?.value.trim() || "").toUpperCase();
     const patente = normPlate(patenteRef.current?.value || "");
     if (!nombre || !patente) {
       setErr("Nombre y patente son obligatorios");

@@ -88,7 +88,7 @@ export function yaIngresoHoy(ingresos: Ingreso[], clienteId: string): boolean {
 
 /** La carga masiva por Excel deja "Sin nombre" quemado cuando la fila no trae nombre. */
 export function esNombreVacio(nombre: string | undefined | null): boolean {
-  return !nombre || !nombre.trim() || nombre.trim() === "Sin nombre";
+  return !nombre || !nombre.trim() || nombre.trim().toLowerCase() === "sin nombre";
 }
 
 export function planStatus(c: Cliente): PlanStatus {

@@ -98,7 +98,7 @@ export function importarClientes(data: AppData, rows: Record<string, unknown>[])
       errores.push(idx + 2);
       return;
     }
-    const nombre = getField(row, "nombre", "cliente") || "Sin nombre";
+    const nombre = (getField(row, "nombre", "cliente") || "Sin nombre").toUpperCase();
     const telefono = getField(row, "telefono", "teléfono", "fono");
     const email = getField(row, "email", "correo", "correo electronico", "correo electrónico");
     const vehiculo = getField(row, "vehiculo", "vehículo", "auto");

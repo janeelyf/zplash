@@ -104,7 +104,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
   const guardarNombre = async () => {
     const val = nombreRef.current?.value.trim();
     if (!val) return;
-    const updated = { ...c, nombre: val };
+    const updated = { ...c, nombre: val.toUpperCase() };
     const ok = await commit({ clientes: data.clientes.map((x) => (x.id === c.id ? updated : x)) });
     if (!ok) {
       setGuardarErr(ERROR_GUARDADO);
@@ -314,7 +314,7 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
   };
 
   const quickAdd = () => {
-    const nombre = qNombreRef.current?.value.trim() || "Cliente sin nombre";
+    const nombre = (qNombreRef.current?.value.trim() || "Cliente sin nombre").toUpperCase();
     const telefono = qTelefonoRef.current?.value.trim() || "";
     const email = qEmailRef.current?.value.trim() || "";
     const vehiculo = qVehiculoRef.current?.value.trim() || "";
