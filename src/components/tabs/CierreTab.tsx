@@ -2,9 +2,7 @@
 
 import { useApp } from "@/context/AppContext";
 import { descargarCierre, descargarFacturables } from "@/lib/actions";
-import { SERVICIOS_ADICIONALES, fmtCLP, fmtDate, inRange, normPlate, planStatus, tipoIngreso, todayYMD } from "@/lib/helpers";
-
-const NOMBRES_SERVICIOS_ADICIONALES = new Set(SERVICIOS_ADICIONALES.map((s) => s.nombre));
+import { fmtCLP, fmtDate, inRange, normPlate, planStatus, tipoIngreso, todayYMD } from "@/lib/helpers";
 
 export default function CierreTab() {
   const { data, ui, patchUi } = useApp();
@@ -36,7 +34,8 @@ export default function CierreTab() {
     return { ...p, cantidad: items.length, monto: items.reduce((s, v) => s + (v.precio || 0), 0) };
   });
 
-  const serviciosAdicionalesItems = ventasPeriodo.filter((v) => NOMBRES_SERVICIOS_ADICIONALES.has(v.tipo));
+  const serviciosAdicionalesItems = ventasPeriodo.filter((v) => v.esServicioAdicional);
+  const autosServiciosAdicionales = new Set(serviciosAdicionalesItems.map((v) => `${v.patente}|${v.fecha}`)).size;
   const serviciosAdicionalesRow = {
     tipo: "servicios-adicionales",
     label: "Servicios adicionales (detailing, tapiz, motor, chasis, etc.)",
@@ -55,8 +54,8 @@ export default function CierreTab() {
     monto: modificacionesAdminItems.reduce((s, v) => s + (v.precio || 0), 0),
   };
 
-  const tiposConocidos = new Set([...PRODUCTOS.map((p) => p.tipo), "Renovación manual", ...NOMBRES_SERVICIOS_ADICIONALES]);
-  const otrasVentas = ventasPeriodo.filter((v) => !tiposConocidos.has(v.tipo));
+  const tiposConocidos = new Set([...PRODUCTOS.map((p) => p.tipo), "Renovación manual"]);
+  const otrasVentas = ventasPeriodo.filter((v) => !tiposConocidos.has(v.tipo) && !v.esServicioAdicional);
 
   const cobrado = (v: (typeof ventasPeriodo)[number]) => v.montoCobrado ?? v.precio ?? 0;
   const efectivoItems = ventasPeriodo.filter((v) => v.metodoPago === "efectivo");
@@ -212,6 +211,10 @@ export default function CierreTab() {
         <div className="stat-card">
           <div className="num">{ingresosPeriodo.length}</div>
           <div className="lbl">Vehículos ingresados</div>
+        </div>
+        <div className="stat-card">
+          <div className="num">{autosServiciosAdicionales}</div>
+          <div className="lbl">Autos con servicios adicionales</div>
         </div>
         <div className="stat-card">
           <div className="num">{facturaPendientesPeriodo.length}</div>

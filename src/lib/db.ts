@@ -95,6 +95,7 @@ function ventaToRow(v: Venta): Row {
     notas: v.notas || null,
     estado_pago: v.estadoPago || null,
     monto_cobrado: v.montoCobrado ?? null,
+    es_servicio_adicional: v.esServicioAdicional || false,
   };
 }
 
@@ -115,6 +116,7 @@ function ventaFromRow(r: Row): Venta {
     notas: (r.notas as string) || undefined,
     estadoPago: (r.estado_pago as Venta["estadoPago"]) || undefined,
     montoCobrado: r.monto_cobrado === null || r.monto_cobrado === undefined ? undefined : (r.monto_cobrado as number),
+    esServicioAdicional: (r.es_servicio_adicional as boolean) || undefined,
   };
 }
 

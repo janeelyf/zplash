@@ -47,6 +47,7 @@ export interface Venta {
   notas?: string;
   estadoPago?: "pagado" | "abono50" | "pendiente";
   montoCobrado?: number;
+  esServicioAdicional?: boolean;
 }
 
 export interface PagoInfo {

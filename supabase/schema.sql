@@ -55,7 +55,8 @@ create table if not exists ventas (
   hora_entrega text,
   notas text,
   estado_pago text,
-  monto_cobrado numeric
+  monto_cobrado numeric,
+  es_servicio_adicional boolean not null default false
 );
 create index if not exists ventas_fecha_idx on ventas (fecha desc);
 create index if not exists ventas_cliente_idx on ventas (cliente_id);

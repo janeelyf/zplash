@@ -7,11 +7,12 @@ import { SERVICIOS_ADICIONALES, findClient, fmtCLP, normPlate, todayStr } from "
 import type { Cliente, Venta } from "@/types";
 
 const ERROR_GUARDADO = "No se pudo guardar el servicio (sin conexión con el almacenamiento). Verifica tu conexión e inténtalo de nuevo.";
-const NOMBRES_SERVICIOS = new Set(SERVICIOS_ADICIONALES.map((s) => s.nombre));
 const CATEGORIA_DETAILING = "Lavado Completo Detailing";
 const AJUSTES = [5000, 10000] as const;
 
 type EstadoPago = "pagado" | "abono50" | "pendiente";
+type Linea = { id: string; nombre: string; precio: number };
+type ItemPersonalizado = { id: string; nombre: string; precio: number };
 
 export default function ServiciosAdicionalesView() {
   const { data, ui, commit, patchUi } = useApp();
@@ -27,9 +28,12 @@ export default function ServiciosAdicionalesView() {
   const horaEntregaRef = useRef<HTMLInputElement>(null);
   const notasRef = useRef<HTMLTextAreaElement>(null);
   const voucherRef = useRef<HTMLInputElement>(null);
+  const detallePersonalizadoRef = useRef<HTMLInputElement>(null);
+  const montoPersonalizadoRef = useRef<HTMLInputElement>(null);
 
   const [patenteBuscada, setPatenteBuscada] = useState<string | null>(null);
   const [serviciosSeleccionados, setServiciosSeleccionados] = useState<string[]>([]);
+  const [itemsPersonalizados, setItemsPersonalizados] = useState<ItemPersonalizado[]>([]);
   const [ajuste, setAjuste] = useState<0 | 5000 | 10000>(0);
   const [tipoDoc, setTipoDoc] = useState<"Boleta" | "Factura">("Boleta");
   const [estadoPago, setEstadoPago] = useState<EstadoPago | null>(null);
@@ -44,15 +48,17 @@ export default function ServiciosAdicionalesView() {
   );
 
   let ajusteAsignado = false;
-  const lineas = serviciosSeleccionados.map((id) => {
+  const lineasCatalogo: Linea[] = serviciosSeleccionados.map((id) => {
     const s = SERVICIOS_ADICIONALES.find((x) => x.id === id)!;
     let precio = s.precio;
     if (!ajusteAsignado && s.categoria === CATEGORIA_DETAILING && ajuste > 0) {
       precio += ajuste;
       ajusteAsignado = true;
     }
-    return { servicio: s, precio };
+    return { id: s.id, nombre: s.nombre, precio };
   });
+  const lineasPersonalizadas: Linea[] = itemsPersonalizados.map((i) => ({ id: i.id, nombre: i.nombre, precio: i.precio }));
+  const lineas: Linea[] = [...lineasCatalogo, ...lineasPersonalizadas];
   const totalListado = lineas.reduce((s, l) => s + l.precio, 0);
   const montoCobradoTotal = estadoPago === "pagado" ? totalListado : estadoPago === "abono50" ? Math.round(totalListado / 2) : 0;
 
@@ -60,6 +66,23 @@ export default function ServiciosAdicionalesView() {
     setServiciosSeleccionados((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
     setErr("");
     if (categoria !== CATEGORIA_DETAILING) return;
+  };
+
+  const agregarPersonalizado = () => {
+    const nombre = detallePersonalizadoRef.current?.value.trim() || "";
+    const monto = Number(montoPersonalizadoRef.current?.value || "0");
+    if (!nombre || !monto || monto <= 0) {
+      setErr("Ingresa un detalle y un monto válido para el servicio personalizado");
+      return;
+    }
+    setErr("");
+    setItemsPersonalizados((prev) => [...prev, { id: "custom-" + Date.now(), nombre, precio: monto }]);
+    if (detallePersonalizadoRef.current) detallePersonalizadoRef.current.value = "";
+    if (montoPersonalizadoRef.current) montoPersonalizadoRef.current.value = "";
+  };
+
+  const quitarPersonalizado = (id: string) => {
+    setItemsPersonalizados((prev) => prev.filter((i) => i.id !== id));
   };
 
   const buscarPatente = () => {
@@ -73,6 +96,7 @@ export default function ServiciosAdicionalesView() {
     setPatenteBuscada(patente);
     setTipoDoc(cliente?.tipoDocumento === "Factura" ? "Factura" : "Boleta");
     setServiciosSeleccionados([]);
+    setItemsPersonalizados([]);
     setAjuste(0);
     setEstadoPago(null);
     setMetodoPago(null);
@@ -81,6 +105,7 @@ export default function ServiciosAdicionalesView() {
   const cambiarPatente = () => {
     setPatenteBuscada(null);
     setServiciosSeleccionados([]);
+    setItemsPersonalizados([]);
     setAjuste(0);
     setEstadoPago(null);
     setMetodoPago(null);
@@ -180,7 +205,7 @@ export default function ServiciosAdicionalesView() {
       nombre,
       plan: "",
       precio: l.precio,
-      tipo: l.servicio.nombre,
+      tipo: l.nombre,
       fecha: ahora,
       operador: ui.operadorActual || "",
       metodoPago: estadoPago === "pendiente" ? undefined : metodoPago || undefined,
@@ -189,6 +214,7 @@ export default function ServiciosAdicionalesView() {
       notas: notas || undefined,
       estadoPago,
       montoCobrado: totalListado > 0 ? Math.round((l.precio / totalListado) * montoCobradoTotal) : 0,
+      esServicioAdicional: true,
     }));
 
     const ok = await commit({ clientes, ventas: [...ventasNuevas, ...data.ventas] });
@@ -199,6 +225,7 @@ export default function ServiciosAdicionalesView() {
     if (patenteRef.current) patenteRef.current.value = "";
     setPatenteBuscada(null);
     setServiciosSeleccionados([]);
+    setItemsPersonalizados([]);
     setAjuste(0);
     setTipoDoc("Boleta");
     setEstadoPago(null);
@@ -206,7 +233,7 @@ export default function ServiciosAdicionalesView() {
   };
 
   const hoy = todayStr();
-  const hoyList = data.ventas.filter((v) => NOMBRES_SERVICIOS.has(v.tipo) && new Date(v.fecha).toDateString() === hoy);
+  const hoyList = data.ventas.filter((v) => v.esServicioAdicional && new Date(v.fecha).toDateString() === hoy);
 
   return (
     <>
@@ -216,7 +243,7 @@ export default function ServiciosAdicionalesView() {
       />
       <div className="content">
         <div className="scan-panel" style={{ textAlign: "left" }}>
-          <h2 style={{ textAlign: "center" }}>Registrar servicio adicional</h2>
+          <h2 style={{ textAlign: "center", textTransform: "uppercase" }}>Registrar servicio adicional</h2>
 
           {patenteBuscada === null ? (
             <>
@@ -293,6 +320,69 @@ export default function ServiciosAdicionalesView() {
                 </div>
               ))}
 
+              <div style={{ marginBottom: 18 }}>
+                <div
+                  className="hint"
+                  style={{ textAlign: "left", marginBottom: 8, textTransform: "uppercase", fontWeight: 700 }}
+                >
+                  Servicio personalizado
+                </div>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <input
+                    ref={detallePersonalizadoRef}
+                    placeholder="Ej: Limpieza solo 1 butaca copiloto"
+                    style={{
+                      flex: "2 1 220px",
+                      background: "var(--bg)",
+                      border: "1px solid var(--border)",
+                      color: "var(--white)",
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      fontSize: 14,
+                    }}
+                  />
+                  <input
+                    ref={montoPersonalizadoRef}
+                    type="number"
+                    min={0}
+                    placeholder="Monto"
+                    style={{
+                      flex: "1 1 120px",
+                      background: "var(--bg)",
+                      border: "1px solid var(--border)",
+                      color: "var(--white)",
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      fontSize: 14,
+                    }}
+                  />
+                  <button type="button" className="btn ghost" style={{ marginTop: 0 }} onClick={agregarPersonalizado}>
+                    Agregar
+                  </button>
+                </div>
+                {itemsPersonalizados.length > 0 && (
+                  <div style={{ marginTop: 10 }}>
+                    {itemsPersonalizados.map((i) => (
+                      <div
+                        key={i.id}
+                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0" }}
+                      >
+                        <span>
+                          {i.nombre} — {fmtCLP(i.precio)}
+                        </span>
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          onClick={() => quitarPersonalizado(i.id)}
+                        >
+                          Quitar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {lineas.length > 0 && (
                 <div
                   style={{
@@ -305,8 +395,8 @@ export default function ServiciosAdicionalesView() {
                   }}
                 >
                   {lineas.map((l) => (
-                    <div key={l.servicio.id} style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span>{l.servicio.nombre}</span>
+                    <div key={l.id} style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span>{l.nombre}</span>
                       <span>{fmtCLP(l.precio)}</span>
                     </div>
                   ))}
