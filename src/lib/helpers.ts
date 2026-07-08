@@ -10,6 +10,9 @@ export const PRECIOS_DEFAULT: Precios = {
 /** Precio de un lavado único para clientes sin plan vigente (vencido o sin plan). */
 export const PRECIO_LAVADO_UNICO = 9990;
 
+/** Clave usada dentro de Precios para guardar el valor editable del lavado único. */
+export const LAVADO_UNICO_KEY = "Lavado único";
+
 export interface ServicioAdicional {
   id: string;
   categoria: string;
@@ -49,6 +52,16 @@ export function precioNormal(precios: Precios, plan: string): number {
 
 export function precioPreferencial(precios: Precios, plan: string): number {
   return (precios[plan] && precios[plan].promo) || 0;
+}
+
+/** Precio vigente del lavado único, editable por el administrador; si no se ha guardado uno, usa el valor por defecto. */
+export function precioLavadoUnico(precios: Precios): number {
+  return (precios[LAVADO_UNICO_KEY] && precios[LAVADO_UNICO_KEY].normal) || PRECIO_LAVADO_UNICO;
+}
+
+/** Precio vigente de un servicio adicional, editable por el administrador; si no se ha guardado uno, usa el precio de catálogo. */
+export function precioServicioAdicional(precios: Precios, servicio: ServicioAdicional): number {
+  return (precios[servicio.id] && precios[servicio.id].normal) || servicio.precio;
 }
 
 export function todayYMD(): string {

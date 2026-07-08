@@ -2,7 +2,15 @@
 
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { PLANES, precioNormal, precioPreferencial } from "@/lib/helpers";
+import {
+  LAVADO_UNICO_KEY,
+  PLANES,
+  SERVICIOS_ADICIONALES,
+  precioLavadoUnico,
+  precioNormal,
+  precioPreferencial,
+  precioServicioAdicional,
+} from "@/lib/helpers";
 
 export default function ConfigTab() {
   const { data, commit } = useApp();
@@ -12,6 +20,9 @@ export default function ConfigTab() {
   const [precioErr, setPrecioErr] = useState<{ msg: string; ok: boolean } | null>(null);
   const normalRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const promoRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const lavadoUnicoRef = useRef<HTMLInputElement>(null);
+  const servicioRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const categoriasServicios = Array.from(new Set(SERVICIOS_ADICIONALES.map((s) => s.categoria)));
 
   const savePin = async () => {
     const cur = curPinRef.current?.value || "";
@@ -34,6 +45,11 @@ export default function ConfigTab() {
       const nInp = normalRefs.current[p];
       const pInp = promoRefs.current[p];
       precios[p] = { normal: Number(nInp?.value) || 0, promo: Number(pInp?.value) || 0 };
+    });
+    precios[LAVADO_UNICO_KEY] = { normal: Number(lavadoUnicoRef.current?.value) || 0, promo: 0 };
+    SERVICIOS_ADICIONALES.forEach((s) => {
+      const inp = servicioRefs.current[s.id];
+      precios[s.id] = { normal: Number(inp?.value) || 0, promo: 0 };
     });
     await commit({ precios });
     setPrecioErr({ msg: "Precios actualizados correctamente", ok: true });
@@ -89,6 +105,38 @@ export default function ConfigTab() {
             </div>
           </div>
         ))}
+
+        <h3 style={{ marginTop: 22 }}>Lavado túnel (sin plan)</h3>
+        <div className="field">
+          <label>Precio lavado único</label>
+          <input type="number" min={0} defaultValue={precioLavadoUnico(data.precios)} ref={lavadoUnicoRef} />
+        </div>
+
+        <h3 style={{ marginTop: 22 }}>Servicios adicionales</h3>
+        {categoriasServicios.map((cat) => (
+          <div key={cat}>
+            <div
+              className="hint"
+              style={{ textAlign: "left", marginBottom: 8, textTransform: "uppercase", fontWeight: 700 }}
+            >
+              {cat}
+            </div>
+            {SERVICIOS_ADICIONALES.filter((s) => s.categoria === cat).map((s) => (
+              <div className="field" key={s.id}>
+                <label>{s.nombre}</label>
+                <input
+                  type="number"
+                  min={0}
+                  defaultValue={precioServicioAdicional(data.precios, s)}
+                  ref={(el) => {
+                    servicioRefs.current[s.id] = el;
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        ))}
+
         <div className="err" style={{ color: precioErr?.ok ? "var(--green)" : undefined }}>
           {precioErr?.msg || ""}
         </div>

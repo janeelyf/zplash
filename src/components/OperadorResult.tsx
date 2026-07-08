@@ -5,11 +5,11 @@ import { useApp } from "@/context/AppContext";
 import { registrarIngreso, renovarPlan } from "@/lib/actions";
 import {
   PLANES,
-  PRECIO_LAVADO_UNICO,
   esNombreVacio,
   fmtCLP,
   normPlate,
   planStatus,
+  precioLavadoUnico,
   precioNormal,
   precioPreferencial,
   uid,
@@ -76,7 +76,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
   };
 
   const registrarPagado = () => {
-    pedirPago(PRECIO_LAVADO_UNICO, `Lavado único para ${c.nombre} (${c.patente})`, async (pago) => {
+    pedirPago(precioLavadoUnico(data.precios), `Lavado único para ${c.nombre} (${c.patente})`, async (pago) => {
       const patch = registrarIngreso(data, c, ui.operadorActual);
       const venta: Venta = {
         id: "v" + Date.now(),
@@ -84,7 +84,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
         patente: c.patente,
         nombre: c.nombre,
         plan: c.plan || "",
-        precio: PRECIO_LAVADO_UNICO,
+        precio: precioLavadoUnico(data.precios),
         tipo: "Lavado único",
         fecha: new Date().toISOString(),
         operador: ui.operadorActual || "",
@@ -282,7 +282,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
             </div>
             <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
               <button className="btn" style={{ marginTop: 0 }} onClick={registrarPagado}>
-                Registrar lavado único pagado ({fmtCLP(PRECIO_LAVADO_UNICO)})
+                Registrar lavado único pagado ({fmtCLP(precioLavadoUnico(data.precios))})
               </button>
               <button className="btn secondary" style={{ marginTop: 0 }} onClick={contratarPlan}>
                 Contratar plan
@@ -349,7 +349,7 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
       visitas: 0,
       creadoEn: new Date().toISOString(),
     };
-    const precio = tipoCliente === "plan" ? precioNormal(data.precios, plan) : PRECIO_LAVADO_UNICO;
+    const precio = tipoCliente === "plan" ? precioNormal(data.precios, plan) : precioLavadoUnico(data.precios);
     const tipoVenta = tipoCliente === "plan" ? "Plan nuevo" : "Lavado único";
     const descripcion =
       tipoCliente === "plan" ? `Contratación de plan para ${nombre}` : `Lavado único para ${nombre}`;
@@ -382,7 +382,7 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
 
   const ingresarSinRegistro = () => {
     const patente = normPlate(plate);
-    pedirPago(PRECIO_LAVADO_UNICO, `Lavado único sin registro (${patente})`, async (pago) => {
+    pedirPago(precioLavadoUnico(data.precios), `Lavado único sin registro (${patente})`, async (pago) => {
       const ahora = new Date().toISOString();
       const ingreso: Ingreso = {
         id: "i" + Date.now(),
@@ -399,7 +399,7 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
         patente,
         nombre: "Sin registro",
         plan: "",
-        precio: PRECIO_LAVADO_UNICO,
+        precio: precioLavadoUnico(data.precios),
         tipo: "Lavado único",
         fecha: ahora,
         operador: ui.operadorActual || "",
@@ -427,7 +427,7 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
         ¿Solo un lavado, sin ficha de cliente? Cóbralo directo sin registrar nada.
       </div>
       <button className="btn" style={{ marginBottom: 4 }} onClick={ingresarSinRegistro}>
-        Ingresar sin registro — Lavado único ({fmtCLP(PRECIO_LAVADO_UNICO)})
+        Ingresar sin registro — Lavado único ({fmtCLP(precioLavadoUnico(data.precios))})
       </button>
       <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginTop: 14 }}>
         O registra un cliente rápido para dejarlo ingresado ahora mismo.

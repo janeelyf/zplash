@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
-import { SERVICIOS_ADICIONALES, findClient, fmtCLP, normPlate, todayStr } from "@/lib/helpers";
+import { SERVICIOS_ADICIONALES, findClient, fmtCLP, normPlate, precioServicioAdicional, todayStr } from "@/lib/helpers";
 import type { Cliente, Venta } from "@/types";
 
 const ERROR_GUARDADO = "No se pudo guardar el servicio (sin conexión con el almacenamiento). Verifica tu conexión e inténtalo de nuevo.";
@@ -51,7 +51,7 @@ export default function ServiciosAdicionalesView() {
   let ajusteAsignado = false;
   const lineasCatalogo: Linea[] = serviciosSeleccionados.map((id) => {
     const s = SERVICIOS_ADICIONALES.find((x) => x.id === id)!;
-    let precio = s.precio;
+    let precio = precioServicioAdicional(data.precios, s);
     if (!ajusteAsignado && s.categoria === CATEGORIA_DETAILING && ajuste > 0) {
       precio += ajuste;
       ajusteAsignado = true;
@@ -299,7 +299,7 @@ export default function ServiciosAdicionalesView() {
                         onClick={() => toggleServicio(s.id, s.categoria)}
                       >
                         <div className="nombre">{s.nombre}</div>
-                        <div className="precio">{fmtCLP(s.precio)}</div>
+                        <div className="precio">{fmtCLP(precioServicioAdicional(data.precios, s))}</div>
                       </button>
                     ))}
                   </div>

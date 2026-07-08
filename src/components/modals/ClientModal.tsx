@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { PLANES, PRECIO_LAVADO_UNICO, normPlate, precioNormal, todayYMD, vencimientoPorDefectoISO } from "@/lib/helpers";
+import { PLANES, normPlate, precioLavadoUnico, precioNormal, todayYMD, vencimientoPorDefectoISO } from "@/lib/helpers";
 import type { Cliente, PagoInfo, Venta } from "@/types";
 
 export default function ClientModal({ data: c, contexto }: { data: Cliente | null; contexto?: "operador" | "admin" }) {
@@ -149,7 +149,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
             patente: nuevo.patente,
             nombre: nuevo.nombre,
             plan: "",
-            precio: PRECIO_LAVADO_UNICO,
+            precio: precioLavadoUnico(data.precios),
             tipo: "Lavado único",
             fecha: new Date().toISOString(),
             operador: ui.operadorActual || "",
@@ -165,7 +165,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
     };
 
     if (contexto === "operador") {
-      const monto = vencimiento ? precioNormal(data.precios, plan) : PRECIO_LAVADO_UNICO;
+      const monto = vencimiento ? precioNormal(data.precios, plan) : precioLavadoUnico(data.precios);
       const descripcion = vencimiento ? `Contratación de plan para ${nombre}` : `Lavado único para ${nombre}`;
       patchUi({ modal: { type: "pago", monto, descripcion, onConfirm: (pago) => persistir(pago) } });
     } else {
