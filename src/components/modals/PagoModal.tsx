@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { fmtCLP } from "@/lib/helpers";
 import type { PagoInfo } from "@/types";
@@ -16,7 +16,6 @@ export default function PagoModal({
 }) {
   const { patchUi } = useApp();
   const [metodo, setMetodo] = useState<"efectivo" | "tarjeta" | null>(null);
-  const voucherRef = useRef<HTMLInputElement>(null);
   const [err, setErr] = useState("");
 
   const confirmar = () => {
@@ -24,16 +23,7 @@ export default function PagoModal({
       setErr("Selecciona una forma de pago");
       return;
     }
-    if (metodo === "tarjeta") {
-      const voucher = voucherRef.current?.value.trim();
-      if (!voucher) {
-        setErr("Ingresa el código de voucher");
-        return;
-      }
-      onConfirm({ metodo, voucher });
-    } else {
-      onConfirm({ metodo });
-    }
+    onConfirm({ metodo });
     patchUi({ modal: null });
   };
 
@@ -64,12 +54,6 @@ export default function PagoModal({
           Tarjeta
         </button>
       </div>
-      {metodo === "tarjeta" && (
-        <div className="field">
-          <label>Código Voucher</label>
-          <input ref={voucherRef} placeholder="N° de voucher" autoFocus />
-        </div>
-      )}
       <div className="err">{err}</div>
       <div className="modal-actions">
         <button className="btn ghost" onClick={() => patchUi({ modal: null })}>

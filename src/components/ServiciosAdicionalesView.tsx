@@ -28,7 +28,6 @@ export default function ServiciosAdicionalesView() {
   const giroRef = useRef<HTMLInputElement>(null);
   const horaEntregaRef = useRef<HTMLInputElement>(null);
   const notasRef = useRef<HTMLTextAreaElement>(null);
-  const voucherRef = useRef<HTMLInputElement>(null);
   const detallePersonalizadoRef = useRef<HTMLInputElement>(null);
   const montoPersonalizadoRef = useRef<HTMLInputElement>(null);
 
@@ -128,19 +127,9 @@ export default function ServiciosAdicionalesView() {
       setErr("Indica si está pagado, con abono del 50% o por pagar");
       return;
     }
-    let voucher: string | undefined;
-    if (estadoPago !== "pendiente") {
-      if (!metodoPago) {
-        setErr("Selecciona efectivo o tarjeta");
-        return;
-      }
-      if (metodoPago === "tarjeta") {
-        voucher = voucherRef.current?.value.trim();
-        if (!voucher) {
-          setErr("Ingresa el código de voucher");
-          return;
-        }
-      }
+    if (estadoPago !== "pendiente" && !metodoPago) {
+      setErr("Selecciona efectivo o tarjeta");
+      return;
     }
 
     const telefono = telefonoRef.current?.value.trim() || "";
@@ -211,7 +200,6 @@ export default function ServiciosAdicionalesView() {
       fecha: ahora,
       operador: ui.operadorActual || "",
       metodoPago: estadoPago === "pendiente" ? undefined : metodoPago || undefined,
-      voucher: metodoPago === "tarjeta" ? voucher : undefined,
       horaEntrega: horaEntrega || undefined,
       notas: notas || undefined,
       estadoPago,
@@ -556,12 +544,6 @@ export default function ServiciosAdicionalesView() {
                       Tarjeta
                     </button>
                   </div>
-                  {metodoPago === "tarjeta" && (
-                    <div className="field" style={{ marginTop: 10 }}>
-                      <label>Código Voucher</label>
-                      <input ref={voucherRef} placeholder="N° de voucher" />
-                    </div>
-                  )}
                 </div>
               )}
 
