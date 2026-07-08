@@ -58,6 +58,17 @@ export default function CierreTab() {
   const tiposConocidos = new Set([...PRODUCTOS.map((p) => p.tipo), "Renovación manual", ...NOMBRES_SERVICIOS_ADICIONALES]);
   const otrasVentas = ventasPeriodo.filter((v) => !tiposConocidos.has(v.tipo));
 
+  const efectivoItems = ventasPeriodo.filter((v) => v.metodoPago === "efectivo");
+  const tarjetaItems = ventasPeriodo.filter((v) => v.metodoPago === "tarjeta");
+  const sinMetodoItems = ventasPeriodo.filter((v) => !v.metodoPago);
+  const metodosPago = [
+    { metodo: "Efectivo", cantidad: efectivoItems.length, monto: efectivoItems.reduce((s, v) => s + (v.precio || 0), 0) },
+    { metodo: "Tarjeta", cantidad: tarjetaItems.length, monto: tarjetaItems.reduce((s, v) => s + (v.precio || 0), 0) },
+    ...(sinMetodoItems.length
+      ? [{ metodo: "Sin especificar", cantidad: sinMetodoItems.length, monto: sinMetodoItems.reduce((s, v) => s + (v.precio || 0), 0) }]
+      : []),
+  ];
+
   const facturaPendientesPeriodo = clientes
     .filter((c) => c.tipoDocumento === "Factura")
     .map((c) => {
@@ -171,6 +182,27 @@ export default function CierreTab() {
           )}
         </tbody>
       </table>
+
+      <h3 style={{ fontSize: 16, color: "var(--gold)", marginBottom: 10 }}>Métodos de pago</h3>
+      <table style={{ marginBottom: 24 }}>
+        <thead>
+          <tr>
+            <th>Método</th>
+            <th>Cantidad</th>
+            <th>Monto</th>
+          </tr>
+        </thead>
+        <tbody>
+          {metodosPago.map((m) => (
+            <tr key={m.metodo}>
+              <td>{m.metodo}</td>
+              <td>{m.cantidad}</td>
+              <td>{fmtCLP(m.monto)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
       <div className="stat-grid" style={{ marginBottom: 24 }}>
         <div className="stat-card">
           <div className="num">{ingresosPeriodo.length}</div>
