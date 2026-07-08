@@ -86,6 +86,10 @@ export default function CierreTab() {
     })
     .filter((x) => x.cantidad > 0);
 
+  const facturasEmpresaPeriodo = ventasPeriodo.filter(
+    (v) => v.tipo === "Cupón Venta Empresa" && v.tipoDocumento === "Factura"
+  );
+
   const facturaSearch = (ui.facturaSearch || "").toLowerCase();
   const facturaFiltrados = clientes
     .filter((c) => c.tipoDocumento === "Factura")
@@ -254,6 +258,38 @@ export default function CierreTab() {
                   <td>{c.razonSocial || "-"}</td>
                   <td>{c.rut || "-"}</td>
                   <td>{fmtCLP(monto)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      {facturasEmpresaPeriodo.length > 0 && (
+        <>
+          <h3 style={{ fontSize: 16, color: "var(--gold)", marginBottom: 10 }}>
+            Facturas pendientes — Venta Empresa
+          </h3>
+          <table style={{ marginBottom: 24 }}>
+            <thead>
+              <tr>
+                <th>Lote</th>
+                <th>Razón Social</th>
+                <th>RUT</th>
+                <th>Dirección</th>
+                <th>Giro</th>
+                <th>Monto</th>
+              </tr>
+            </thead>
+            <tbody>
+              {facturasEmpresaPeriodo.map((v) => (
+                <tr key={v.id}>
+                  <td>{v.nombre}</td>
+                  <td>{v.razonSocial || "-"}</td>
+                  <td>{v.rut || "-"}</td>
+                  <td>{v.direccion || "-"}</td>
+                  <td>{v.giro || "-"}</td>
+                  <td>{fmtCLP(v.precio)}</td>
                 </tr>
               ))}
             </tbody>

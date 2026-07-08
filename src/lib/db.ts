@@ -102,6 +102,11 @@ function ventaToRow(v: Venta): Row {
     estado_pago: v.estadoPago || null,
     monto_cobrado: v.montoCobrado ?? null,
     es_servicio_adicional: v.esServicioAdicional || false,
+    tipo_documento: v.tipoDocumento || null,
+    razon_social: v.razonSocial || null,
+    rut: v.rut || null,
+    direccion: v.direccion || null,
+    giro: v.giro || null,
   };
 }
 
@@ -123,6 +128,11 @@ function ventaFromRow(r: Row): Venta {
     estadoPago: (r.estado_pago as Venta["estadoPago"]) || undefined,
     montoCobrado: r.monto_cobrado === null || r.monto_cobrado === undefined ? undefined : (r.monto_cobrado as number),
     esServicioAdicional: (r.es_servicio_adicional as boolean) || undefined,
+    tipoDocumento: (r.tipo_documento as Venta["tipoDocumento"]) || undefined,
+    razonSocial: (r.razon_social as string) || undefined,
+    rut: (r.rut as string) || undefined,
+    direccion: (r.direccion as string) || undefined,
+    giro: (r.giro as string) || undefined,
   };
 }
 
@@ -140,6 +150,8 @@ function cuponToRow(c: Cupon): Row {
     codigo: c.codigo,
     nombre_lote: c.nombreLote,
     valor: c.valor || 0,
+    numero_lote: c.numeroLote || 1,
+    total_lote: c.totalLote || 1,
     fecha_caducidad: c.fechaCaducidad,
     usado: c.usado || false,
     patente_uso: c.patenteUso || null,
@@ -156,6 +168,8 @@ function cuponFromRow(r: Row): Cupon {
     codigo: r.codigo as string,
     nombreLote: r.nombre_lote as string,
     valor: (r.valor as number) || 0,
+    numeroLote: (r.numero_lote as number) || 1,
+    totalLote: (r.total_lote as number) || 1,
     fechaCaducidad: r.fecha_caducidad as string,
     usado: (r.usado as boolean) || false,
     patenteUso: (r.patente_uso as string) || undefined,

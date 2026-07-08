@@ -55,7 +55,7 @@ export default function OperadorView() {
       fechaUso: ahora,
       operadorUso: ui.operadorActual || "",
     };
-    const nombreIngreso = `Cupón · ${cupon.nombreLote}`;
+    const nombreIngreso = `Cupón · ${cupon.nombreLote} (${cupon.numeroLote}/${cupon.totalLote})`;
     const ingreso: Ingreso = {
       id: "i" + Date.now(),
       clienteId: "",

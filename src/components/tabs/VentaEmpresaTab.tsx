@@ -17,6 +17,11 @@ export default function VentaEmpresaTab() {
   const cantidadRef = useRef<HTMLInputElement>(null);
   const valorRef = useRef<HTMLInputElement>(null);
   const caducidadRef = useRef<HTMLInputElement>(null);
+  const razonSocialRef = useRef<HTMLInputElement>(null);
+  const rutRef = useRef<HTMLInputElement>(null);
+  const direccionRef = useRef<HTMLInputElement>(null);
+  const giroRef = useRef<HTMLInputElement>(null);
+  const [tipoDoc, setTipoDoc] = useState<"Boleta" | "Factura">("Boleta");
   const [err, setErr] = useState<{ msg: string; ok: boolean } | null>(null);
   const [busqueda, setBusqueda] = useState("");
 
@@ -33,6 +38,14 @@ export default function VentaEmpresaTab() {
       setErr({ msg: "Máximo 500 cupones por lote", ok: false });
       return;
     }
+    if (valorTotal > 0 && tipoDoc === "Factura") {
+      const razonSocial = razonSocialRef.current?.value.trim();
+      const rut = rutRef.current?.value.trim();
+      if (!razonSocial || !rut) {
+        setErr({ msg: "Completa Razón Social y RUT para la factura", ok: false });
+        return;
+      }
+    }
 
     const valorPorCupon = Math.round(valorTotal / cantidad);
     const existentes = new Set(data.cupones.map((c) => c.codigo));
@@ -45,6 +58,8 @@ export default function VentaEmpresaTab() {
         codigo,
         nombreLote,
         valor: valorPorCupon,
+        numeroLote: i + 1,
+        totalLote: cantidad,
         fechaCaducidad: new Date(fechaCaducidad + "T23:59:59").toISOString(),
         usado: false,
         creadoEn: new Date().toISOString(),
@@ -64,6 +79,11 @@ export default function VentaEmpresaTab() {
         tipo: "Cupón Venta Empresa",
         fecha: new Date().toISOString(),
         operador: "Administrador",
+        tipoDocumento: tipoDoc,
+        razonSocial: tipoDoc === "Factura" ? razonSocialRef.current?.value.trim() || "" : "",
+        rut: tipoDoc === "Factura" ? rutRef.current?.value.trim() || "" : "",
+        direccion: tipoDoc === "Factura" ? direccionRef.current?.value.trim() || "" : "",
+        giro: tipoDoc === "Factura" ? giroRef.current?.value.trim() || "" : "",
       };
       ventas = [venta, ...ventas];
     }
@@ -83,6 +103,11 @@ export default function VentaEmpresaTab() {
     if (cantidadRef.current) cantidadRef.current.value = "";
     if (valorRef.current) valorRef.current.value = "";
     if (caducidadRef.current) caducidadRef.current.value = "";
+    if (razonSocialRef.current) razonSocialRef.current.value = "";
+    if (rutRef.current) rutRef.current.value = "";
+    if (direccionRef.current) direccionRef.current.value = "";
+    if (giroRef.current) giroRef.current.value = "";
+    setTipoDoc("Boleta");
   };
 
   const eliminar = (cup: Cupon) => {
@@ -100,6 +125,7 @@ export default function VentaEmpresaTab() {
         const est = estadoCupon(c);
         return {
           Código: c.codigo,
+          "N°": `${c.numeroLote}/${c.totalLote}`,
           Lote: c.nombreLote,
           "Valor c/u": c.valor > 0 ? c.valor : "Gratis",
           Caducidad: new Date(c.fechaCaducidad).toLocaleDateString("es-CL"),
@@ -113,7 +139,7 @@ export default function VentaEmpresaTab() {
         XLSX.utils.json_to_sheet(
           filas.length
             ? filas
-            : [{ Código: "", Lote: "", "Valor c/u": "", Caducidad: "", Estado: "", "Patente de uso": "" }]
+            : [{ Código: "", "N°": "", Lote: "", "Valor c/u": "", Caducidad: "", Estado: "", "Patente de uso": "" }]
         ),
         "Cupones"
       );
@@ -146,6 +172,33 @@ export default function VentaEmpresaTab() {
           <label>Fecha de caducidad</label>
           <input ref={caducidadRef} type="date" />
         </div>
+        <div className="field">
+          <label>Tipo de documento</label>
+          <select value={tipoDoc} onChange={(e) => setTipoDoc(e.target.value as "Boleta" | "Factura")}>
+            <option value="Boleta">Boleta</option>
+            <option value="Factura">Factura</option>
+          </select>
+        </div>
+        {tipoDoc === "Factura" && (
+          <div>
+            <div className="field">
+              <label>Razón Social</label>
+              <input ref={razonSocialRef} />
+            </div>
+            <div className="field">
+              <label>RUT</label>
+              <input ref={rutRef} placeholder="12.345.678-9" />
+            </div>
+            <div className="field">
+              <label>Dirección</label>
+              <input ref={direccionRef} />
+            </div>
+            <div className="field">
+              <label>Giro</label>
+              <input ref={giroRef} />
+            </div>
+          </div>
+        )}
         <div className="err" style={{ color: err?.ok ? "var(--green)" : undefined }}>
           {err?.msg || ""}
         </div>
@@ -169,6 +222,7 @@ export default function VentaEmpresaTab() {
           <thead>
             <tr>
               <th>Código</th>
+              <th>N°</th>
               <th>Lote</th>
               <th>Valor c/u</th>
               <th>Caducidad</th>
@@ -180,7 +234,7 @@ export default function VentaEmpresaTab() {
           <tbody>
             {filtrados.length === 0 ? (
               <tr>
-                <td colSpan={7}>
+                <td colSpan={8}>
                   <div className="empty">Sin cupones</div>
                 </td>
               </tr>
@@ -190,6 +244,9 @@ export default function VentaEmpresaTab() {
                 return (
                   <tr key={c.id}>
                     <td className="plate-tag">{c.codigo}</td>
+                    <td>
+                      {c.numeroLote}/{c.totalLote}
+                    </td>
                     <td>{c.nombreLote}</td>
                     <td>{c.valor > 0 ? fmtCLP(c.valor) : "Gratis"}</td>
                     <td>{new Date(c.fechaCaducidad).toLocaleDateString("es-CL")}</td>

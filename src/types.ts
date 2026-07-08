@@ -51,6 +51,11 @@ export interface Venta {
   estadoPago?: "pagado" | "abono50" | "pendiente";
   montoCobrado?: number;
   esServicioAdicional?: boolean;
+  tipoDocumento?: "Boleta" | "Factura";
+  razonSocial?: string;
+  rut?: string;
+  direccion?: string;
+  giro?: string;
 }
 
 export interface PagoInfo {
@@ -63,6 +68,8 @@ export interface Cupon {
   codigo: string;
   nombreLote: string;
   valor: number;
+  numeroLote: number;
+  totalLote: number;
   fechaCaducidad: string;
   usado: boolean;
   patenteUso?: string;

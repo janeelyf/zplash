@@ -59,7 +59,12 @@ create table if not exists ventas (
   notas text,
   estado_pago text,
   monto_cobrado numeric,
-  es_servicio_adicional boolean not null default false
+  es_servicio_adicional boolean not null default false,
+  tipo_documento text,
+  razon_social text,
+  rut text,
+  direccion text,
+  giro text
 );
 create index if not exists ventas_fecha_idx on ventas (fecha desc);
 create index if not exists ventas_cliente_idx on ventas (cliente_id);
@@ -81,6 +86,8 @@ create table if not exists cupones (
   codigo text not null unique,
   nombre_lote text not null,
   valor numeric not null default 0,
+  numero_lote integer not null default 1,
+  total_lote integer not null default 1,
   fecha_caducidad timestamptz not null,
   usado boolean not null default false,
   patente_uso text,
