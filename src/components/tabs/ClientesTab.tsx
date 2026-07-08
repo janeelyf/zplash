@@ -171,6 +171,9 @@ export default function ClientesTab() {
                   </td>
                   <td>{c.visitas || 0}</td>
                   <td className="row-actions">
+                    <button className="icon-btn" onClick={() => patchUi({ modal: { type: "clienteInfo", data: c } })}>
+                      Info
+                    </button>
                     <button className="icon-btn" onClick={() => patchUi({ modal: { type: "client", data: c } })}>
                       Editar
                     </button>

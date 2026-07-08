@@ -160,6 +160,7 @@ export function importarClientes(data: AppData, rows: Record<string, unknown>[])
         origen,
         visitas: 0,
         creadoEn: new Date().toISOString(),
+        creadoPor: "Carga masiva (Excel)",
       });
       nuevos++;
     }

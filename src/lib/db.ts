@@ -25,6 +25,7 @@ function clienteToRow(c: Cliente): Row {
     ultima_visita: c.ultimaVisita || null,
     ultima_renovacion: c.ultimaRenovacion || null,
     creado_en: c.creadoEn,
+    creado_por: c.creadoPor || null,
   };
 }
 
@@ -49,6 +50,7 @@ function clienteFromRow(r: Row): Cliente {
     ultimaVisita: (r.ultima_visita as string) || undefined,
     ultimaRenovacion: (r.ultima_renovacion as string) || undefined,
     creadoEn: r.creado_en as string,
+    creadoPor: (r.creado_por as string) || undefined,
   };
 }
 

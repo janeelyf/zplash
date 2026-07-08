@@ -348,6 +348,7 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
       origen: "LOCAL",
       visitas: 0,
       creadoEn: new Date().toISOString(),
+      creadoPor: ui.operadorActual || "",
     };
     const precio = tipoCliente === "plan" ? precioNormal(data.precios, plan) : precioLavadoUnico(data.precios);
     const tipoVenta = tipoCliente === "plan" ? "Plan nuevo" : "Lavado único";

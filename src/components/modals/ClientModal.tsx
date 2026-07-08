@@ -124,6 +124,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
           origen,
           visitas: 0,
           creadoEn: new Date().toISOString(),
+          creadoPor: contexto === "operador" ? ui.operadorActual || "" : "Administrador",
         };
         clientes = [...data.clientes, nuevo];
         if (vencimiento) {

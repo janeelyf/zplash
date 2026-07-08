@@ -193,6 +193,7 @@ export default function ServiciosAdicionalesView() {
         origen: "LOCAL",
         visitas: 0,
         creadoEn: new Date().toISOString(),
+        creadoPor: ui.operadorActual || "",
       };
       clientes = [...data.clientes, nuevo];
       clienteId = nuevo.id;

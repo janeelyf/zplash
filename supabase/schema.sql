@@ -20,7 +20,8 @@ create table if not exists clientes (
   visitas integer not null default 0,
   ultima_visita timestamptz,
   ultima_renovacion timestamptz,
-  creado_en timestamptz not null default now()
+  creado_en timestamptz not null default now(),
+  creado_por text
 );
 
 -- cliente_id es informativo (sin foreign key estricta): en Firestore nunca

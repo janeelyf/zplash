@@ -18,6 +18,7 @@ export interface Cliente {
   ultimaVisita?: string;
   ultimaRenovacion?: string;
   creadoEn: string;
+  creadoPor?: string;
 }
 
 export interface Ingreso {
@@ -91,6 +92,7 @@ export type ModalState =
   | { type: "operador"; data: Operador | null }
   | { type: "bulk" }
   | { type: "pago"; monto: number; descripcion: string; onConfirm: (pago: PagoInfo) => void }
+  | { type: "clienteInfo"; data: Cliente }
   | null;
 
 export interface UIState {
