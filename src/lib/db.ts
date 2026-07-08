@@ -91,6 +91,8 @@ function ventaToRow(v: Venta): Row {
     operador: v.operador || null,
     metodo_pago: v.metodoPago || null,
     voucher: v.voucher || null,
+    hora_entrega: v.horaEntrega || null,
+    notas: v.notas || null,
   };
 }
 
@@ -107,6 +109,8 @@ function ventaFromRow(r: Row): Venta {
     operador: (r.operador as string) || undefined,
     metodoPago: (r.metodo_pago as Venta["metodoPago"]) || undefined,
     voucher: (r.voucher as string) || undefined,
+    horaEntrega: (r.hora_entrega as string) || undefined,
+    notas: (r.notas as string) || undefined,
   };
 }
 

@@ -51,7 +51,9 @@ create table if not exists ventas (
   fecha timestamptz not null default now(),
   operador text,
   metodo_pago text,
-  voucher text
+  voucher text,
+  hora_entrega text,
+  notas text
 );
 create index if not exists ventas_fecha_idx on ventas (fecha desc);
 create index if not exists ventas_cliente_idx on ventas (cliente_id);

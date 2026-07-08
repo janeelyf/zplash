@@ -660,7 +660,8 @@ tr:hover td {
   display: block;
 }
 .field input,
-.field select {
+.field select,
+.field textarea {
   width: 100%;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -668,9 +669,14 @@ tr:hover td {
   padding: 10px 12px;
   border-radius: 8px;
   font-size: 14px;
+  font-family: inherit;
+}
+.field textarea {
+  resize: vertical;
 }
 .field input:focus,
-.field select:focus {
+.field select:focus,
+.field textarea:focus {
   outline: none;
   border-color: var(--gold);
 }

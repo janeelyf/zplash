@@ -43,6 +43,8 @@ export interface Venta {
   operador?: string;
   metodoPago?: "efectivo" | "tarjeta";
   voucher?: string;
+  horaEntrega?: string;
+  notas?: string;
 }
 
 export interface PagoInfo {
