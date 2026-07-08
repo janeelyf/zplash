@@ -30,6 +30,7 @@ export default function CierreTab() {
     { tipo: "Renovación preferencial", label: "Renovación temprana" },
     { tipo: "Plan nuevo (Web)", label: "Contratación de plan (Web automático)" },
     { tipo: "Renovación (Web)", label: "Renovación de plan (Web automático)" },
+    { tipo: "Renovación Web (manual)", label: "Renovación Web (pago automático falló)" },
   ];
   const ventasPorTipo = PRODUCTOS.map((p) => {
     const items = ventasPeriodo.filter((v) => v.tipo === p.tipo);

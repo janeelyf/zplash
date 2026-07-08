@@ -13,6 +13,7 @@ import {
   precioNormal,
   precioPreferencial,
   uid,
+  vencimientoAnclado,
   vencimientoPorDefectoISO,
   yaIngresoHoy,
 } from "@/lib/helpers";
@@ -41,6 +42,12 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
   const showOffer = st.cls === "warn" && pNormal > 0 && c.origen !== "WEB";
   const ahorro = pNormal - pPromo;
   const planVigente = st.cls !== "bad";
+
+  const esWebVencido = c.origen === "WEB" && st.cls === "bad";
+  const ventasCliente = data.ventas
+    .filter((v) => v.clienteId === c.id)
+    .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+  const precioOfertaWeb = ventasCliente.length ? ventasCliente[0].precio : pNormal;
 
   const updateResult = (updated: Cliente) => patchUi({ operResult: { found: true, cliente: updated } });
 
@@ -141,6 +148,36 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
     });
   };
 
+  const renovarWeb = () => {
+    pedirPago(precioOfertaWeb, `Renovación de plan Web para ${c.nombre} (${c.patente})`, async (pago) => {
+      const nuevoVencimiento = vencimientoAnclado(c.fechaContratacion || c.vencimiento);
+      const updated: Cliente = { ...c, vencimiento: nuevoVencimiento, ultimaRenovacion: new Date().toISOString() };
+      const venta: Venta = {
+        id: "v" + Date.now(),
+        clienteId: c.id,
+        patente: c.patente,
+        nombre: c.nombre,
+        plan: c.plan || PLANES[0],
+        precio: precioOfertaWeb,
+        tipo: "Renovación Web (manual)",
+        fecha: new Date().toISOString(),
+        operador: ui.operadorActual || "",
+        metodoPago: pago.metodo,
+        voucher: pago.voucher,
+      };
+      const ok = await commit({
+        clientes: data.clientes.map((x) => (x.id === c.id ? updated : x)),
+        ventas: [venta, ...data.ventas],
+      });
+      if (!ok) {
+        setGuardarErr(ERROR_GUARDADO);
+        return;
+      }
+      setGuardarErr("");
+      updateResult(updated);
+    });
+  };
+
   const contratarPlan = () => {
     const plan = c.plan || PLANES[0];
     const precio = precioNormal(data.precios, plan);
@@ -193,6 +230,24 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
           </div>
           <button className="btn secondary" onClick={renovar}>
             Renovar plan a precio preferencial
+          </button>
+        </div>
+      )}
+      {esWebVencido && (
+        <div className="offer-card">
+          <div className="offer-head">
+            <span className="badge">Cliente Web</span>
+            <h4>No renovó automáticamente</h4>
+          </div>
+          <div className="msg">
+            El pago automático de {c.nombre} falló y su plan quedó vencido. Puedes renovárselo ahora al mismo valor
+            de su último pedido.
+          </div>
+          <div className="price-row">
+            <span className="new">{fmtCLP(precioOfertaWeb)}</span>
+          </div>
+          <button className="btn secondary" onClick={renovarWeb}>
+            Renovar plan Web ({fmtCLP(precioOfertaWeb)})
           </button>
         </div>
       )}

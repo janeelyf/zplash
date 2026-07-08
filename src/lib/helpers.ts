@@ -150,3 +150,20 @@ export function vencimientoPorDefectoISO(): string {
   d.setDate(d.getDate() + 30);
   return d.toISOString();
 }
+
+/**
+ * Próximo vencimiento manteniendo el ciclo mensual anclado a la fecha de
+ * contratación original (avanza de 30 en 30 días desde ahí), en vez de
+ * reiniciar el ciclo desde la fecha en que el operador renueva manualmente
+ * un cliente Web cuyo pago automático falló.
+ */
+export function vencimientoAnclado(fechaContratacion: string | null | undefined): string {
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  let base = fechaContratacion ? new Date(fechaContratacion) : new Date(hoy);
+  if (isNaN(base.getTime())) base = new Date(hoy);
+  while (base <= hoy) {
+    base.setDate(base.getDate() + 30);
+  }
+  return base.toISOString();
+}
