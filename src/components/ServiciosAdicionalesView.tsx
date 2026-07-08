@@ -13,8 +13,8 @@ const AJUSTES = [5000, 10000] as const;
 
 export default function ServiciosAdicionalesView() {
   const { data, ui, commit, patchUi } = useApp();
-  const nombreRef = useRef<HTMLInputElement>(null);
   const patenteRef = useRef<HTMLInputElement>(null);
+  const nombreRef = useRef<HTMLInputElement>(null);
   const telefonoRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const vehiculoRef = useRef<HTMLInputElement>(null);
@@ -25,25 +25,49 @@ export default function ServiciosAdicionalesView() {
   const horaEntregaRef = useRef<HTMLInputElement>(null);
   const notasRef = useRef<HTMLTextAreaElement>(null);
 
+  const [patenteBuscada, setPatenteBuscada] = useState<string | null>(null);
   const [servicioId, setServicioId] = useState<string | null>(null);
   const [ajuste, setAjuste] = useState<0 | 5000 | 10000>(0);
   const [tipoDoc, setTipoDoc] = useState<"Boleta" | "Factura">("Boleta");
   const [err, setErr] = useState("");
+
+  const clienteExistente = patenteBuscada ? findClient(data.clientes, patenteBuscada) || null : null;
 
   const categorias = Array.from(new Set(SERVICIOS_ADICIONALES.map((s) => s.categoria)));
   const servicio = SERVICIOS_ADICIONALES.find((s) => s.id === servicioId) || null;
   const aplicaAjuste = servicio?.categoria === CATEGORIA_DETAILING;
   const precioFinal = servicio ? servicio.precio + (aplicaAjuste ? ajuste : 0) : 0;
 
+  const buscarPatente = () => {
+    const patente = normPlate(patenteRef.current?.value || "");
+    if (!patente) {
+      setErr("Ingresa una patente");
+      return;
+    }
+    setErr("");
+    const cliente = findClient(data.clientes, patente);
+    setPatenteBuscada(patente);
+    setTipoDoc(cliente?.tipoDocumento === "Factura" ? "Factura" : "Boleta");
+    setServicioId(null);
+    setAjuste(0);
+  };
+
+  const cambiarPatente = () => {
+    setPatenteBuscada(null);
+    setServicioId(null);
+    setAjuste(0);
+    setErr("");
+  };
+
   const registrar = () => {
+    if (!patenteBuscada) return;
     if (!servicio) {
       setErr("Selecciona un servicio");
       return;
     }
     const nombre = (nombreRef.current?.value.trim() || "").toUpperCase();
-    const patente = normPlate(patenteRef.current?.value || "");
-    if (!nombre || !patente) {
-      setErr("Nombre y patente son obligatorios");
+    if (!nombre) {
+      setErr("El nombre es obligatorio");
       return;
     }
     const telefono = telefonoRef.current?.value.trim() || "";
@@ -57,7 +81,8 @@ export default function ServiciosAdicionalesView() {
     const notas = notasRef.current?.value.trim() || "";
 
     setErr("");
-    const existente = findClient(data.clientes, patente);
+    const patente = patenteBuscada;
+    const existente = clienteExistente;
     const montoFinal = precioFinal;
 
     patchUi({
@@ -128,17 +153,8 @@ export default function ServiciosAdicionalesView() {
             setErr(ERROR_GUARDADO);
             return;
           }
-          if (nombreRef.current) nombreRef.current.value = "";
           if (patenteRef.current) patenteRef.current.value = "";
-          if (telefonoRef.current) telefonoRef.current.value = "+569";
-          if (emailRef.current) emailRef.current.value = "";
-          if (vehiculoRef.current) vehiculoRef.current.value = "";
-          if (razonSocialRef.current) razonSocialRef.current.value = "";
-          if (rutRef.current) rutRef.current.value = "";
-          if (direccionRef.current) direccionRef.current.value = "";
-          if (giroRef.current) giroRef.current.value = "";
-          if (horaEntregaRef.current) horaEntregaRef.current.value = "";
-          if (notasRef.current) notasRef.current.value = "";
+          setPatenteBuscada(null);
           setServicioId(null);
           setAjuste(0);
           setTipoDoc("Boleta");
@@ -160,126 +176,167 @@ export default function ServiciosAdicionalesView() {
         <div className="scan-panel" style={{ textAlign: "left" }}>
           <h2 style={{ textAlign: "center" }}>Registrar servicio adicional</h2>
 
-          {categorias.map((cat) => (
-            <div key={cat} style={{ marginBottom: 18 }}>
-              <div
-                className="hint"
-                style={{ textAlign: "left", marginBottom: 8, textTransform: "uppercase", fontWeight: 700 }}
-              >
-                {cat}
+          {patenteBuscada === null ? (
+            <>
+              <div className="field">
+                <label>Patente</label>
+                <input
+                  ref={patenteRef}
+                  style={{ textTransform: "uppercase" }}
+                  placeholder="AB1234"
+                  maxLength={8}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") buscarPatente();
+                  }}
+                />
               </div>
-              <div className="service-grid">
-                {SERVICIOS_ADICIONALES.filter((s) => s.categoria === cat).map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    className={`service-btn${servicioId === s.id ? " selected" : ""}`}
-                    onClick={() => {
-                      setServicioId(s.id);
-                      setErr("");
-                      if (s.categoria !== CATEGORIA_DETAILING) setAjuste(0);
-                    }}
+              <div className="err">{err}</div>
+              <button className="btn" onClick={buscarPatente}>
+                Buscar
+              </button>
+            </>
+          ) : (
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+                <span className="plate-tag" style={{ fontSize: 18 }}>
+                  {patenteBuscada}
+                </span>
+                {clienteExistente ? (
+                  <span className="status-pill ok">Cliente existente</span>
+                ) : (
+                  <span className="status-pill warn">Cliente nuevo</span>
+                )}
+                <button className="btn ghost" style={{ marginTop: 0, marginLeft: "auto" }} onClick={cambiarPatente}>
+                  Cambiar patente
+                </button>
+              </div>
+
+              {categorias.map((cat) => (
+                <div key={cat} style={{ marginBottom: 18 }}>
+                  <div
+                    className="hint"
+                    style={{ textAlign: "left", marginBottom: 8, textTransform: "uppercase", fontWeight: 700 }}
                   >
-                    <div className="nombre">{s.nombre}</div>
-                    <div className="precio">{fmtCLP(s.precio)}</div>
-                  </button>
-                ))}
-              </div>
-              {cat === CATEGORIA_DETAILING && (
-                <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-                  {AJUSTES.map((a) => (
-                    <button
-                      key={a}
-                      type="button"
-                      className={ajuste === a ? "btn" : "btn ghost"}
-                      style={{ marginTop: 0 }}
-                      onClick={() => setAjuste(ajuste === a ? 0 : a)}
-                    >
-                      + {fmtCLP(a)}
-                    </button>
-                  ))}
+                    {cat}
+                  </div>
+                  <div className="service-grid">
+                    {SERVICIOS_ADICIONALES.filter((s) => s.categoria === cat).map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        className={`service-btn${servicioId === s.id ? " selected" : ""}`}
+                        onClick={() => {
+                          setServicioId(s.id);
+                          setErr("");
+                          if (s.categoria !== CATEGORIA_DETAILING) setAjuste(0);
+                        }}
+                      >
+                        <div className="nombre">{s.nombre}</div>
+                        <div className="precio">{fmtCLP(s.precio)}</div>
+                      </button>
+                    ))}
+                  </div>
+                  {cat === CATEGORIA_DETAILING && (
+                    <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+                      {AJUSTES.map((a) => (
+                        <button
+                          key={a}
+                          type="button"
+                          className={ajuste === a ? "btn" : "btn ghost"}
+                          style={{ marginTop: 0 }}
+                          onClick={() => setAjuste(ajuste === a ? 0 : a)}
+                        >
+                          + {fmtCLP(a)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {servicio && (
+                <div
+                  style={{
+                    padding: "10px 12px",
+                    background: "var(--bg)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 8,
+                    marginBottom: 18,
+                    fontSize: 14,
+                  }}
+                >
+                  {servicio.nombre}
+                  {aplicaAjuste && ajuste > 0 ? ` (${fmtCLP(servicio.precio)} + ${fmtCLP(ajuste)})` : ""} —{" "}
+                  <strong style={{ color: "var(--gold)" }}>{fmtCLP(precioFinal)}</strong>
                 </div>
               )}
-            </div>
-          ))}
 
-          {servicio && (
-            <div
-              style={{
-                padding: "10px 12px",
-                background: "var(--bg)",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                marginBottom: 18,
-                fontSize: 14,
-              }}
-            >
-              {servicio.nombre}
-              {aplicaAjuste && ajuste > 0 ? ` (${fmtCLP(servicio.precio)} + ${fmtCLP(ajuste)})` : ""} —{" "}
-              <strong style={{ color: "var(--gold)" }}>{fmtCLP(precioFinal)}</strong>
-            </div>
+              <div key={patenteBuscada}>
+                <div className="field">
+                  <label>Nombre</label>
+                  <input ref={nombreRef} defaultValue={clienteExistente?.nombre || ""} placeholder="Nombre completo" />
+                </div>
+                <div className="field">
+                  <label>Teléfono</label>
+                  <input ref={telefonoRef} defaultValue={clienteExistente?.telefono || "+569"} />
+                </div>
+                <div className="field">
+                  <label>Correo electrónico</label>
+                  <input
+                    ref={emailRef}
+                    type="email"
+                    defaultValue={clienteExistente?.email || ""}
+                    placeholder="correo@ejemplo.com"
+                  />
+                </div>
+                <div className="field">
+                  <label>Vehículo (Marca y Modelo)</label>
+                  <input ref={vehiculoRef} defaultValue={clienteExistente?.vehiculo || ""} placeholder="Ej: Toyota Yaris" />
+                </div>
+                <div className="field">
+                  <label>Tipo de documento</label>
+                  <select value={tipoDoc} onChange={(e) => setTipoDoc(e.target.value as "Boleta" | "Factura")}>
+                    <option value="Boleta">Boleta</option>
+                    <option value="Factura">Factura</option>
+                  </select>
+                </div>
+                {tipoDoc === "Factura" && (
+                  <div>
+                    <div className="field">
+                      <label>Razón Social</label>
+                      <input ref={razonSocialRef} defaultValue={clienteExistente?.razonSocial || ""} />
+                    </div>
+                    <div className="field">
+                      <label>RUT</label>
+                      <input ref={rutRef} defaultValue={clienteExistente?.rut || ""} placeholder="12.345.678-9" />
+                    </div>
+                    <div className="field">
+                      <label>Dirección</label>
+                      <input ref={direccionRef} defaultValue={clienteExistente?.direccion || ""} />
+                    </div>
+                    <div className="field">
+                      <label>Giro</label>
+                      <input ref={giroRef} defaultValue={clienteExistente?.giro || ""} />
+                    </div>
+                  </div>
+                )}
+                <div className="field">
+                  <label>Hora de entrega</label>
+                  <input ref={horaEntregaRef} type="time" />
+                </div>
+                <div className="field">
+                  <label>Notas / Observaciones</label>
+                  <textarea ref={notasRef} rows={3} placeholder="Observaciones de quien recibe el vehículo..." />
+                </div>
+              </div>
+
+              <div className="err">{err}</div>
+              <button className="btn" onClick={registrar}>
+                Registrar servicio
+              </button>
+            </>
           )}
-
-          <div className="field">
-            <label>Nombre</label>
-            <input ref={nombreRef} placeholder="Nombre completo" />
-          </div>
-          <div className="field">
-            <label>Patente</label>
-            <input ref={patenteRef} style={{ textTransform: "uppercase" }} placeholder="AB1234" maxLength={8} />
-          </div>
-          <div className="field">
-            <label>Teléfono</label>
-            <input ref={telefonoRef} defaultValue="+569" />
-          </div>
-          <div className="field">
-            <label>Correo electrónico</label>
-            <input ref={emailRef} type="email" placeholder="correo@ejemplo.com" />
-          </div>
-          <div className="field">
-            <label>Vehículo (Marca y Modelo)</label>
-            <input ref={vehiculoRef} placeholder="Ej: Toyota Yaris" />
-          </div>
-          <div className="field">
-            <label>Tipo de documento</label>
-            <select value={tipoDoc} onChange={(e) => setTipoDoc(e.target.value as "Boleta" | "Factura")}>
-              <option value="Boleta">Boleta</option>
-              <option value="Factura">Factura</option>
-            </select>
-          </div>
-          {tipoDoc === "Factura" && (
-            <div>
-              <div className="field">
-                <label>Razón Social</label>
-                <input ref={razonSocialRef} />
-              </div>
-              <div className="field">
-                <label>RUT</label>
-                <input ref={rutRef} placeholder="12.345.678-9" />
-              </div>
-              <div className="field">
-                <label>Dirección</label>
-                <input ref={direccionRef} />
-              </div>
-              <div className="field">
-                <label>Giro</label>
-                <input ref={giroRef} />
-              </div>
-            </div>
-          )}
-          <div className="field">
-            <label>Hora de entrega</label>
-            <input ref={horaEntregaRef} type="time" />
-          </div>
-          <div className="field">
-            <label>Notas / Observaciones</label>
-            <textarea ref={notasRef} rows={3} placeholder="Observaciones de quien recibe el vehículo..." />
-          </div>
-
-          <div className="err">{err}</div>
-          <button className="btn" onClick={registrar}>
-            Registrar servicio
-          </button>
         </div>
 
         <div className="today-log">
