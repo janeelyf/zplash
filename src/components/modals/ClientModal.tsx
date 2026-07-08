@@ -161,7 +161,11 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
         }
       }
 
-      await commit({ clientes, ventas });
+      const ok = await commit({ clientes, ventas });
+      if (!ok) {
+        setErr("No se pudo guardar el cambio (sin conexión con el almacenamiento). Verifica tu conexión e inténtalo de nuevo.");
+        return;
+      }
       patchUi({ modal: null });
     };
 
