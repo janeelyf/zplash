@@ -8,6 +8,7 @@ import type { Cliente, Venta } from "@/types";
 
 const ERROR_GUARDADO = "No se pudo guardar el servicio (sin conexión con el almacenamiento). Verifica tu conexión e inténtalo de nuevo.";
 const CATEGORIA_DETAILING = "Lavado Completo Detailing";
+const CATEGORIA_ADICIONALES = "Servicios Adicionales";
 const AJUSTES = [5000, 10000] as const;
 
 type EstadoPago = "pagado" | "abono50" | "pendiente";
@@ -317,71 +318,73 @@ export default function ServiciosAdicionalesView() {
                       ))}
                     </div>
                   )}
-                </div>
-              ))}
-
-              <div style={{ marginBottom: 18 }}>
-                <div
-                  className="hint"
-                  style={{ textAlign: "left", marginBottom: 8, textTransform: "uppercase", fontWeight: 700 }}
-                >
-                  Servicio personalizado
-                </div>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <input
-                    ref={detallePersonalizadoRef}
-                    placeholder="Ej: Limpieza solo 1 butaca copiloto"
-                    style={{
-                      flex: "2 1 220px",
-                      background: "var(--bg)",
-                      border: "1px solid var(--border)",
-                      color: "var(--white)",
-                      padding: "10px 12px",
-                      borderRadius: 8,
-                      fontSize: 14,
-                    }}
-                  />
-                  <input
-                    ref={montoPersonalizadoRef}
-                    type="number"
-                    min={0}
-                    placeholder="Monto"
-                    style={{
-                      flex: "1 1 120px",
-                      background: "var(--bg)",
-                      border: "1px solid var(--border)",
-                      color: "var(--white)",
-                      padding: "10px 12px",
-                      borderRadius: 8,
-                      fontSize: 14,
-                    }}
-                  />
-                  <button type="button" className="btn ghost" style={{ marginTop: 0 }} onClick={agregarPersonalizado}>
-                    Agregar
-                  </button>
-                </div>
-                {itemsPersonalizados.length > 0 && (
-                  <div style={{ marginTop: 10 }}>
-                    {itemsPersonalizados.map((i) => (
+                  {cat === CATEGORIA_ADICIONALES && (
+                    <div style={{ marginTop: 14 }}>
                       <div
-                        key={i.id}
-                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0" }}
+                        className="hint"
+                        style={{ textAlign: "left", marginBottom: 8, textTransform: "uppercase", fontWeight: 700 }}
                       >
-                        <span>
-                          {i.nombre} — {fmtCLP(i.precio)}
-                        </span>
-                        <button
-                          type="button"
-                          className="icon-btn"
-                          onClick={() => quitarPersonalizado(i.id)}
-                        >
-                          Quitar
+                        Monto adicional escrito
+                      </div>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                        <input
+                          ref={detallePersonalizadoRef}
+                          placeholder="Ej: Limpieza solo 1 butaca copiloto"
+                          style={{
+                            flex: "2 1 220px",
+                            background: "var(--bg)",
+                            border: "1px solid var(--border)",
+                            color: "var(--white)",
+                            padding: "10px 12px",
+                            borderRadius: 8,
+                            fontSize: 14,
+                          }}
+                        />
+                        <input
+                          ref={montoPersonalizadoRef}
+                          type="number"
+                          min={0}
+                          placeholder="Monto"
+                          style={{
+                            flex: "1 1 120px",
+                            background: "var(--bg)",
+                            border: "1px solid var(--border)",
+                            color: "var(--white)",
+                            padding: "10px 12px",
+                            borderRadius: 8,
+                            fontSize: 14,
+                          }}
+                        />
+                        <button type="button" className="btn ghost" style={{ marginTop: 0 }} onClick={agregarPersonalizado}>
+                          Agregar
                         </button>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      {itemsPersonalizados.length > 0 && (
+                        <div style={{ marginTop: 10 }}>
+                          {itemsPersonalizados.map((i) => (
+                            <div
+                              key={i.id}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                padding: "6px 0",
+                              }}
+                            >
+                              <span>
+                                {i.nombre} — {fmtCLP(i.precio)}
+                              </span>
+                              <button type="button" className="icon-btn" onClick={() => quitarPersonalizado(i.id)}>
+                                Quitar
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
 
               {lineas.length > 0 && (
                 <div
