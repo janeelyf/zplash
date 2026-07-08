@@ -2,7 +2,9 @@
 
 import { useApp } from "@/context/AppContext";
 import { descargarCierre, descargarFacturables } from "@/lib/actions";
-import { fmtCLP, fmtDate, inRange, normPlate, planStatus, tipoIngreso, todayYMD } from "@/lib/helpers";
+import { SERVICIOS_ADICIONALES, fmtCLP, fmtDate, inRange, normPlate, planStatus, tipoIngreso, todayYMD } from "@/lib/helpers";
+
+const NOMBRES_SERVICIOS_ADICIONALES = new Set(SERVICIOS_ADICIONALES.map((s) => s.nombre));
 
 export default function CierreTab() {
   const { data, ui, patchUi } = useApp();
@@ -33,8 +35,18 @@ export default function CierreTab() {
     const items = ventasPeriodo.filter((v) => v.tipo === p.tipo);
     return { ...p, cantidad: items.length, monto: items.reduce((s, v) => s + (v.precio || 0), 0) };
   });
-  const totalCantidadVentas = ventasPorTipo.reduce((s, f) => s + f.cantidad, 0);
-  const totalMontoVentas = ventasPorTipo.reduce((s, f) => s + f.monto, 0);
+
+  const serviciosAdicionalesItems = ventasPeriodo.filter((v) => NOMBRES_SERVICIOS_ADICIONALES.has(v.tipo));
+  const serviciosAdicionalesRow = {
+    tipo: "servicios-adicionales",
+    label: "Servicios adicionales (detailing, tapiz, motor, chasis, etc.)",
+    cantidad: serviciosAdicionalesItems.length,
+    monto: serviciosAdicionalesItems.reduce((s, v) => s + (v.precio || 0), 0),
+  };
+
+  const filasVenta = [...ventasPorTipo, serviciosAdicionalesRow];
+  const totalCantidadVentas = filasVenta.reduce((s, f) => s + f.cantidad, 0);
+  const totalMontoVentas = filasVenta.reduce((s, f) => s + f.monto, 0);
 
   const modificacionesAdminItems = ventasPeriodo.filter((v) => v.tipo === "Renovación manual");
   const modificacionesAdmin = {
@@ -43,7 +55,7 @@ export default function CierreTab() {
     monto: modificacionesAdminItems.reduce((s, v) => s + (v.precio || 0), 0),
   };
 
-  const tiposConocidos = new Set([...PRODUCTOS.map((p) => p.tipo), "Renovación manual"]);
+  const tiposConocidos = new Set([...PRODUCTOS.map((p) => p.tipo), "Renovación manual", ...NOMBRES_SERVICIOS_ADICIONALES]);
   const otrasVentas = ventasPeriodo.filter((v) => !tiposConocidos.has(v.tipo));
 
   const facturaPendientesPeriodo = clientes
@@ -131,7 +143,7 @@ export default function CierreTab() {
           </tr>
         </thead>
         <tbody>
-          {ventasPorTipo.map((f) => (
+          {filasVenta.map((f) => (
             <tr key={f.tipo}>
               <td>{f.label}</td>
               <td>{f.cantidad}</td>

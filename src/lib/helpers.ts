@@ -10,6 +10,25 @@ export const PRECIOS_DEFAULT: Precios = {
 /** Precio de un lavado único para clientes sin plan vigente (vencido o sin plan). */
 export const PRECIO_LAVADO_UNICO = 9990;
 
+export interface ServicioAdicional {
+  id: string;
+  categoria: string;
+  nombre: string;
+  precio: number;
+}
+
+export const SERVICIOS_ADICIONALES: ServicioAdicional[] = [
+  { id: "detailing-pequeno", categoria: "Lavado Completo Detailing", nombre: "Auto Pequeño", precio: 24990 },
+  { id: "detailing-mediano", categoria: "Lavado Completo Detailing", nombre: "Mediano / SUV / Pick-up", precio: 29990 },
+  { id: "detailing-xl", categoria: "Lavado Completo Detailing", nombre: "Auto XL", precio: 34990 },
+  { id: "tapiz", categoria: "Servicios Adicionales", nombre: "Limpieza de Tapiz (2 Corridas de Asientos)", precio: 39990 },
+  { id: "alfombra", categoria: "Servicios Adicionales", nombre: "Limpieza de Alfombra", precio: 19990 },
+  { id: "techo", categoria: "Servicios Adicionales", nombre: "Limpieza de Techo", precio: 19990 },
+  { id: "motor", categoria: "Servicios Adicionales", nombre: "Lavado de Motor", precio: 29990 },
+  { id: "chasis", categoria: "Servicios Adicionales", nombre: "Lavado de Chasis", precio: 39990 },
+  { id: "chasis-grafitado", categoria: "Servicios Adicionales", nombre: "Lavado de Chasis + Grafitado", precio: 59990 },
+];
+
 export const OPERADORES_DEFAULT = [
   { id: "op1", nombre: "Christian", clave: "1001" },
   { id: "op2", nombre: "Verónica", clave: "1002" },

@@ -10,7 +10,8 @@ export default function LoginScreen() {
   if (ui.loginMode === "pin") {
     return <AdminPinForm />;
   }
-  if (ui.loginMode === "operadorSelect") {
+  if (ui.loginMode === "operadorSelect" || ui.loginMode === "servSelect") {
+    const destino = ui.loginMode === "servSelect" ? "servPin" : "operadorPin";
     return (
       <div className="login-screen">
         <div className="brand">
@@ -23,7 +24,7 @@ export default function LoginScreen() {
               key={o.id}
               className="role-btn"
               style={{ width: 150, padding: "22px 16px" }}
-              onClick={() => patchUi({ loginMode: "operadorPin", operadorSeleccionado: o.id, loginErr: "" })}
+              onClick={() => patchUi({ loginMode: destino, operadorSeleccionado: o.id, loginErr: "" })}
             >
               <div className="icon">👤</div>
               <div className="label">{o.nombre}</div>
@@ -36,8 +37,8 @@ export default function LoginScreen() {
       </div>
     );
   }
-  if (ui.loginMode === "operadorPin") {
-    return <OperadorPinForm />;
+  if (ui.loginMode === "operadorPin" || ui.loginMode === "servPin") {
+    return <OperadorPinForm destinoView={ui.loginMode === "servPin" ? "servicios" : "operador"} />;
   }
 
   return (
@@ -51,6 +52,11 @@ export default function LoginScreen() {
           <div className="icon">🚗</div>
           <div className="label">Operador</div>
           <div className="desc">Validar patente y registrar ingreso</div>
+        </button>
+        <button className="role-btn" onClick={() => patchUi({ loginMode: "servSelect", loginErr: "" })}>
+          <div className="icon">🧽</div>
+          <div className="label">Ingreso Servicios Adicionales</div>
+          <div className="desc">Detailing, tapiz, motor, chasis y más</div>
         </button>
         <button className="role-btn" onClick={() => patchUi({ loginMode: "pin", loginErr: "" })}>
           <div className="icon">🔑</div>
@@ -104,15 +110,16 @@ function AdminPinForm() {
   );
 }
 
-function OperadorPinForm() {
+function OperadorPinForm({ destinoView }: { destinoView: "operador" | "servicios" }) {
   const { data, ui, patchUi } = useApp();
   const inputRef = useRef<HTMLInputElement>(null);
   const op = data.operadores.find((o) => o.id === ui.operadorSeleccionado);
+  const selectMode = destinoView === "servicios" ? "servSelect" : "operadorSelect";
 
   const submit = () => {
     const val = inputRef.current?.value || "";
     if (op && val === op.clave) {
-      patchUi({ view: "operador", operResult: null, operadorActual: op.nombre, loginMode: null, loginErr: "" });
+      patchUi({ view: destinoView, operResult: null, operadorActual: op.nombre, loginMode: null, loginErr: "" });
     } else {
       patchUi({ loginErr: "Contraseña incorrecta" });
     }
@@ -139,7 +146,7 @@ function OperadorPinForm() {
         <button className="btn" onClick={submit}>
           Ingresar
         </button>
-        <button className="btn ghost" onClick={() => patchUi({ loginMode: "operadorSelect", loginErr: "" })}>
+        <button className="btn ghost" onClick={() => patchUi({ loginMode: selectMode, loginErr: "" })}>
           Volver
         </button>
       </div>

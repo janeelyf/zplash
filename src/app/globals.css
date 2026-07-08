@@ -117,6 +117,40 @@ h3,
   color: var(--gray);
 }
 
+.service-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.service-btn {
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--white);
+  cursor: pointer;
+  text-align: left;
+  transition: 0.15s;
+}
+.service-btn:hover {
+  border-color: var(--gold);
+}
+.service-btn.selected {
+  border-color: var(--gold);
+  background: rgba(255, 199, 44, 0.1);
+}
+.service-btn .nombre {
+  font-weight: 700;
+  font-size: 13.5px;
+  margin-bottom: 6px;
+}
+.service-btn .precio {
+  color: var(--gold);
+  font-weight: 700;
+  font-size: 17px;
+}
+
 .pin-box {
   display: flex;
   flex-direction: column;

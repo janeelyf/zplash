@@ -89,7 +89,7 @@ export type ModalState =
   | null;
 
 export interface UIState {
-  view: "login" | "operador" | "admin";
+  view: "login" | "operador" | "admin" | "servicios";
   operResult: OperResult;
   adminTab: string;
   search: string;
@@ -98,7 +98,7 @@ export interface UIState {
   cierreDesde: string | null;
   cierreHasta: string | null;
   facturaSearch: string;
-  loginMode: "pin" | "operadorSelect" | "operadorPin" | null;
+  loginMode: "pin" | "operadorSelect" | "operadorPin" | "servSelect" | "servPin" | null;
   operadorSeleccionado: string | null;
   operadorActual: string | null;
   clientesFiltroEstado: string;
