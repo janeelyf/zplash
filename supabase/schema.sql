@@ -36,7 +36,9 @@ create table if not exists ingresos (
   fecha timestamptz not null default now(),
   plan_estado_al_ingreso text not null,
   operador text,
-  es_garantia boolean not null default false
+  es_garantia boolean not null default false,
+  via_cupon boolean not null default false,
+  cupon_codigo text
 );
 create index if not exists ingresos_fecha_idx on ingresos (fecha desc);
 create index if not exists ingresos_cliente_idx on ingresos (cliente_id);
@@ -74,6 +76,21 @@ create table if not exists precios (
   promo numeric not null default 0
 );
 
+create table if not exists cupones (
+  id text primary key,
+  codigo text not null unique,
+  nombre_lote text not null,
+  valor numeric not null default 0,
+  fecha_caducidad timestamptz not null,
+  usado boolean not null default false,
+  patente_uso text,
+  fecha_uso timestamptz,
+  operador_uso text,
+  creado_en timestamptz not null default now(),
+  creado_por text
+);
+create index if not exists cupones_codigo_idx on cupones (codigo);
+
 -- Tabla "singleton" (una sola fila) para configuración global.
 create table if not exists config (
   id boolean primary key default true check (id),
@@ -91,6 +108,7 @@ alter table ventas enable row level security;
 alter table operadores enable row level security;
 alter table precios enable row level security;
 alter table config enable row level security;
+alter table cupones enable row level security;
 
 create policy "anon full access" on clientes for all to anon using (true) with check (true);
 create policy "anon full access" on ingresos for all to anon using (true) with check (true);
@@ -98,3 +116,4 @@ create policy "anon full access" on ventas for all to anon using (true) with che
 create policy "anon full access" on operadores for all to anon using (true) with check (true);
 create policy "anon full access" on precios for all to anon using (true) with check (true);
 create policy "anon full access" on config for all to anon using (true) with check (true);
+create policy "anon full access" on cupones for all to anon using (true) with check (true);

@@ -8,11 +8,13 @@ import CierreTab from "@/components/tabs/CierreTab";
 import OperadoresTab from "@/components/tabs/OperadoresTab";
 import StatsTab from "@/components/tabs/StatsTab";
 import ConfigTab from "@/components/tabs/ConfigTab";
+import VentaEmpresaTab from "@/components/tabs/VentaEmpresaTab";
 
 const TABS = [
   { id: "clientes", label: "Clientes" },
   { id: "ingresos", label: "Historial de ingresos" },
   { id: "cierre", label: "Cierre de Caja" },
+  { id: "empresa", label: "Venta Empresa" },
   { id: "operadores", label: "Operadores" },
   { id: "stats", label: "Estadísticas" },
   { id: "config", label: "Configuración" },
@@ -39,6 +41,7 @@ export default function AdminView() {
         {ui.adminTab === "clientes" && <ClientesTab />}
         {ui.adminTab === "ingresos" && <IngresosTab />}
         {ui.adminTab === "cierre" && <CierreTab />}
+        {ui.adminTab === "empresa" && <VentaEmpresaTab />}
         {ui.adminTab === "operadores" && <OperadoresTab />}
         {ui.adminTab === "stats" && <StatsTab />}
         {ui.adminTab === "config" && <ConfigTab />}

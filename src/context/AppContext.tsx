@@ -1,16 +1,18 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import type { AppData, Cliente, Operador, UIState } from "@/types";
+import type { AppData, Cliente, Cupon, Operador, UIState } from "@/types";
 import { OPERADORES_DEFAULT, PRECIOS_DEFAULT } from "@/lib/helpers";
 import {
   deleteClientes,
+  deleteCupones,
   deleteOperadores,
   insertIngresos,
   insertVentas,
   loadAll,
   setPinAdmin,
   upsertClientes,
+  upsertCupones,
   upsertOperadores,
   upsertPrecios,
   waitForStorage,
@@ -23,6 +25,7 @@ const initialData: AppData = {
   pinAdmin: "1234",
   precios: JSON.parse(JSON.stringify(PRECIOS_DEFAULT)),
   operadores: JSON.parse(JSON.stringify(OPERADORES_DEFAULT)),
+  cupones: [],
 };
 
 const initialUI: UIState = {
@@ -120,6 +123,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const { cambiados, eliminados } = diffPorId<Operador>(previous.operadores, patch.operadores);
       if (cambiados.length) ops.push(upsertOperadores(cambiados));
       if (eliminados.length) ops.push(deleteOperadores(eliminados));
+    }
+    if (patch.cupones) {
+      const { cambiados, eliminados } = diffPorId<Cupon>(previous.cupones, patch.cupones);
+      if (cambiados.length) ops.push(upsertCupones(cambiados));
+      if (eliminados.length) ops.push(deleteCupones(eliminados));
     }
     if (patch.precios) {
       ops.push(upsertPrecios(patch.precios));

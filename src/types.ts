@@ -30,6 +30,8 @@ export interface Ingreso {
   planEstadoAlIngreso: "ok" | "warn" | "bad";
   operador?: string;
   esGarantia?: boolean;
+  viaCupon?: boolean;
+  cuponCodigo?: string;
 }
 
 export interface Venta {
@@ -56,6 +58,20 @@ export interface PagoInfo {
   voucher?: string;
 }
 
+export interface Cupon {
+  id: string;
+  codigo: string;
+  nombreLote: string;
+  valor: number;
+  fechaCaducidad: string;
+  usado: boolean;
+  patenteUso?: string;
+  fechaUso?: string;
+  operadorUso?: string;
+  creadoEn: string;
+  creadoPor?: string;
+}
+
 export interface Operador {
   id: string;
   nombre: string;
@@ -71,6 +87,7 @@ export interface AppData {
   pinAdmin: string;
   precios: Precios;
   operadores: Operador[];
+  cupones: Cupon[];
 }
 
 export type PlanStatusCls = "ok" | "warn" | "bad";

@@ -15,6 +15,7 @@ export default function CierreTab() {
   const ventasPeriodo = ventas.filter((v) => inRange(v.fecha, desde, hasta));
   const autosConPlan = ingresosPeriodo.filter((i) => i.planEstadoAlIngreso !== "bad").length;
   const sinPlan = ingresosPeriodo.length - autosConPlan;
+  const autosConCupon = ingresosPeriodo.filter((i) => i.viaCupon).length;
 
   const porCliente: Record<string, { patente: string; nombre: string; cantidad: number }> = {};
   ingresosPeriodo.forEach((i) => {
@@ -31,6 +32,7 @@ export default function CierreTab() {
     { tipo: "Plan nuevo (Web)", label: "Contratación de plan (Web automático)" },
     { tipo: "Renovación (Web)", label: "Renovación de plan (Web automático)" },
     { tipo: "Renovación Web (manual)", label: "Renovación Web (pago automático falló)" },
+    { tipo: "Cupón Venta Empresa", label: "Cupón Venta Empresa" },
   ];
   const ventasPorTipo = PRODUCTOS.map((p) => {
     const items = ventasPeriodo.filter((v) => v.tipo === p.tipo);
@@ -218,6 +220,10 @@ export default function CierreTab() {
         <div className="stat-card">
           <div className="num">{autosServiciosAdicionales}</div>
           <div className="lbl">Autos con servicios adicionales</div>
+        </div>
+        <div className="stat-card">
+          <div className="num">{autosConCupon}</div>
+          <div className="lbl">Vehículos con cupón Venta Empresa</div>
         </div>
         <div className="stat-card">
           <div className="num">{facturaPendientesPeriodo.length}</div>

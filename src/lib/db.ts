@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { OPERADORES_DEFAULT, PRECIOS_DEFAULT } from "@/lib/helpers";
-import type { AppData, Cliente, Ingreso, Operador, Precios, Venta } from "@/types";
+import type { AppData, Cliente, Cupon, Ingreso, Operador, Precios, Venta } from "@/types";
 
 type Row = Record<string, unknown>;
 
@@ -64,6 +64,8 @@ function ingresoToRow(i: Ingreso): Row {
     plan_estado_al_ingreso: i.planEstadoAlIngreso,
     operador: i.operador || null,
     es_garantia: i.esGarantia || false,
+    via_cupon: i.viaCupon || false,
+    cupon_codigo: i.cuponCodigo || null,
   };
 }
 
@@ -77,6 +79,8 @@ function ingresoFromRow(r: Row): Ingreso {
     planEstadoAlIngreso: r.plan_estado_al_ingreso as Ingreso["planEstadoAlIngreso"],
     operador: (r.operador as string) || undefined,
     esGarantia: (r.es_garantia as boolean) || undefined,
+    viaCupon: (r.via_cupon as boolean) || undefined,
+    cuponCodigo: (r.cupon_codigo as string) || undefined,
   };
 }
 
@@ -130,6 +134,38 @@ function operadorFromRow(r: Row): Operador {
   return { id: r.id as string, nombre: r.nombre as string, clave: r.clave as string };
 }
 
+function cuponToRow(c: Cupon): Row {
+  return {
+    id: c.id,
+    codigo: c.codigo,
+    nombre_lote: c.nombreLote,
+    valor: c.valor || 0,
+    fecha_caducidad: c.fechaCaducidad,
+    usado: c.usado || false,
+    patente_uso: c.patenteUso || null,
+    fecha_uso: c.fechaUso || null,
+    operador_uso: c.operadorUso || null,
+    creado_en: c.creadoEn,
+    creado_por: c.creadoPor || null,
+  };
+}
+
+function cuponFromRow(r: Row): Cupon {
+  return {
+    id: r.id as string,
+    codigo: r.codigo as string,
+    nombreLote: r.nombre_lote as string,
+    valor: (r.valor as number) || 0,
+    fechaCaducidad: r.fecha_caducidad as string,
+    usado: (r.usado as boolean) || false,
+    patenteUso: (r.patente_uso as string) || undefined,
+    fechaUso: (r.fecha_uso as string) || undefined,
+    operadorUso: (r.operador_uso as string) || undefined,
+    creadoEn: r.creado_en as string,
+    creadoPor: (r.creado_por as string) || undefined,
+  };
+}
+
 function preciosFromRows(rows: Row[]): Precios {
   const precios: Precios = {};
   for (const r of rows) {
@@ -145,16 +181,17 @@ export async function waitForStorage(): Promise<boolean> {
 }
 
 export async function loadAll(): Promise<AppData> {
-  const [clientesRes, ingresosRes, ventasRes, operadoresRes, preciosRes, configRes] = await Promise.all([
+  const [clientesRes, ingresosRes, ventasRes, operadoresRes, preciosRes, configRes, cuponesRes] = await Promise.all([
     supabase.from("clientes").select("*"),
     supabase.from("ingresos").select("*").order("fecha", { ascending: false }),
     supabase.from("ventas").select("*").order("fecha", { ascending: false }),
     supabase.from("operadores").select("*"),
     supabase.from("precios").select("*"),
     supabase.from("config").select("*").maybeSingle(),
+    supabase.from("cupones").select("*").order("creado_en", { ascending: false }),
   ]);
 
-  for (const res of [clientesRes, ingresosRes, ventasRes, operadoresRes, preciosRes, configRes]) {
+  for (const res of [clientesRes, ingresosRes, ventasRes, operadoresRes, preciosRes, configRes, cuponesRes]) {
     if (res.error) console.error("Error cargando datos de Supabase", res.error);
   }
 
@@ -168,6 +205,7 @@ export async function loadAll(): Promise<AppData> {
     operadores,
     precios,
     pinAdmin: (configRes.data?.pin_admin as string) || "1234",
+    cupones: (cuponesRes.data || []).map(cuponFromRow),
   };
 }
 
@@ -224,5 +262,19 @@ export async function upsertPrecios(precios: Precios): Promise<boolean> {
 export async function setPinAdmin(pin: string): Promise<boolean> {
   const { error } = await supabase.from("config").update({ pin_admin: pin }).eq("id", true);
   if (error) console.error("Error guardando PIN", error);
+  return !error;
+}
+
+export async function upsertCupones(rows: Cupon[]): Promise<boolean> {
+  if (!rows.length) return true;
+  const { error } = await supabase.from("cupones").upsert(rows.map(cuponToRow));
+  if (error) console.error("Error guardando cupones", error);
+  return !error;
+}
+
+export async function deleteCupones(ids: string[]): Promise<boolean> {
+  if (!ids.length) return true;
+  const { error } = await supabase.from("cupones").delete().in("id", ids);
+  if (error) console.error("Error eliminando cupones", error);
   return !error;
 }

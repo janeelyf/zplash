@@ -135,9 +135,21 @@ export function planStatus(c: Cliente): PlanStatus {
 }
 
 export function tipoIngreso(i: Ingreso): { label: string; cls: "ok" | "warn" | "bad" } {
+  if (i.viaCupon) return { label: "Cupón", cls: "warn" };
   if (i.esGarantia) return { label: "Garantía", cls: "warn" };
   if (i.planEstadoAlIngreso === "bad") return { label: fmtCLP(PRECIO_LAVADO_UNICO), cls: "bad" };
   return { label: "Ingreso por plan", cls: "ok" };
+}
+
+/** Alfabeto sin 0/O ni 1/I para evitar confusiones al leer o tipear el código. */
+const ALFABETO_CUPON = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+export function generarCodigoCupon(existentes: Set<string>): string {
+  let codigo: string;
+  do {
+    codigo = Array.from({ length: 6 }, () => ALFABETO_CUPON[Math.floor(Math.random() * ALFABETO_CUPON.length)]).join("");
+  } while (existentes.has(codigo));
+  return codigo;
 }
 
 export function uid(): string {
