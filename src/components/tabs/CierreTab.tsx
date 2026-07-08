@@ -31,7 +31,6 @@ export default function CierreTab() {
     { tipo: "Renovación preferencial", label: "Renovación temprana" },
     { tipo: "Plan nuevo (Web)", label: "Contratación de plan (Web automático)" },
     { tipo: "Renovación (Web)", label: "Renovación de plan (Web automático)" },
-    { tipo: "Renovación Web (manual)", label: "Renovación Web (pago automático falló)" },
     { tipo: "Cupón Venta Empresa", label: "Cupón Venta Empresa" },
   ];
   const ventasPorTipo = PRODUCTOS.map((p) => {
