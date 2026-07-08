@@ -6,7 +6,7 @@ import { findClient, normPlate } from "@/lib/helpers";
 import Topbar from "@/components/Topbar";
 import OperadorResult from "@/components/OperadorResult";
 import TodayLog from "@/components/TodayLog";
-import type { Ingreso, Venta } from "@/types";
+import type { Ingreso } from "@/types";
 
 export default function OperadorView() {
   const { data, ui, commit, patchUi } = useApp();
@@ -67,26 +67,12 @@ export default function OperadorView() {
       viaCupon: true,
       cuponCodigo: cupon.codigo,
     };
-    let ventas = data.ventas;
-    if (cupon.valor > 0) {
-      const venta: Venta = {
-        id: "v" + Date.now(),
-        clienteId: "",
-        patente,
-        nombre: nombreIngreso,
-        plan: "",
-        precio: cupon.valor,
-        tipo: "Cupón Venta Empresa",
-        fecha: ahora,
-        operador: ui.operadorActual || "",
-      };
-      ventas = [venta, ...ventas];
-    }
 
+    // El monto del lote ya se registro completo en el cierre de caja al
+    // generar los cupones, asi que canjear uno no vuelve a cobrar nada.
     const ok = await commit({
       cupones: data.cupones.map((x) => (x.id === cupon.id ? cuponActualizado : x)),
       ingresos: [ingreso, ...data.ingresos],
-      ventas,
     });
     if (!ok) {
       setCuponErr({ msg: "No se pudo registrar el canje (sin conexión). Intenta de nuevo.", ok: false });

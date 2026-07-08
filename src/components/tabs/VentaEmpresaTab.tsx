@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { fmtCLP, generarCodigoCupon } from "@/lib/helpers";
-import type { Cupon } from "@/types";
+import type { Cupon, Venta } from "@/types";
 
 function estadoCupon(c: Cupon): { label: string; cls: "ok" | "warn" | "bad" } {
   if (c.usado) return { label: "Usado", cls: "ok" };
@@ -23,7 +23,7 @@ export default function VentaEmpresaTab() {
   const generar = async () => {
     const nombreLote = nombreRef.current?.value.trim() || "";
     const cantidad = Number(cantidadRef.current?.value || 0);
-    const valor = Number(valorRef.current?.value || 0);
+    const valorTotal = Number(valorRef.current?.value || 0);
     const fechaCaducidad = caducidadRef.current?.value || "";
     if (!nombreLote || !cantidad || cantidad < 1 || !fechaCaducidad) {
       setErr({ msg: "Completa nombre, cantidad y fecha de caducidad", ok: false });
@@ -34,6 +34,7 @@ export default function VentaEmpresaTab() {
       return;
     }
 
+    const valorPorCupon = Math.round(valorTotal / cantidad);
     const existentes = new Set(data.cupones.map((c) => c.codigo));
     const nuevos: Cupon[] = [];
     for (let i = 0; i < cantidad; i++) {
@@ -43,7 +44,7 @@ export default function VentaEmpresaTab() {
         id: "cup" + Date.now() + i + Math.floor(Math.random() * 1000),
         codigo,
         nombreLote,
-        valor,
+        valor: valorPorCupon,
         fechaCaducidad: new Date(fechaCaducidad + "T23:59:59").toISOString(),
         usado: false,
         creadoEn: new Date().toISOString(),
@@ -51,12 +52,33 @@ export default function VentaEmpresaTab() {
       });
     }
 
-    const ok = await commit({ cupones: [...nuevos, ...data.cupones] });
+    let ventas = data.ventas;
+    if (valorTotal > 0) {
+      const venta: Venta = {
+        id: "v" + Date.now(),
+        clienteId: "",
+        patente: "",
+        nombre: `Venta Empresa · ${nombreLote}`,
+        plan: "",
+        precio: valorTotal,
+        tipo: "Cupón Venta Empresa",
+        fecha: new Date().toISOString(),
+        operador: "Administrador",
+      };
+      ventas = [venta, ...ventas];
+    }
+
+    const ok = await commit({ cupones: [...nuevos, ...data.cupones], ventas });
     if (!ok) {
       setErr({ msg: "No se pudieron generar los cupones (sin conexión). Intenta de nuevo.", ok: false });
       return;
     }
-    setErr({ msg: `${cantidad} cupones generados para "${nombreLote}"`, ok: true });
+    setErr({
+      msg:
+        `${cantidad} cupones generados para "${nombreLote}"` +
+        (valorTotal > 0 ? ` — se registró ${fmtCLP(valorTotal)} en el cierre de caja de hoy` : ""),
+      ok: true,
+    });
     if (nombreRef.current) nombreRef.current.value = "";
     if (cantidadRef.current) cantidadRef.current.value = "";
     if (valorRef.current) valorRef.current.value = "";
@@ -79,7 +101,7 @@ export default function VentaEmpresaTab() {
         return {
           Código: c.codigo,
           Lote: c.nombreLote,
-          Valor: c.valor > 0 ? c.valor : "Gratis",
+          "Valor c/u": c.valor > 0 ? c.valor : "Gratis",
           Caducidad: new Date(c.fechaCaducidad).toLocaleDateString("es-CL"),
           Estado: est.label,
           "Patente de uso": c.patenteUso || "",
@@ -89,7 +111,9 @@ export default function VentaEmpresaTab() {
       XLSX.utils.book_append_sheet(
         wb,
         XLSX.utils.json_to_sheet(
-          filas.length ? filas : [{ Código: "", Lote: "", Valor: "", Caducidad: "", Estado: "", "Patente de uso": "" }]
+          filas.length
+            ? filas
+            : [{ Código: "", Lote: "", "Valor c/u": "", Caducidad: "", Estado: "", "Patente de uso": "" }]
         ),
         "Cupones"
       );
@@ -102,8 +126,9 @@ export default function VentaEmpresaTab() {
       <div className="modal" style={{ maxWidth: 480, margin: "0 0 24px 0" }}>
         <h3>Generar cupones</h3>
         <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
-          Genera cupones de ingreso (gratis o a un valor fijo) para vender a empresas. Cada cupón se canjea una sola
-          vez desde el perfil operador, ingresando el código y la patente del vehículo que lo usa.
+          Genera cupones de ingreso para vender a empresas. El valor se registra completo en el cierre de caja de
+          hoy (la empresa paga el lote entero por adelantado); cada cupón se canjea después una sola vez desde el
+          perfil operador, ingresando el código y la patente del vehículo que lo usa.
         </div>
         <div className="field">
           <label>Nombre (empresa / lote)</label>
@@ -114,7 +139,7 @@ export default function VentaEmpresaTab() {
           <input ref={cantidadRef} type="number" min={1} placeholder="10" />
         </div>
         <div className="field">
-          <label>Valor por cupón (0 = gratis)</label>
+          <label>Valor total del lote (0 = gratis)</label>
           <input ref={valorRef} type="number" min={0} placeholder="0" />
         </div>
         <div className="field">
@@ -145,7 +170,7 @@ export default function VentaEmpresaTab() {
             <tr>
               <th>Código</th>
               <th>Lote</th>
-              <th>Valor</th>
+              <th>Valor c/u</th>
               <th>Caducidad</th>
               <th>Estado</th>
               <th>Patente uso</th>
