@@ -12,6 +12,19 @@ const CONTRAPARTE_LABEL: Record<MovimientoContable["tipo"], string> = {
   cuenta_por_pagar: "Proveedor",
 };
 
+const CATEGORIAS_GASTO = [
+  "Comisiones por Venta",
+  "Insumos de Lavado",
+  "Mantención de Maquinarias",
+  "Mantención de Instalaciones",
+  "Aseo y Limpieza",
+  "Gastos de Electricidad",
+  "Gastos de Agua Potable",
+  "Ropa y Útiles de Trabajo",
+  "Gastos de Combustibles",
+  "Otros Gastos Directos",
+];
+
 export default function MovimientoContableTab({
   tipo,
   titulo,
@@ -23,6 +36,7 @@ export default function MovimientoContableTab({
   const fechaRef = useRef<HTMLInputElement>(null);
   const descripcionRef = useRef<HTMLInputElement>(null);
   const categoriaRef = useRef<HTMLInputElement>(null);
+  const categoriaSelectRef = useRef<HTMLSelectElement>(null);
   const contraparteRef = useRef<HTMLInputElement>(null);
   const montoRef = useRef<HTMLInputElement>(null);
   const notasRef = useRef<HTMLTextAreaElement>(null);
@@ -50,13 +64,17 @@ export default function MovimientoContableTab({
   const agregar = async () => {
     const fecha = fechaRef.current?.value || todayYMD();
     const descripcion = descripcionRef.current?.value.trim() || "";
-    const categoria = categoriaRef.current?.value.trim() || "";
+    const categoria = tipo === "egreso" ? categoriaSelectRef.current?.value || "" : categoriaRef.current?.value.trim() || "";
     const contraparte = contraparteRef.current?.value.trim() || "";
     const monto = Number(montoRef.current?.value || 0);
     const notas = notasRef.current?.value.trim() || "";
 
     if (!descripcion || !monto || monto <= 0) {
       setErr({ msg: "Completa la descripción y un monto válido", ok: false });
+      return;
+    }
+    if (tipo === "egreso" && !categoria) {
+      setErr({ msg: "Selecciona un tipo de gasto", ok: false });
       return;
     }
 
@@ -83,6 +101,7 @@ export default function MovimientoContableTab({
     if (fechaRef.current) fechaRef.current.value = "";
     if (descripcionRef.current) descripcionRef.current.value = "";
     if (categoriaRef.current) categoriaRef.current.value = "";
+    if (categoriaSelectRef.current) categoriaSelectRef.current.value = "";
     if (contraparteRef.current) contraparteRef.current.value = "";
     if (montoRef.current) montoRef.current.value = "";
     if (notasRef.current) notasRef.current.value = "";
@@ -111,8 +130,21 @@ export default function MovimientoContableTab({
           <input ref={descripcionRef} placeholder="Ej: Pago de arriendo local" />
         </div>
         <div className="field">
-          <label>Categoría</label>
-          <input ref={categoriaRef} placeholder="Ej: Arriendo, Insumos, Sueldos..." />
+          <label>{tipo === "egreso" ? "Tipo de gasto" : "Categoría"}</label>
+          {tipo === "egreso" ? (
+            <select ref={categoriaSelectRef} defaultValue="">
+              <option value="" disabled>
+                Selecciona un tipo de gasto
+              </option>
+              {CATEGORIAS_GASTO.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input ref={categoriaRef} placeholder="Ej: Arriendo, Insumos, Sueldos..." />
+          )}
         </div>
         <div className="field">
           <label>{CONTRAPARTE_LABEL[tipo]}</label>

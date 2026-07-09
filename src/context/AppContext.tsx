@@ -37,7 +37,7 @@ const initialUI: UIState = {
   view: "login",
   operResult: null,
   adminTab: "clientes",
-  contabilidadTab: "ingreso",
+  contabilidadTab: "egreso",
   search: "",
   modal: null,
   loginErr: "",

@@ -5,8 +5,8 @@ import Topbar from "@/components/Topbar";
 import MovimientoContableTab from "@/components/tabs/MovimientoContableTab";
 
 const TABS = [
-  { id: "ingreso", label: "Ingresos" },
   { id: "egreso", label: "Egresos / Gastos" },
+  { id: "ingreso", label: "Ingresos" },
   { id: "cuenta_por_cobrar", label: "Cuentas por Cobrar" },
   { id: "cuenta_por_pagar", label: "Cuentas por Pagar" },
 ] as const;
