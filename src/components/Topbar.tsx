@@ -4,7 +4,15 @@ import Image from "next/image";
 import { useApp } from "@/context/AppContext";
 import SyncBadge from "@/components/SyncBadge";
 
-export default function Topbar({ mode, onLogout }: { mode: string; onLogout: () => void }) {
+export default function Topbar({
+  mode,
+  onLogout,
+  onBack,
+}: {
+  mode: string;
+  onLogout: () => void;
+  onBack?: () => void;
+}) {
   const { storageReady } = useApp();
   return (
     <div className="topbar">
@@ -14,6 +22,11 @@ export default function Topbar({ mode, onLogout }: { mode: string; onLogout: () 
       </div>
       <div className="topbar-right">
         <SyncBadge storageReady={storageReady} />
+        {onBack && (
+          <button className="logout-btn" onClick={onBack}>
+            ← Menú
+          </button>
+        )}
         <button className="logout-btn" onClick={onLogout}>
           Cerrar sesión
         </button>

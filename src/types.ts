@@ -85,6 +85,20 @@ export interface Operador {
   clave: string;
 }
 
+export interface MovimientoContable {
+  id: string;
+  tipo: "ingreso" | "egreso" | "cuenta_por_cobrar" | "cuenta_por_pagar";
+  fecha: string;
+  descripcion: string;
+  categoria?: string;
+  contraparte?: string;
+  monto: number;
+  estado: "pagado" | "pendiente";
+  notas?: string;
+  creadoEn: string;
+  creadoPor?: string;
+}
+
 export type Precios = Record<string, { normal: number; promo: number }>;
 
 export interface AppData {
@@ -95,6 +109,7 @@ export interface AppData {
   precios: Precios;
   operadores: Operador[];
   cupones: Cupon[];
+  movimientosContables: MovimientoContable[];
 }
 
 export type PlanStatusCls = "ok" | "warn" | "bad";
@@ -120,18 +135,20 @@ export type ModalState =
   | null;
 
 export interface UIState {
-  view: "login" | "operador" | "admin" | "servicios";
+  view: "login" | "operador" | "admin" | "servicios" | "adminHub" | "contabilidad";
   operResult: OperResult;
   adminTab: string;
+  contabilidadTab: string;
   search: string;
   modal: ModalState;
   loginErr: string;
   cierreDesde: string | null;
   cierreHasta: string | null;
   facturaSearch: string;
-  loginMode: "pin" | "operadorSelect" | "operadorPin" | "servSelect" | "servPin" | null;
+  loginMode: "pin" | "adminQuien" | "operadorSelect" | "operadorPin" | "servSelect" | "servPin" | null;
   operadorSeleccionado: string | null;
   operadorActual: string | null;
+  adminActual: "Evelyn" | "Juan" | null;
   clientesFiltroEstado: string;
   clientesOrden: string;
 }

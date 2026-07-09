@@ -5,6 +5,8 @@ import { AppProvider, useApp } from "@/context/AppContext";
 import LoginScreen from "@/components/LoginScreen";
 import OperadorView from "@/components/OperadorView";
 import AdminView from "@/components/AdminView";
+import AdminHubView from "@/components/AdminHubView";
+import ContabilidadView from "@/components/ContabilidadView";
 import ServiciosAdicionalesView from "@/components/ServiciosAdicionalesView";
 import ModalRoot from "@/components/modals/ModalRoot";
 
@@ -32,6 +34,8 @@ function ZplashApp() {
       {ui.view === "login" && <LoginScreen />}
       {ui.view === "operador" && <OperadorView />}
       {ui.view === "admin" && <AdminView />}
+      {ui.view === "adminHub" && <AdminHubView />}
+      {ui.view === "contabilidad" && <ContabilidadView />}
       {ui.view === "servicios" && <ServiciosAdicionalesView />}
       <ModalRoot />
     </>

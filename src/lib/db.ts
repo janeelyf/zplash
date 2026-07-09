@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { OPERADORES_DEFAULT, PRECIOS_DEFAULT } from "@/lib/helpers";
-import type { AppData, Cliente, Cupon, Ingreso, Operador, Precios, Venta } from "@/types";
+import type { AppData, Cliente, Cupon, Ingreso, MovimientoContable, Operador, Precios, Venta } from "@/types";
 
 type Row = Record<string, unknown>;
 
@@ -180,6 +180,38 @@ function cuponFromRow(r: Row): Cupon {
   };
 }
 
+function movimientoToRow(m: MovimientoContable): Row {
+  return {
+    id: m.id,
+    tipo: m.tipo,
+    fecha: m.fecha,
+    descripcion: m.descripcion,
+    categoria: m.categoria || null,
+    contraparte: m.contraparte || null,
+    monto: m.monto || 0,
+    estado: m.estado,
+    notas: m.notas || null,
+    creado_en: m.creadoEn,
+    creado_por: m.creadoPor || null,
+  };
+}
+
+function movimientoFromRow(r: Row): MovimientoContable {
+  return {
+    id: r.id as string,
+    tipo: r.tipo as MovimientoContable["tipo"],
+    fecha: r.fecha as string,
+    descripcion: r.descripcion as string,
+    categoria: (r.categoria as string) || undefined,
+    contraparte: (r.contraparte as string) || undefined,
+    monto: (r.monto as number) || 0,
+    estado: (r.estado as MovimientoContable["estado"]) || "pendiente",
+    notas: (r.notas as string) || undefined,
+    creadoEn: r.creado_en as string,
+    creadoPor: (r.creado_por as string) || undefined,
+  };
+}
+
 function preciosFromRows(rows: Row[]): Precios {
   const precios: Precios = {};
   for (const r of rows) {
@@ -195,17 +227,19 @@ export async function waitForStorage(): Promise<boolean> {
 }
 
 export async function loadAll(): Promise<AppData> {
-  const [clientesRes, ingresosRes, ventasRes, operadoresRes, preciosRes, configRes, cuponesRes] = await Promise.all([
-    supabase.from("clientes").select("*"),
-    supabase.from("ingresos").select("*").order("fecha", { ascending: false }),
-    supabase.from("ventas").select("*").order("fecha", { ascending: false }),
-    supabase.from("operadores").select("*"),
-    supabase.from("precios").select("*"),
-    supabase.from("config").select("*").maybeSingle(),
-    supabase.from("cupones").select("*").order("creado_en", { ascending: false }),
-  ]);
+  const [clientesRes, ingresosRes, ventasRes, operadoresRes, preciosRes, configRes, cuponesRes, movimientosRes] =
+    await Promise.all([
+      supabase.from("clientes").select("*"),
+      supabase.from("ingresos").select("*").order("fecha", { ascending: false }),
+      supabase.from("ventas").select("*").order("fecha", { ascending: false }),
+      supabase.from("operadores").select("*"),
+      supabase.from("precios").select("*"),
+      supabase.from("config").select("*").maybeSingle(),
+      supabase.from("cupones").select("*").order("creado_en", { ascending: false }),
+      supabase.from("movimientos_contables").select("*").order("fecha", { ascending: false }),
+    ]);
 
-  for (const res of [clientesRes, ingresosRes, ventasRes, operadoresRes, preciosRes, configRes, cuponesRes]) {
+  for (const res of [clientesRes, ingresosRes, ventasRes, operadoresRes, preciosRes, configRes, cuponesRes, movimientosRes]) {
     if (res.error) console.error("Error cargando datos de Supabase", res.error);
   }
 
@@ -220,6 +254,7 @@ export async function loadAll(): Promise<AppData> {
     precios,
     pinAdmin: (configRes.data?.pin_admin as string) || "1234",
     cupones: (cuponesRes.data || []).map(cuponFromRow),
+    movimientosContables: (movimientosRes.data || []).map(movimientoFromRow),
   };
 }
 
@@ -290,5 +325,19 @@ export async function deleteCupones(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
   const { error } = await supabase.from("cupones").delete().in("id", ids);
   if (error) console.error("Error eliminando cupones", error);
+  return !error;
+}
+
+export async function upsertMovimientosContables(rows: MovimientoContable[]): Promise<boolean> {
+  if (!rows.length) return true;
+  const { error } = await supabase.from("movimientos_contables").upsert(rows.map(movimientoToRow));
+  if (error) console.error("Error guardando movimientos contables", error);
+  return !error;
+}
+
+export async function deleteMovimientosContables(ids: string[]): Promise<boolean> {
+  if (!ids.length) return true;
+  const { error } = await supabase.from("movimientos_contables").delete().in("id", ids);
+  if (error) console.error("Error eliminando movimientos contables", error);
   return !error;
 }

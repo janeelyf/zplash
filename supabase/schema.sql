@@ -98,6 +98,25 @@ create table if not exists cupones (
 );
 create index if not exists cupones_codigo_idx on cupones (codigo);
 
+-- Modulo de Contabilidad: registro manual de ingresos, egresos, cuentas por
+-- cobrar y cuentas por pagar. Es la base para construir libro mayor / EERR
+-- mas adelante.
+create table if not exists movimientos_contables (
+  id text primary key,
+  tipo text not null,
+  fecha timestamptz not null default now(),
+  descripcion text not null,
+  categoria text,
+  contraparte text,
+  monto numeric not null default 0,
+  estado text not null default 'pendiente',
+  notas text,
+  creado_en timestamptz not null default now(),
+  creado_por text
+);
+create index if not exists movimientos_contables_fecha_idx on movimientos_contables (fecha desc);
+create index if not exists movimientos_contables_tipo_idx on movimientos_contables (tipo);
+
 -- Tabla "singleton" (una sola fila) para configuración global.
 create table if not exists config (
   id boolean primary key default true check (id),
@@ -116,6 +135,7 @@ alter table operadores enable row level security;
 alter table precios enable row level security;
 alter table config enable row level security;
 alter table cupones enable row level security;
+alter table movimientos_contables enable row level security;
 
 create policy "anon full access" on clientes for all to anon using (true) with check (true);
 create policy "anon full access" on ingresos for all to anon using (true) with check (true);
@@ -124,3 +144,4 @@ create policy "anon full access" on operadores for all to anon using (true) with
 create policy "anon full access" on precios for all to anon using (true) with check (true);
 create policy "anon full access" on config for all to anon using (true) with check (true);
 create policy "anon full access" on cupones for all to anon using (true) with check (true);
+create policy "anon full access" on movimientos_contables for all to anon using (true) with check (true);

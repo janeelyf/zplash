@@ -10,6 +10,32 @@ export default function LoginScreen() {
   if (ui.loginMode === "pin") {
     return <AdminPinForm />;
   }
+  if (ui.loginMode === "adminQuien") {
+    return (
+      <div className="login-screen">
+        <div className="brand">
+          <Image src="/logo.jpg" alt="ZPlash" width={200} height={76} className="brand-logo" unoptimized />
+          <div className="sub">¿Quién eres?</div>
+        </div>
+        <div className="role-grid">
+          {(["Evelyn", "Juan"] as const).map((nombre) => (
+            <button
+              key={nombre}
+              className="role-btn"
+              style={{ width: 150, padding: "22px 16px" }}
+              onClick={() => patchUi({ view: "adminHub", adminActual: nombre, loginMode: null, loginErr: "" })}
+            >
+              <div className="icon">👤</div>
+              <div className="label">{nombre}</div>
+            </button>
+          ))}
+        </div>
+        <button className="btn ghost" onClick={() => patchUi({ loginMode: null })}>
+          Volver
+        </button>
+      </div>
+    );
+  }
   if (ui.loginMode === "operadorSelect" || ui.loginMode === "servSelect") {
     const destino = ui.loginMode === "servSelect" ? "servPin" : "operadorPin";
     return (
@@ -60,7 +86,7 @@ export default function LoginScreen() {
         </button>
         <button className="role-btn" onClick={() => patchUi({ loginMode: "pin", loginErr: "" })}>
           <div className="icon">🔑</div>
-          <div className="label">Administrador</div>
+          <div className="label">ADMINISTRACIÓN</div>
           <div className="desc">Gestionar clientes e historial</div>
         </button>
       </div>
@@ -75,7 +101,7 @@ function AdminPinForm() {
   const submit = () => {
     const val = inputRef.current?.value || "";
     if (val === data.pinAdmin) {
-      patchUi({ view: "admin", loginMode: null, loginErr: "" });
+      patchUi({ loginMode: "adminQuien", loginErr: "" });
     } else {
       patchUi({ loginErr: "PIN incorrecto" });
     }
@@ -85,7 +111,7 @@ function AdminPinForm() {
     <div className="login-screen">
       <div className="brand">
         <Image src="/logo.jpg" alt="ZPlash" width={200} height={76} className="brand-logo" unoptimized />
-        <div className="sub">Acceso Administrador</div>
+        <div className="sub">Acceso Administración</div>
       </div>
       <div className="pin-box">
         <input

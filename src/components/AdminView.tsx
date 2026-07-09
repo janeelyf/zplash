@@ -25,7 +25,11 @@ export default function AdminView() {
 
   return (
     <>
-      <Topbar mode="Administrador" onLogout={() => patchUi({ view: "login" })} />
+      <Topbar
+        mode={`Administrador de ingresos · ${ui.adminActual || ""}`}
+        onLogout={() => patchUi({ view: "login", adminActual: null })}
+        onBack={() => patchUi({ view: "adminHub" })}
+      />
       <div className="content">
         <div className="tabs">
           {TABS.map((t) => (
