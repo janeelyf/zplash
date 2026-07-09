@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
+import { subirComprobanteGasto } from "@/lib/db";
 import { fmtCLP, GASTO_GRUPOS, todayYMD } from "@/lib/helpers";
 import type { MovimientoContable } from "@/types";
 
@@ -77,6 +78,18 @@ function BuscadorGlosa({ value, onChange }: { value: string; onChange: (v: strin
   );
 }
 
+function MontoInput({ value, onChange }: { value: string; onChange: (digitos: string) => void }) {
+  const formateado = value ? "$" + Number(value).toLocaleString("es-CL") : "";
+  return (
+    <input
+      inputMode="numeric"
+      value={formateado}
+      onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
+      placeholder="$0"
+    />
+  );
+}
+
 export default function MovimientoContableTab({
   tipo,
   titulo,
@@ -92,10 +105,13 @@ export default function MovimientoContableTab({
   const contraparteRef = useRef<HTMLInputElement>(null);
   const rutProveedorRef = useRef<HTMLInputElement>(null);
   const numeroFacturaRef = useRef<HTMLInputElement>(null);
-  const montoRef = useRef<HTMLInputElement>(null);
+  const [montoTexto, setMontoTexto] = useState("");
   const notasRef = useRef<HTMLTextAreaElement>(null);
   const [tipoDocumento, setTipoDocumento] = useState<"Boleta" | "Factura" | null>(null);
   const [estado, setEstado] = useState<MovimientoContable["estado"]>(tipo === "egreso" ? "pagado_cc" : "pagado");
+  const [archivo, setArchivo] = useState<File | null>(null);
+  const archivoInputRef = useRef<HTMLInputElement>(null);
+  const [subiendo, setSubiendo] = useState(false);
   const [err, setErr] = useState<{ msg: string; ok: boolean } | null>(null);
   const [busqueda, setBusqueda] = useState("");
 
@@ -126,7 +142,7 @@ export default function MovimientoContableTab({
     const contraparte = contraparteRef.current?.value.trim() || "";
     const rutProveedor = tipo === "egreso" ? rutProveedorRef.current?.value.trim() || "" : "";
     const numeroFactura = tipo === "egreso" ? numeroFacturaRef.current?.value.trim() || "" : "";
-    const monto = Number(montoRef.current?.value || 0);
+    const monto = Number(montoTexto || 0);
     const notas = notasRef.current?.value.trim() || "";
 
     if (!descripcion || !monto || monto <= 0) {
@@ -142,8 +158,23 @@ export default function MovimientoContableTab({
       return;
     }
 
+    const id = "mc" + Date.now() + Math.floor(Math.random() * 1000);
+    let documentoUrl: string | undefined;
+    let documentoNombre: string | undefined;
+    if (tipo === "egreso" && archivo) {
+      setSubiendo(true);
+      const url = await subirComprobanteGasto(id, archivo);
+      setSubiendo(false);
+      if (!url) {
+        setErr({ msg: "No se pudo subir el documento adjunto. Intenta de nuevo.", ok: false });
+        return;
+      }
+      documentoUrl = url;
+      documentoNombre = archivo.name;
+    }
+
     const nuevo: MovimientoContable = {
-      id: "mc" + Date.now() + Math.floor(Math.random() * 1000),
+      id,
       tipo,
       fecha: new Date(fecha + "T12:00:00").toISOString(),
       descripcion,
@@ -152,6 +183,8 @@ export default function MovimientoContableTab({
       rutProveedor: rutProveedor || undefined,
       numeroFactura: numeroFactura || undefined,
       tipoDocumento: tipoDocumento || undefined,
+      documentoUrl,
+      documentoNombre,
       monto,
       estado,
       notas: notas || undefined,
@@ -172,9 +205,11 @@ export default function MovimientoContableTab({
     if (contraparteRef.current) contraparteRef.current.value = "";
     if (rutProveedorRef.current) rutProveedorRef.current.value = "";
     if (numeroFacturaRef.current) numeroFacturaRef.current.value = "";
-    if (montoRef.current) montoRef.current.value = "";
+    setMontoTexto("");
     if (notasRef.current) notasRef.current.value = "";
     setTipoDocumento(null);
+    setArchivo(null);
+    if (archivoInputRef.current) archivoInputRef.current.value = "";
     setEstado(tipo === "egreso" ? "pagado_cc" : "pagado");
   };
 
@@ -252,8 +287,19 @@ export default function MovimientoContableTab({
         )}
         <div className="field">
           <label>{tipo === "egreso" ? "Monto Total (IVA Incl.)" : "Monto"}</label>
-          <input ref={montoRef} type="number" min={0} placeholder="0" />
+          <MontoInput value={montoTexto} onChange={setMontoTexto} />
         </div>
+        {tipo === "egreso" && (
+          <div className="field">
+            <label>Adjuntar documento</label>
+            <input
+              ref={archivoInputRef}
+              type="file"
+              accept="image/*,.pdf"
+              onChange={(e) => setArchivo(e.target.files?.[0] || null)}
+            />
+          </div>
+        )}
         <div className="field">
           <label>Estado</label>
           <div style={{ display: "flex", gap: 10 }}>
@@ -313,8 +359,8 @@ export default function MovimientoContableTab({
         <div className="err" style={{ color: err?.ok ? "var(--green)" : undefined }}>
           {err?.msg || ""}
         </div>
-        <button className="btn" onClick={agregar}>
-          Registrar
+        <button className="btn" onClick={agregar} disabled={subiendo}>
+          {subiendo ? "Subiendo documento..." : "Registrar"}
         </button>
       </div>
 
@@ -357,6 +403,7 @@ export default function MovimientoContableTab({
               <th>{CONTRAPARTE_LABEL[tipo]}</th>
               {tipo === "egreso" && <th>N° Factura</th>}
               {tipo === "egreso" && <th>Documento</th>}
+              {tipo === "egreso" && <th>Adjunto</th>}
               <th>Monto</th>
               <th>Estado</th>
               <th></th>
@@ -365,7 +412,7 @@ export default function MovimientoContableTab({
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={tipo === "egreso" ? 10 : 7}>
+                <td colSpan={tipo === "egreso" ? 11 : 7}>
                   <div className="empty">Sin registros</div>
                 </td>
               </tr>
@@ -379,6 +426,17 @@ export default function MovimientoContableTab({
                   <td>{m.contraparte || "-"}</td>
                   {tipo === "egreso" && <td>{m.numeroFactura || "-"}</td>}
                   {tipo === "egreso" && <td>{m.tipoDocumento || "-"}</td>}
+                  {tipo === "egreso" && (
+                    <td>
+                      {m.documentoUrl ? (
+                        <a href={m.documentoUrl} target="_blank" rel="noopener noreferrer">
+                          Ver
+                        </a>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                  )}
                   <td>{fmtCLP(m.monto)}</td>
                   <td>
                     {tipo === "egreso" ? (

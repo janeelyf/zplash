@@ -125,6 +125,8 @@ create table if not exists movimientos_contables (
   rut_proveedor text,
   numero_factura text,
   tipo_documento text,
+  documento_url text,
+  documento_nombre text,
   monto numeric not null default 0,
   estado text not null default 'pendiente',
   notas text,
@@ -164,3 +166,14 @@ create policy "anon full access" on precios for all to anon using (true) with ch
 create policy "anon full access" on config for all to anon using (true) with check (true);
 create policy "anon full access" on cupones for all to anon using (true) with check (true);
 create policy "anon full access" on movimientos_contables for all to anon using (true) with check (true);
+
+-- Bucket de Storage para adjuntar el comprobante (boleta/factura escaneada)
+-- de un egreso/gasto.
+insert into storage.buckets (id, name, public)
+values ('comprobantes-gastos', 'comprobantes-gastos', true)
+on conflict (id) do nothing;
+
+create policy "anon full access comprobantes-gastos" on storage.objects
+  for all to anon
+  using (bucket_id = 'comprobantes-gastos')
+  with check (bucket_id = 'comprobantes-gastos');

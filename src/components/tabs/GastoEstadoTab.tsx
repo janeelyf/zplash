@@ -88,6 +88,7 @@ export default function GastoEstadoTab({
               <th>Proveedor</th>
               <th>N° Factura</th>
               <th>Documento</th>
+              <th>Adjunto</th>
               <th>Monto</th>
               <th></th>
             </tr>
@@ -95,7 +96,7 @@ export default function GastoEstadoTab({
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={9}>
+                <td colSpan={10}>
                   <div className="empty">Sin registros para este periodo</div>
                 </td>
               </tr>
@@ -109,6 +110,15 @@ export default function GastoEstadoTab({
                   <td>{m.contraparte || "-"}</td>
                   <td>{m.numeroFactura || "-"}</td>
                   <td>{m.tipoDocumento || "-"}</td>
+                  <td>
+                    {m.documentoUrl ? (
+                      <a href={m.documentoUrl} target="_blank" rel="noopener noreferrer">
+                        Ver
+                      </a>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
                   <td>{fmtCLP(m.monto)}</td>
                   <td className="row-actions">
                     <select value={m.estado} onChange={(e) => cambiarEstado(m, e.target.value as MovimientoContable["estado"])}>

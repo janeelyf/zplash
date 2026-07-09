@@ -204,6 +204,8 @@ function movimientoToRow(m: MovimientoContable): Row {
     rut_proveedor: m.rutProveedor || null,
     numero_factura: m.numeroFactura || null,
     tipo_documento: m.tipoDocumento || null,
+    documento_url: m.documentoUrl || null,
+    documento_nombre: m.documentoNombre || null,
     monto: m.monto || 0,
     estado: m.estado,
     notas: m.notas || null,
@@ -223,6 +225,8 @@ function movimientoFromRow(r: Row): MovimientoContable {
     rutProveedor: (r.rut_proveedor as string) || undefined,
     numeroFactura: (r.numero_factura as string) || undefined,
     tipoDocumento: (r.tipo_documento as MovimientoContable["tipoDocumento"]) || undefined,
+    documentoUrl: (r.documento_url as string) || undefined,
+    documentoNombre: (r.documento_nombre as string) || undefined,
     monto: (r.monto as number) || 0,
     estado: (r.estado as MovimientoContable["estado"]) || "pendiente",
     notas: (r.notas as string) || undefined,
@@ -390,4 +394,18 @@ export async function deleteMovimientosContables(ids: string[]): Promise<boolean
   const { error } = await supabase.from("movimientos_contables").delete().in("id", ids);
   if (error) console.error("Error eliminando movimientos contables", error);
   return !error;
+}
+
+const COMPROBANTES_BUCKET = "comprobantes-gastos";
+
+/** Sube el comprobante (boleta/factura escaneada) de un egreso y devuelve su URL pública, o null si falló. */
+export async function subirComprobanteGasto(id: string, file: File): Promise<string | null> {
+  const path = `${id}-${file.name}`;
+  const { error } = await supabase.storage.from(COMPROBANTES_BUCKET).upload(path, file, { upsert: true });
+  if (error) {
+    console.error("Error subiendo comprobante", error);
+    return null;
+  }
+  const { data } = supabase.storage.from(COMPROBANTES_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
 }

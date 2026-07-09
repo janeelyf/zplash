@@ -102,6 +102,8 @@ export interface MovimientoContable {
   rutProveedor?: string;
   numeroFactura?: string;
   tipoDocumento?: "Boleta" | "Factura";
+  documentoUrl?: string;
+  documentoNombre?: string;
   monto: number;
   estado: "pagado" | "pendiente" | "pagado_cc" | "x_rendir" | "pendiente_pago";
   notas?: string;
