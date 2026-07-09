@@ -83,7 +83,7 @@ export default function CierreTab() {
     ...(cuentasPorCobrarItems.length
       ? [
           {
-            metodo: "Cuentas por cobrar (transferencia pendiente)",
+            metodo: "Cuentas x Cobrar",
             cantidad: cuentasPorCobrarItems.length,
             monto: cuentasPorCobrarItems.reduce((s, v) => s + (v.precio || 0), 0),
           },
