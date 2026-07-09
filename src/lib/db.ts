@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { ADMINISTRADORES_DEFAULT, OPERADORES_DEFAULT, PRECIOS_DEFAULT } from "@/lib/helpers";
-import type { Administrador, AppData, Cliente, Cupon, Ingreso, MovimientoContable, Operador, Precios, Venta } from "@/types";
+import type { AdministradorPublico, AppData, Cliente, Cupon, Ingreso, MovimientoContable, Operador, Precios, Venta } from "@/types";
 
 type Row = Record<string, unknown>;
 
@@ -144,15 +144,13 @@ function operadorFromRow(r: Row): Operador {
   return { id: r.id as string, nombre: r.nombre as string, clave: r.clave as string };
 }
 
-function administradorToRow(a: Administrador): Row {
-  return { id: a.id, nombre: a.nombre, clave: a.clave, es_gerente: a.esGerente || false };
-}
-
-function administradorFromRow(r: Row): Administrador {
+// No hay un administradorToRow/upsert: la tabla administradores ya no acepta
+// escrituras del cliente (ver /api/admin/cambiar-clave). Esto solo lee la
+// vista pública (sin la columna clave).
+function administradorPublicoFromRow(r: Row): AdministradorPublico {
   return {
     id: r.id as string,
-    nombre: r.nombre as Administrador["nombre"],
-    clave: r.clave as string,
+    nombre: r.nombre as AdministradorPublico["nombre"],
     esGerente: (r.es_gerente as boolean) || undefined,
   };
 }
@@ -265,7 +263,7 @@ export async function loadAll(): Promise<AppData> {
     supabase.from("ingresos").select("*").order("fecha", { ascending: false }),
     supabase.from("ventas").select("*").order("fecha", { ascending: false }),
     supabase.from("operadores").select("*"),
-    supabase.from("administradores").select("*"),
+    supabase.from("administradores_publicos").select("*"),
     supabase.from("precios").select("*"),
     supabase.from("config").select("*").maybeSingle(),
     supabase.from("cupones").select("*").order("creado_en", { ascending: false }),
@@ -288,7 +286,7 @@ export async function loadAll(): Promise<AppData> {
 
   const operadores = operadoresRes.data?.length ? operadoresRes.data.map(operadorFromRow) : OPERADORES_DEFAULT;
   const administradores = administradoresRes.data?.length
-    ? administradoresRes.data.map(administradorFromRow)
+    ? administradoresRes.data.map(administradorPublicoFromRow)
     : ADMINISTRADORES_DEFAULT;
   const precios = preciosRes.data?.length ? preciosFromRows(preciosRes.data) : PRECIOS_DEFAULT;
 
@@ -344,13 +342,6 @@ export async function deleteOperadores(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
   const { error } = await supabase.from("operadores").delete().in("id", ids);
   if (error) console.error("Error eliminando operadores", error);
-  return !error;
-}
-
-export async function upsertAdministradores(rows: Administrador[]): Promise<boolean> {
-  if (!rows.length) return true;
-  const { error } = await supabase.from("administradores").upsert(rows.map(administradorToRow));
-  if (error) console.error("Error guardando administradores", error);
   return !error;
 }
 

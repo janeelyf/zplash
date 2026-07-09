@@ -89,6 +89,13 @@ insert into administradores (id, nombre, clave, es_gerente) values
   ('adm2', 'Juan', '5678', true)
 on conflict (id) do nothing;
 
+-- Vista pública sin la columna clave: es lo único que el cliente (anon)
+-- puede leer de administradores, para poder mostrar el selector "¿Quién
+-- eres?" sin exponer las contraseñas. El login y el cambio de contraseña
+-- corren server-side (rutas /api/admin/*) usando la service role key.
+create or replace view administradores_publicos as
+  select id, nombre, es_gerente from administradores;
+
 create table if not exists precios (
   plan text primary key,
   normal numeric not null default 0,
@@ -162,10 +169,16 @@ create table if not exists config (
 );
 insert into config (id, pin_admin) values (true, '1234') on conflict (id) do nothing;
 
--- RLS: esta app no usa Supabase Auth (el PIN de administrador es una
--- validación propia de la aplicación, no de la base de datos), así que
--- habilitamos acceso completo al rol anónimo — el mismo modelo "abierto"
--- que ya tenía el proyecto en Firestore (sin reglas de seguridad).
+-- RLS: esta app no usa Supabase Auth, así que por defecto habilitamos
+-- acceso completo al rol anónimo — el mismo modelo "abierto" que ya tenía
+-- el proyecto en Firestore. La excepción es "administradores": esa tabla
+-- guarda las contraseñas de Evelyn/Juan (que además dan acceso a todo lo
+-- demás), así que al anon NO se le da ninguna política sobre la tabla base
+-- (con RLS habilitada y sin políticas, el acceso queda denegado por
+-- defecto) — solo puede leer administradores_publicos (sin la columna
+-- clave). Las escrituras y la verificación de contraseña pasan por rutas
+-- server-side (/api/admin/*) que usan la service role key, la cual sí
+-- puede saltarse RLS.
 alter table clientes enable row level security;
 alter table ingresos enable row level security;
 alter table ventas enable row level security;
@@ -186,8 +199,11 @@ drop policy if exists "anon full access" on ventas;
 create policy "anon full access" on ventas for all to anon using (true) with check (true);
 drop policy if exists "anon full access" on operadores;
 create policy "anon full access" on operadores for all to anon using (true) with check (true);
+-- administradores: sin política para anon a propósito (ver comentario
+-- arriba). Si esta migración corre sobre una base que ya tenía la política
+-- abierta anterior, esto la elimina.
 drop policy if exists "anon full access" on administradores;
-create policy "anon full access" on administradores for all to anon using (true) with check (true);
+grant select on administradores_publicos to anon;
 drop policy if exists "anon full access" on precios;
 create policy "anon full access" on precios for all to anon using (true) with check (true);
 drop policy if exists "anon full access" on config;

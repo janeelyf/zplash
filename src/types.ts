@@ -85,10 +85,19 @@ export interface Operador {
   clave: string;
 }
 
+// Forma completa (con clave) — solo se usa server-side, dentro de las rutas
+// /api/admin/*. El cliente nunca recibe esta forma; ver AdministradorPublico.
 export interface Administrador {
   id: string;
   nombre: "Evelyn" | "Juan";
   clave: string;
+  esGerente?: boolean;
+}
+
+// Lo que el cliente sí puede cargar: nombre y rol, nunca la contraseña.
+export interface AdministradorPublico {
+  id: string;
+  nombre: "Evelyn" | "Juan";
   esGerente?: boolean;
 }
 
@@ -123,7 +132,7 @@ export interface AppData {
   pinAdmin: string;
   precios: Precios;
   operadores: Operador[];
-  administradores: Administrador[];
+  administradores: AdministradorPublico[];
   cupones: Cupon[];
   movimientosContables: MovimientoContable[];
 }

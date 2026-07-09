@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import { useApp } from "@/context/AppContext";
 
@@ -97,14 +97,29 @@ export default function LoginScreen() {
 function AdminPinForm() {
   const { data, ui, patchUi } = useApp();
   const inputRef = useRef<HTMLInputElement>(null);
+  const [verificando, setVerificando] = useState(false);
   const admin = data.administradores.find((a) => a.nombre === ui.adminSeleccionado);
 
-  const submit = () => {
+  const submit = async () => {
     const val = inputRef.current?.value || "";
-    if (admin && val === admin.clave) {
-      patchUi({ view: "adminHub", adminActual: admin.nombre, loginMode: null, loginErr: "" });
-    } else {
-      patchUi({ loginErr: "Contraseña incorrecta" });
+    if (!admin || !val || verificando) return;
+    setVerificando(true);
+    try {
+      const res = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre: admin.nombre, clave: val }),
+      });
+      const json = await res.json();
+      if (res.ok && json.ok) {
+        patchUi({ view: "adminHub", adminActual: admin.nombre, loginMode: null, loginErr: "" });
+      } else {
+        patchUi({ loginErr: json.error || "Contraseña incorrecta" });
+      }
+    } catch {
+      patchUi({ loginErr: "No se pudo verificar (sin conexión). Intenta de nuevo." });
+    } finally {
+      setVerificando(false);
     }
   };
 
@@ -126,8 +141,8 @@ function AdminPinForm() {
           }}
         />
         <div className="err">{ui.loginErr || ""}</div>
-        <button className="btn" onClick={submit}>
-          Ingresar
+        <button className="btn" onClick={submit} disabled={verificando}>
+          {verificando ? "Verificando..." : "Ingresar"}
         </button>
         <button className="btn ghost" onClick={() => patchUi({ loginMode: "adminSelect", loginErr: "" })}>
           Volver

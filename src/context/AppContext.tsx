@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import type { Administrador, AppData, Cliente, Cupon, MovimientoContable, Operador, UIState } from "@/types";
+import type { AppData, Cliente, Cupon, MovimientoContable, Operador, UIState } from "@/types";
 import { ADMINISTRADORES_DEFAULT, OPERADORES_DEFAULT, PRECIOS_DEFAULT } from "@/lib/helpers";
 import {
   deleteClientes,
@@ -12,7 +12,6 @@ import {
   insertVentas,
   loadAll,
   setPinAdmin,
-  upsertAdministradores,
   upsertClientes,
   upsertCupones,
   upsertMovimientosContables,
@@ -132,11 +131,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (cambiados.length) ops.push(upsertOperadores(cambiados));
       if (eliminados.length) ops.push(deleteOperadores(eliminados));
     }
-    if (patch.administradores) {
-      const { cambiados, eliminados } = diffPorId<Administrador>(previous.administradores, patch.administradores);
-      if (cambiados.length) ops.push(upsertAdministradores(cambiados));
-      if (eliminados.length) console.warn("Eliminar administradores no está soportado", eliminados);
-    }
+    // administradores no se escribe desde acá: la tabla ya no acepta escrituras
+    // del cliente (ver /api/admin/cambiar-clave, que usa la service role key).
     if (patch.cupones) {
       const { cambiados, eliminados } = diffPorId<Cupon>(previous.cupones, patch.cupones);
       if (cambiados.length) ops.push(upsertCupones(cambiados));

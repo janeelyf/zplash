@@ -16,6 +16,7 @@ export default function ConfigTab() {
   const { data, ui, commit } = useApp();
   const curPinRef = useRef<HTMLInputElement>(null);
   const newPinRef = useRef<HTMLInputElement>(null);
+  const miClaveParaEvelynRef = useRef<HTMLInputElement>(null);
   const nuevaClaveEvelynRef = useRef<HTMLInputElement>(null);
   const [cfgErr, setCfgErr] = useState<{ msg: string; ok: boolean } | null>(null);
   const [claveEvelynMsg, setClaveEvelynMsg] = useState<{ msg: string; ok: boolean } | null>(null);
@@ -29,35 +30,49 @@ export default function ConfigTab() {
   const yo = data.administradores.find((a) => a.nombre === ui.adminActual);
   const esGerente = !!yo?.esGerente;
 
+  const cambiarClave = async (body: { actor: string; actorClaveActual: string; objetivo: string; claveNueva: string }) => {
+    const res = await fetch("/api/admin/cambiar-clave", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json();
+    return { ok: res.ok && json.ok, error: json.error as string | undefined };
+  };
+
   const savePin = async () => {
     const cur = curPinRef.current?.value || "";
     const nw = newPinRef.current?.value || "";
-    if (!yo || cur !== yo.clave) {
-      setCfgErr({ msg: "Contraseña actual incorrecta", ok: false });
-      return;
-    }
+    if (!yo) return;
     if (!nw || nw.length < 4) {
       setCfgErr({ msg: "La nueva contraseña debe tener al menos 4 caracteres", ok: false });
       return;
     }
-    const actualizado = { ...yo, clave: nw };
-    await commit({ administradores: data.administradores.map((a) => (a.id === yo.id ? actualizado : a)) });
+    const { ok, error } = await cambiarClave({ actor: yo.nombre, actorClaveActual: cur, objetivo: yo.nombre, claveNueva: nw });
+    if (!ok) {
+      setCfgErr({ msg: error || "No se pudo cambiar la contraseña", ok: false });
+      return;
+    }
     setCfgErr({ msg: "Contraseña actualizada correctamente", ok: true });
     if (curPinRef.current) curPinRef.current.value = "";
     if (newPinRef.current) newPinRef.current.value = "";
   };
 
   const saveClaveEvelyn = async () => {
-    const evelyn = data.administradores.find((a) => a.nombre === "Evelyn");
+    const miClave = miClaveParaEvelynRef.current?.value || "";
     const nw = nuevaClaveEvelynRef.current?.value || "";
-    if (!evelyn) return;
+    if (!yo) return;
     if (!nw || nw.length < 4) {
       setClaveEvelynMsg({ msg: "La nueva contraseña debe tener al menos 4 caracteres", ok: false });
       return;
     }
-    const actualizado = { ...evelyn, clave: nw };
-    await commit({ administradores: data.administradores.map((a) => (a.id === evelyn.id ? actualizado : a)) });
+    const { ok, error } = await cambiarClave({ actor: yo.nombre, actorClaveActual: miClave, objetivo: "Evelyn", claveNueva: nw });
+    if (!ok) {
+      setClaveEvelynMsg({ msg: error || "No se pudo cambiar la contraseña", ok: false });
+      return;
+    }
     setClaveEvelynMsg({ msg: "Contraseña de Evelyn actualizada correctamente", ok: true });
+    if (miClaveParaEvelynRef.current) miClaveParaEvelynRef.current.value = "";
     if (nuevaClaveEvelynRef.current) nuevaClaveEvelynRef.current.value = "";
   };
 
@@ -100,10 +115,15 @@ export default function ConfigTab() {
         <div className="modal" style={{ maxWidth: 420, margin: "0 0 20px 0" }}>
           <h3>Cambiar contraseña de Evelyn</h3>
           <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
-            Como gerente, puedes definir una nueva contraseña para Evelyn sin necesidad de conocer la actual.
+            Como gerente, puedes definir una nueva contraseña para Evelyn sin necesidad de conocer la actual de ella
+            — solo se te pide tu propia contraseña para confirmar que eres tú.
           </div>
           <div className="field">
-            <label>Contraseña nueva</label>
+            <label>Tu contraseña (Juan)</label>
+            <input ref={miClaveParaEvelynRef} type="password" maxLength={12} />
+          </div>
+          <div className="field">
+            <label>Contraseña nueva de Evelyn</label>
             <input ref={nuevaClaveEvelynRef} type="password" maxLength={12} />
           </div>
           <div className="err" style={{ color: claveEvelynMsg?.ok ? "var(--green)" : undefined }}>
