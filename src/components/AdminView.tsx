@@ -14,7 +14,7 @@ const TABS = [
   { id: "clientes", label: "Clientes" },
   { id: "ingresos", label: "Historial de ingresos" },
   { id: "cierre", label: "Cierre de Caja" },
-  { id: "empresa", label: "Venta Empresa" },
+  { id: "empresa", label: "B2B/Tickets" },
   { id: "operadores", label: "Operadores" },
   { id: "stats", label: "Estadísticas" },
   { id: "config", label: "Configuración" },
