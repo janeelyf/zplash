@@ -1,8 +1,8 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import type { AppData, Cliente, Cupon, MovimientoContable, Operador, UIState } from "@/types";
-import { OPERADORES_DEFAULT, PRECIOS_DEFAULT } from "@/lib/helpers";
+import type { Administrador, AppData, Cliente, Cupon, MovimientoContable, Operador, UIState } from "@/types";
+import { ADMINISTRADORES_DEFAULT, OPERADORES_DEFAULT, PRECIOS_DEFAULT } from "@/lib/helpers";
 import {
   deleteClientes,
   deleteCupones,
@@ -12,6 +12,7 @@ import {
   insertVentas,
   loadAll,
   setPinAdmin,
+  upsertAdministradores,
   upsertClientes,
   upsertCupones,
   upsertMovimientosContables,
@@ -27,6 +28,7 @@ const initialData: AppData = {
   pinAdmin: "1234",
   precios: JSON.parse(JSON.stringify(PRECIOS_DEFAULT)),
   operadores: JSON.parse(JSON.stringify(OPERADORES_DEFAULT)),
+  administradores: JSON.parse(JSON.stringify(ADMINISTRADORES_DEFAULT)),
   cupones: [],
   movimientosContables: [],
 };
@@ -45,6 +47,7 @@ const initialUI: UIState = {
   loginMode: null,
   operadorSeleccionado: null,
   operadorActual: null,
+  adminSeleccionado: null,
   adminActual: null,
   clientesFiltroEstado: "todos",
   clientesOrden: "estado",
@@ -128,6 +131,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const { cambiados, eliminados } = diffPorId<Operador>(previous.operadores, patch.operadores);
       if (cambiados.length) ops.push(upsertOperadores(cambiados));
       if (eliminados.length) ops.push(deleteOperadores(eliminados));
+    }
+    if (patch.administradores) {
+      const { cambiados, eliminados } = diffPorId<Administrador>(previous.administradores, patch.administradores);
+      if (cambiados.length) ops.push(upsertAdministradores(cambiados));
+      if (eliminados.length) console.warn("Eliminar administradores no está soportado", eliminados);
     }
     if (patch.cupones) {
       const { cambiados, eliminados } = diffPorId<Cupon>(previous.cupones, patch.cupones);

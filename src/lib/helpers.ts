@@ -42,6 +42,13 @@ export const OPERADORES_DEFAULT = [
   { id: "op7", nombre: "Juan", clave: "1007" },
 ];
 
+/** Credenciales de ADMINISTRACIÓN por persona. Juan es el gerente: puede
+ * cambiar la contraseña de cualquiera; Evelyn solo puede cambiar la suya. */
+export const ADMINISTRADORES_DEFAULT = [
+  { id: "adm1", nombre: "Evelyn" as const, clave: "1234" },
+  { id: "adm2", nombre: "Juan" as const, clave: "5678", esGerente: true },
+];
+
 export function fmtCLP(n: number): string {
   return "$" + Math.round(n).toLocaleString("es-CL");
 }

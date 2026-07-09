@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
-import { OPERADORES_DEFAULT, PRECIOS_DEFAULT } from "@/lib/helpers";
-import type { AppData, Cliente, Cupon, Ingreso, MovimientoContable, Operador, Precios, Venta } from "@/types";
+import { ADMINISTRADORES_DEFAULT, OPERADORES_DEFAULT, PRECIOS_DEFAULT } from "@/lib/helpers";
+import type { Administrador, AppData, Cliente, Cupon, Ingreso, MovimientoContable, Operador, Precios, Venta } from "@/types";
 
 type Row = Record<string, unknown>;
 
@@ -144,6 +144,19 @@ function operadorFromRow(r: Row): Operador {
   return { id: r.id as string, nombre: r.nombre as string, clave: r.clave as string };
 }
 
+function administradorToRow(a: Administrador): Row {
+  return { id: a.id, nombre: a.nombre, clave: a.clave, es_gerente: a.esGerente || false };
+}
+
+function administradorFromRow(r: Row): Administrador {
+  return {
+    id: r.id as string,
+    nombre: r.nombre as Administrador["nombre"],
+    clave: r.clave as string,
+    esGerente: (r.es_gerente as boolean) || undefined,
+  };
+}
+
 function cuponToRow(c: Cupon): Row {
   return {
     id: c.id,
@@ -227,23 +240,46 @@ export async function waitForStorage(): Promise<boolean> {
 }
 
 export async function loadAll(): Promise<AppData> {
-  const [clientesRes, ingresosRes, ventasRes, operadoresRes, preciosRes, configRes, cuponesRes, movimientosRes] =
-    await Promise.all([
-      supabase.from("clientes").select("*"),
-      supabase.from("ingresos").select("*").order("fecha", { ascending: false }),
-      supabase.from("ventas").select("*").order("fecha", { ascending: false }),
-      supabase.from("operadores").select("*"),
-      supabase.from("precios").select("*"),
-      supabase.from("config").select("*").maybeSingle(),
-      supabase.from("cupones").select("*").order("creado_en", { ascending: false }),
-      supabase.from("movimientos_contables").select("*").order("fecha", { ascending: false }),
-    ]);
+  const [
+    clientesRes,
+    ingresosRes,
+    ventasRes,
+    operadoresRes,
+    administradoresRes,
+    preciosRes,
+    configRes,
+    cuponesRes,
+    movimientosRes,
+  ] = await Promise.all([
+    supabase.from("clientes").select("*"),
+    supabase.from("ingresos").select("*").order("fecha", { ascending: false }),
+    supabase.from("ventas").select("*").order("fecha", { ascending: false }),
+    supabase.from("operadores").select("*"),
+    supabase.from("administradores").select("*"),
+    supabase.from("precios").select("*"),
+    supabase.from("config").select("*").maybeSingle(),
+    supabase.from("cupones").select("*").order("creado_en", { ascending: false }),
+    supabase.from("movimientos_contables").select("*").order("fecha", { ascending: false }),
+  ]);
 
-  for (const res of [clientesRes, ingresosRes, ventasRes, operadoresRes, preciosRes, configRes, cuponesRes, movimientosRes]) {
+  for (const res of [
+    clientesRes,
+    ingresosRes,
+    ventasRes,
+    operadoresRes,
+    administradoresRes,
+    preciosRes,
+    configRes,
+    cuponesRes,
+    movimientosRes,
+  ]) {
     if (res.error) console.error("Error cargando datos de Supabase", res.error);
   }
 
   const operadores = operadoresRes.data?.length ? operadoresRes.data.map(operadorFromRow) : OPERADORES_DEFAULT;
+  const administradores = administradoresRes.data?.length
+    ? administradoresRes.data.map(administradorFromRow)
+    : ADMINISTRADORES_DEFAULT;
   const precios = preciosRes.data?.length ? preciosFromRows(preciosRes.data) : PRECIOS_DEFAULT;
 
   return {
@@ -251,6 +287,7 @@ export async function loadAll(): Promise<AppData> {
     ingresos: (ingresosRes.data || []).map(ingresoFromRow),
     ventas: (ventasRes.data || []).map(ventaFromRow),
     operadores,
+    administradores,
     precios,
     pinAdmin: (configRes.data?.pin_admin as string) || "1234",
     cupones: (cuponesRes.data || []).map(cuponFromRow),
@@ -297,6 +334,13 @@ export async function deleteOperadores(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
   const { error } = await supabase.from("operadores").delete().in("id", ids);
   if (error) console.error("Error eliminando operadores", error);
+  return !error;
+}
+
+export async function upsertAdministradores(rows: Administrador[]): Promise<boolean> {
+  if (!rows.length) return true;
+  const { error } = await supabase.from("administradores").upsert(rows.map(administradorToRow));
+  if (error) console.error("Error guardando administradores", error);
   return !error;
 }
 

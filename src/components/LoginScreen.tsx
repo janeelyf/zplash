@@ -7,10 +7,7 @@ import { useApp } from "@/context/AppContext";
 export default function LoginScreen() {
   const { data, ui, patchUi } = useApp();
 
-  if (ui.loginMode === "pin") {
-    return <AdminPinForm />;
-  }
-  if (ui.loginMode === "adminQuien") {
+  if (ui.loginMode === "adminSelect") {
     return (
       <div className="login-screen">
         <div className="brand">
@@ -18,15 +15,15 @@ export default function LoginScreen() {
           <div className="sub">¿Quién eres?</div>
         </div>
         <div className="role-grid">
-          {(["Evelyn", "Juan"] as const).map((nombre) => (
+          {data.administradores.map((a) => (
             <button
-              key={nombre}
+              key={a.id}
               className="role-btn"
               style={{ width: 150, padding: "22px 16px" }}
-              onClick={() => patchUi({ view: "adminHub", adminActual: nombre, loginMode: null, loginErr: "" })}
+              onClick={() => patchUi({ loginMode: "adminPin", adminSeleccionado: a.nombre, loginErr: "" })}
             >
               <div className="icon">👤</div>
-              <div className="label">{nombre}</div>
+              <div className="label">{a.nombre}</div>
             </button>
           ))}
         </div>
@@ -35,6 +32,9 @@ export default function LoginScreen() {
         </button>
       </div>
     );
+  }
+  if (ui.loginMode === "adminPin") {
+    return <AdminPinForm />;
   }
   if (ui.loginMode === "operadorSelect" || ui.loginMode === "servSelect") {
     const destino = ui.loginMode === "servSelect" ? "servPin" : "operadorPin";
@@ -84,7 +84,7 @@ export default function LoginScreen() {
           <div className="label">Ingreso Servicios Adicionales</div>
           <div className="desc">Detailing, tapiz, motor, chasis y más</div>
         </button>
-        <button className="role-btn" onClick={() => patchUi({ loginMode: "pin", loginErr: "" })}>
+        <button className="role-btn" onClick={() => patchUi({ loginMode: "adminSelect", loginErr: "" })}>
           <div className="icon">🔑</div>
           <div className="label">ADMINISTRACIÓN</div>
           <div className="desc">Gestionar clientes e historial</div>
@@ -97,13 +97,14 @@ export default function LoginScreen() {
 function AdminPinForm() {
   const { data, ui, patchUi } = useApp();
   const inputRef = useRef<HTMLInputElement>(null);
+  const admin = data.administradores.find((a) => a.nombre === ui.adminSeleccionado);
 
   const submit = () => {
     const val = inputRef.current?.value || "";
-    if (val === data.pinAdmin) {
-      patchUi({ loginMode: "adminQuien", loginErr: "" });
+    if (admin && val === admin.clave) {
+      patchUi({ view: "adminHub", adminActual: admin.nombre, loginMode: null, loginErr: "" });
     } else {
-      patchUi({ loginErr: "PIN incorrecto" });
+      patchUi({ loginErr: "Contraseña incorrecta" });
     }
   };
 
@@ -111,14 +112,14 @@ function AdminPinForm() {
     <div className="login-screen">
       <div className="brand">
         <Image src="/logo.jpg" alt="ZPlash" width={200} height={76} className="brand-logo" unoptimized />
-        <div className="sub">Acceso Administración</div>
+        <div className="sub">Hola, {admin ? admin.nombre : ""}</div>
       </div>
       <div className="pin-box">
         <input
           ref={inputRef}
           type="password"
-          maxLength={6}
-          placeholder="••••"
+          maxLength={12}
+          placeholder="Contraseña"
           autoFocus
           onKeyDown={(e) => {
             if (e.key === "Enter") submit();
@@ -128,7 +129,7 @@ function AdminPinForm() {
         <button className="btn" onClick={submit}>
           Ingresar
         </button>
-        <button className="btn ghost" onClick={() => patchUi({ loginMode: null, loginErr: "" })}>
+        <button className="btn ghost" onClick={() => patchUi({ loginMode: "adminSelect", loginErr: "" })}>
           Volver
         </button>
       </div>

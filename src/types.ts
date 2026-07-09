@@ -85,6 +85,13 @@ export interface Operador {
   clave: string;
 }
 
+export interface Administrador {
+  id: string;
+  nombre: "Evelyn" | "Juan";
+  clave: string;
+  esGerente?: boolean;
+}
+
 export interface MovimientoContable {
   id: string;
   tipo: "ingreso" | "egreso" | "cuenta_por_cobrar" | "cuenta_por_pagar";
@@ -108,6 +115,7 @@ export interface AppData {
   pinAdmin: string;
   precios: Precios;
   operadores: Operador[];
+  administradores: Administrador[];
   cupones: Cupon[];
   movimientosContables: MovimientoContable[];
 }
@@ -145,9 +153,10 @@ export interface UIState {
   cierreDesde: string | null;
   cierreHasta: string | null;
   facturaSearch: string;
-  loginMode: "pin" | "adminQuien" | "operadorSelect" | "operadorPin" | "servSelect" | "servPin" | null;
+  loginMode: "adminSelect" | "adminPin" | "operadorSelect" | "operadorPin" | "servSelect" | "servPin" | null;
   operadorSeleccionado: string | null;
   operadorActual: string | null;
+  adminSeleccionado: "Evelyn" | "Juan" | null;
   adminActual: "Evelyn" | "Juan" | null;
   clientesFiltroEstado: string;
   clientesOrden: string;
