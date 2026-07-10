@@ -15,7 +15,7 @@ export default function PagoModal({
   onConfirm: (pago: PagoInfo) => void;
 }) {
   const { patchUi } = useApp();
-  const [metodo, setMetodo] = useState<"efectivo" | "tarjeta" | null>(null);
+  const [metodo, setMetodo] = useState<"efectivo" | "tarjeta" | "transferencia" | null>(null);
   const [err, setErr] = useState("");
 
   const confirmar = () => {
@@ -32,7 +32,7 @@ export default function PagoModal({
       <h3>Forma de pago</h3>
       <div style={{ color: "var(--white)", fontSize: 14, marginBottom: 12 }}>{descripcion}</div>
       <div style={{ fontWeight: 700, fontSize: 26, color: "var(--gold)", marginBottom: 18 }}>{fmtCLP(monto)}</div>
-      <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
         <button
           className={metodo === "efectivo" ? "btn" : "btn ghost"}
           style={{ flex: 1, marginTop: 0 }}
@@ -52,6 +52,16 @@ export default function PagoModal({
           }}
         >
           Tarjeta
+        </button>
+        <button
+          className={metodo === "transferencia" ? "btn" : "btn ghost"}
+          style={{ flex: 1, marginTop: 0 }}
+          onClick={() => {
+            setMetodo("transferencia");
+            setErr("");
+          }}
+        >
+          Transferencia bancaria
         </button>
       </div>
       <div className="err">{err}</div>

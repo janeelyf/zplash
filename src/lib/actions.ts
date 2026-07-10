@@ -1,11 +1,21 @@
 import type { AppData, Cliente, Ingreso, PagoInfo, Venta } from "@/types";
-import { PLANES, formatRut, isValidPatente, normPlate, planStatus, precioPreferencial, uid } from "@/lib/helpers";
+import {
+  PLANES,
+  formatRut,
+  formatTelefono,
+  isValidPatente,
+  normPlate,
+  planStatus,
+  precioPreferencial,
+  uid,
+} from "@/lib/helpers";
 
 export function registrarIngreso(
   data: AppData,
   cliente: Cliente,
   operadorActual: string | null | undefined,
-  esGarantia?: boolean
+  esGarantia?: boolean,
+  glosa?: string
 ): Partial<AppData> {
   const estadoPlan = planStatus(cliente).cls;
   const ingreso: Ingreso = {
@@ -17,6 +27,7 @@ export function registrarIngreso(
     planEstadoAlIngreso: estadoPlan,
     operador: operadorActual || "",
     esGarantia: esGarantia || undefined,
+    glosa: glosa || undefined,
   };
   const clienteActualizado: Cliente = {
     ...cliente,
@@ -99,7 +110,7 @@ export function importarClientes(data: AppData, rows: Record<string, unknown>[])
       return;
     }
     const nombre = (getField(row, "nombre", "cliente") || "Sin nombre").toUpperCase();
-    const telefono = getField(row, "telefono", "teléfono", "fono");
+    const telefono = formatTelefono(getField(row, "telefono", "teléfono", "fono"));
     const email = getField(row, "email", "correo", "correo electronico", "correo electrónico");
     const vehiculo = getField(row, "vehiculo", "vehículo", "auto");
     const plan = PLANES[0];

@@ -55,7 +55,8 @@ create table if not exists ingresos (
   operador text,
   es_garantia boolean not null default false,
   via_cupon boolean not null default false,
-  cupon_codigo text
+  cupon_codigo text,
+  glosa text
 );
 create index if not exists ingresos_fecha_idx on ingresos (fecha desc);
 create index if not exists ingresos_cliente_idx on ingresos (cliente_id);

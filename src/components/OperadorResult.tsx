@@ -20,7 +20,7 @@ import {
   vencimientoPorDefectoISO,
   yaIngresoHoy,
 } from "@/lib/helpers";
-import type { Cliente, Ingreso, PagoInfo, Venta } from "@/types";
+import type { Cliente, Empresa, Ingreso, PagoInfo, Venta } from "@/types";
 
 export default function OperadorResult({ clearPlate }: { clearPlate: () => void }) {
   const { ui } = useApp();
@@ -335,15 +335,14 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
         ) : (
           <>
             <div className="hint" style={{ textAlign: "left", color: "var(--gray)", marginTop: 16 }}>
-              Este cliente no tiene un plan vigente. Puede ingresar pagando un lavado único, o contratar un plan
-              ahora mismo.
+              Este cliente no tiene un plan vigente. Elige el tipo de lavado:
             </div>
             <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
-              <button className="btn" style={{ marginTop: 0 }} onClick={registrarPagado}>
-                Registrar lavado único pagado ({fmtCLP(precioLavadoUnico(data.precios))})
+              <button className="btn" style={{ marginTop: 0 }} onClick={contratarPlan}>
+                Renovar / Contratar plan
               </button>
-              <button className="btn secondary" style={{ marginTop: 0 }} onClick={contratarPlan}>
-                Contratar plan
+              <button className="btn secondary" style={{ marginTop: 0 }} onClick={registrarPagado}>
+                Lavado Full Túnel ({fmtCLP(precioLavadoUnico(data.precios))})
               </button>
             </div>
           </>
@@ -356,12 +355,12 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
 function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () => void }) {
   const { data, ui, commit, patchUi } = useApp();
   const [tipoDoc, setTipoDoc] = useState<"Boleta" | "Factura">("Boleta");
+  const [tipoLavado, setTipoLavado] = useState<"plan" | "unico">("plan");
   const [err, setErr] = useState("");
   const qNombreRef = useRef<HTMLInputElement>(null);
   const qTelefonoRef = useRef<HTMLInputElement>(null);
   const qEmailRef = useRef<HTMLInputElement>(null);
   const qVehiculoRef = useRef<HTMLInputElement>(null);
-  const qTipoClienteRef = useRef<HTMLSelectElement>(null);
   const qRazonSocialRef = useRef<HTMLInputElement>(null);
   const qRutRef = useRef<HTMLInputElement>(null);
   const qDireccionRef = useRef<HTMLInputElement>(null);
@@ -371,12 +370,28 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
     patchUi({ modal: { type: "pago", monto, descripcion, onConfirm } });
   };
 
+  // El RUT manda: al salir del campo se busca en la ficha de Empresas; si ya
+  // existe una con ese RUT se traen sus datos (Razón Social, Dirección,
+  // Giro) en vez de tipearlos de nuevo. Si no existe, quickAdd() la crea al
+  // guardar, con este cliente nuevo como persona de contacto.
+  const onRutBlur = () => {
+    const rutRaw = qRutRef.current?.value.trim() || "";
+    if (!isValidRut(rutRaw)) return;
+    const rutFormateado = formatRut(rutRaw);
+    if (qRutRef.current) qRutRef.current.value = rutFormateado;
+    const empresa = data.empresas.find((e) => formatRut(e.rut) === rutFormateado);
+    if (!empresa) return;
+    if (qRazonSocialRef.current) qRazonSocialRef.current.value = empresa.razonSocial;
+    if (qDireccionRef.current) qDireccionRef.current.value = empresa.direccion || "";
+    if (qGiroRef.current) qGiroRef.current.value = empresa.giro || "";
+  };
+
   const quickAdd = () => {
     const nombre = (qNombreRef.current?.value.trim() || "Cliente sin nombre").toUpperCase();
     const telefono = qTelefonoRef.current?.value.trim() || "";
     const email = qEmailRef.current?.value.trim() || "";
     const vehiculo = qVehiculoRef.current?.value.trim() || "";
-    const tipoCliente = qTipoClienteRef.current?.value || "plan";
+    const tipoCliente = tipoLavado;
     const plan = PLANES[0];
     const tipoDocumento = tipoDoc;
     const razonSocial = tipoDocumento === "Factura" ? qRazonSocialRef.current?.value.trim() || "" : "";
@@ -418,6 +433,24 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
     const descripcion =
       tipoCliente === "plan" ? `Contratación de plan para ${nombre}` : `Lavado único para ${nombre}`;
 
+    // Si es Factura y el RUT no pertenece a ninguna empresa ya registrada, se
+    // crea una nueva en Empresas con este cliente como persona de contacto.
+    let nuevaEmpresa: Empresa | undefined;
+    if (tipoDocumento === "Factura" && rut && !data.empresas.some((e) => formatRut(e.rut) === rut)) {
+      nuevaEmpresa = {
+        id: uid(),
+        razonSocial,
+        rut,
+        giro,
+        direccion,
+        telefono,
+        contactoClienteId: nuevo.id,
+        contactoNombre: nuevo.nombre,
+        creadoEn: new Date().toISOString(),
+        creadoPor: ui.perfilActual?.nombre || "",
+      };
+    }
+
     pedirPago(precio, descripcion, async (pago) => {
       const venta: Venta = {
         id: "v" + Date.now(),
@@ -434,7 +467,12 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
       };
       const tempData = { ...data, clientes: [...data.clientes, nuevo], ventas: [venta, ...data.ventas] };
       const ingresoPatch = registrarIngreso(tempData, nuevo, ui.perfilActual?.nombre);
-      const ok = await commit({ clientes: ingresoPatch.clientes, ventas: tempData.ventas, ingresos: ingresoPatch.ingresos });
+      const ok = await commit({
+        clientes: ingresoPatch.clientes,
+        ventas: tempData.ventas,
+        ingresos: ingresoPatch.ingresos,
+        ...(nuevaEmpresa ? { empresas: [...data.empresas, nuevaEmpresa] } : {}),
+      });
       if (!ok) {
         setErr(ERROR_GUARDADO);
         return;
@@ -488,9 +526,28 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
       </div>
       {err && <div className="err" style={{ marginBottom: 10 }}>{err}</div>}
       <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13 }}>
+        Este vehículo no tiene un plan activo. Elige el tipo de lavado:
+      </div>
+      <div style={{ display: "flex", gap: 10, marginTop: 8, marginBottom: 14, flexWrap: "wrap" }}>
+        <button
+          className={tipoLavado === "plan" ? "btn" : "btn secondary"}
+          style={{ marginTop: 0 }}
+          onClick={() => setTipoLavado("plan")}
+        >
+          Renovar / Contratar plan
+        </button>
+        <button
+          className={tipoLavado === "unico" ? "btn" : "btn secondary"}
+          style={{ marginTop: 0 }}
+          onClick={() => setTipoLavado("unico")}
+        >
+          Lavado Full Túnel ({fmtCLP(precioLavadoUnico(data.precios))})
+        </button>
+      </div>
+      <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13 }}>
         ¿Solo un lavado, sin ficha de cliente? Cóbralo directo sin registrar nada.
       </div>
-      <button className="btn" style={{ marginBottom: 4 }} onClick={ingresarSinRegistro}>
+      <button className="btn ghost" style={{ marginBottom: 4 }} onClick={ingresarSinRegistro}>
         Ingresar sin registro — Lavado único ({fmtCLP(precioLavadoUnico(data.precios))})
       </button>
       <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginTop: 14 }}>
@@ -514,13 +571,6 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
           <input ref={qVehiculoRef} placeholder="Ej: Toyota Yaris" />
         </div>
         <div>
-          <label>Tipo de cliente</label>
-          <select ref={qTipoClienteRef} defaultValue="plan">
-            <option value="plan">Con Plan Ilimitado Mensual</option>
-            <option value="unico">Lavado único (sin plan)</option>
-          </select>
-        </div>
-        <div>
           <label>Tipo de documento</label>
           <select value={tipoDoc} onChange={(e) => setTipoDoc(e.target.value as "Boleta" | "Factura")}>
             <option value="Boleta">Boleta</option>
@@ -530,12 +580,12 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
         {tipoDoc === "Factura" && (
           <div>
             <div style={{ marginBottom: 10 }}>
-              <label>Razón Social</label>
-              <input ref={qRazonSocialRef} />
+              <label>RUT</label>
+              <input ref={qRutRef} placeholder="12.345.678-9" onBlur={onRutBlur} />
             </div>
             <div style={{ marginBottom: 10 }}>
-              <label>RUT</label>
-              <input ref={qRutRef} placeholder="12.345.678-9" />
+              <label>Razón Social</label>
+              <input ref={qRazonSocialRef} />
             </div>
             <div style={{ marginBottom: 10 }}>
               <label>Dirección</label>

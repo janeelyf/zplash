@@ -13,10 +13,14 @@ import {
   isValidPatente,
   isValidRut,
   normPlate,
+  planStatus,
   precioServicioAdicional,
   todayStr,
+  uid,
 } from "@/lib/helpers";
-import type { Cliente, Venta } from "@/types";
+import type { Cliente, Empresa, Ingreso, Venta } from "@/types";
+
+const GLOSA_LIMPIEZA_COMPLETA = "Limpieza Completa";
 
 const ERROR_GUARDADO = "No se pudo guardar el servicio (sin conexión con el almacenamiento). Verifica tu conexión e inténtalo de nuevo.";
 const CATEGORIA_DETAILING = "Lavado Completo Detailing";
@@ -95,6 +99,21 @@ export default function ServiciosAdicionalesView() {
 
   const quitarPersonalizado = (id: string) => {
     setItemsPersonalizados((prev) => prev.filter((i) => i.id !== id));
+  };
+
+  // El RUT manda: al salir del campo se busca en la ficha de Empresas; si ya
+  // existe una con ese RUT se traen sus datos en vez de tipearlos de nuevo.
+  // Si no existe, registrar() la crea con este cliente como contacto.
+  const onRutBlur = () => {
+    const rutRaw = rutRef.current?.value.trim() || "";
+    if (!isValidRut(rutRaw)) return;
+    const rutFormateado = formatRut(rutRaw);
+    if (rutRef.current) rutRef.current.value = rutFormateado;
+    const empresa = data.empresas.find((e) => formatRut(e.rut) === rutFormateado);
+    if (!empresa) return;
+    if (razonSocialRef.current) razonSocialRef.current.value = empresa.razonSocial;
+    if (direccionRef.current) direccionRef.current.value = empresa.direccion || "";
+    if (giroRef.current) giroRef.current.value = empresa.giro || "";
   };
 
   const buscarPatente = () => {
@@ -209,7 +228,47 @@ export default function ServiciosAdicionalesView() {
       clienteId = nuevo.id;
     }
 
+    // El RUT manda: si es Factura y ese RUT no pertenece a ninguna empresa ya
+    // registrada, se crea una nueva en Empresas con este cliente como contacto.
+    let nuevaEmpresa: Empresa | undefined;
+    if (tipoDoc === "Factura" && rut && !data.empresas.some((e) => formatRut(e.rut) === rut)) {
+      nuevaEmpresa = {
+        id: uid(),
+        razonSocial,
+        rut,
+        giro,
+        direccion,
+        telefono,
+        contactoClienteId: clienteId,
+        contactoNombre: nombre,
+        creadoEn: new Date().toISOString(),
+        creadoPor: ui.perfilActual?.nombre || "",
+      };
+    }
+
     const ahora = new Date().toISOString();
+
+    // Un lavado completo/detailing implica que el vehículo pasó por el túnel,
+    // así que además de las ventas se deja registro en Historial de Ingresos.
+    let ingresosNuevos = data.ingresos;
+    if (hayDetailingSeleccionado) {
+      const clienteParaIngreso = clientes.find((c) => c.id === clienteId)!;
+      const ingreso: Ingreso = {
+        id: "i" + Date.now(),
+        clienteId,
+        patente,
+        nombre,
+        fecha: ahora,
+        planEstadoAlIngreso: planStatus(clienteParaIngreso).cls,
+        operador: ui.perfilActual?.nombre || "",
+        glosa: GLOSA_LIMPIEZA_COMPLETA,
+      };
+      clientes = clientes.map((c) =>
+        c.id === clienteId ? { ...c, visitas: (c.visitas || 0) + 1, ultimaVisita: ahora } : c
+      );
+      ingresosNuevos = [ingreso, ...data.ingresos];
+    }
+
     const ventasNuevas: Venta[] = lineas.map((l, idx) => ({
       id: "v" + Date.now() + "-" + idx,
       clienteId,
@@ -228,7 +287,12 @@ export default function ServiciosAdicionalesView() {
       esServicioAdicional: true,
     }));
 
-    const ok = await commit({ clientes, ventas: [...ventasNuevas, ...data.ventas] });
+    const ok = await commit({
+      clientes,
+      ventas: [...ventasNuevas, ...data.ventas],
+      ingresos: ingresosNuevos,
+      ...(nuevaEmpresa ? { empresas: [...data.empresas, nuevaEmpresa] } : {}),
+    });
     if (!ok) {
       setErr(ERROR_GUARDADO);
       return;
@@ -462,12 +526,17 @@ export default function ServiciosAdicionalesView() {
                 {tipoDoc === "Factura" && (
                   <div>
                     <div className="field">
-                      <label>Razón Social</label>
-                      <input ref={razonSocialRef} defaultValue={clienteExistente?.razonSocial || ""} />
+                      <label>RUT</label>
+                      <input
+                        ref={rutRef}
+                        defaultValue={clienteExistente?.rut || ""}
+                        placeholder="12.345.678-9"
+                        onBlur={onRutBlur}
+                      />
                     </div>
                     <div className="field">
-                      <label>RUT</label>
-                      <input ref={rutRef} defaultValue={clienteExistente?.rut || ""} placeholder="12.345.678-9" />
+                      <label>Razón Social</label>
+                      <input ref={razonSocialRef} defaultValue={clienteExistente?.razonSocial || ""} />
                     </div>
                     <div className="field">
                       <label>Dirección</label>

@@ -198,6 +198,25 @@ export function todayStr(): string {
   return new Date().toDateString();
 }
 
+function ymd(d: Date): string {
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+/** Primer día del mes actual, en formato YYYY-MM-DD. */
+export function primerDiaMesActualYMD(): string {
+  const d = new Date();
+  return ymd(new Date(d.getFullYear(), d.getMonth(), 1));
+}
+
+/** Rango { desde, hasta } (YYYY-MM-DD) del mes calendario anterior al actual. */
+export function mesPasadoRango(): { desde: string; hasta: string } {
+  const d = new Date();
+  return {
+    desde: ymd(new Date(d.getFullYear(), d.getMonth() - 1, 1)),
+    hasta: ymd(new Date(d.getFullYear(), d.getMonth(), 0)),
+  };
+}
+
 export function inRange(iso: string | null | undefined, desde: string, hasta: string): boolean {
   if (!iso) return false;
   const d = new Date(iso);
@@ -260,6 +279,35 @@ export function isValidRut(rut: string | null | undefined): boolean {
 export const RUT_FORMATO_MSG =
   "RUT inválido. Debe llevar separador de miles y el dígito verificador al final separado por un guion (ej. 12.345.678-9).";
 
+/**
+ * Estandariza un celular chileno a +569XXXXXXXX detectando las variantes más
+ * comunes de carga: ya viene completo (con o sin "+", con espacios/guiones),
+ * viene sin el "56" (9XXXXXXXX), o viene solo el número sin "9" ni "56"
+ * (XXXXXXXX). Un "0" inicial (costumbre de marcar desde fijo) se descarta
+ * antes de evaluar el patrón. Si no calza con ninguno (fijo, otro país,
+ * dígitos de más/menos) se devuelve el original intacto para no perder el
+ * dato — queda marcado como inválido por isValidTelefono para revisión manual.
+ */
+export function formatTelefono(tel: string | null | undefined): string {
+  const original = (tel || "").trim();
+  if (!original) return "";
+  const d = original.replace(/\D/g, "").replace(/^0+/, "");
+  if (d.length === 11 && d.startsWith("569")) return "+" + d;
+  if (d.length === 9 && d.startsWith("9")) return "+56" + d;
+  if (d.length === 8) return "+569" + d;
+  return original;
+}
+
+const TELEFONO_REGEX = /^\+569\d{8}$/;
+
+export function isValidTelefono(tel: string | null | undefined): boolean {
+  if (!tel || !tel.trim()) return true; // el teléfono es opcional
+  return TELEFONO_REGEX.test(formatTelefono(tel));
+}
+
+export const TELEFONO_FORMATO_MSG =
+  "Teléfono inválido. Debe ser un celular chileno: +569 seguido de 8 dígitos (ej. +56912345678).";
+
 // Orden de la pantalla de login y de la pestaña Perfiles: los operadores van
 // primero (alfabético), y los perfiles de gestión quedan fijos al final en
 // este orden — "Administración" y luego "Gerencia" — sin importar dónde caigan
@@ -293,7 +341,7 @@ export function esNombreVacio(nombre: string | undefined | null): boolean {
   return !nombre || !nombre.trim() || nombre.trim().toLowerCase() === "sin nombre";
 }
 
-export function planStatus(c: Cliente): PlanStatus {
+export function planStatus(c: Pick<Cliente, "vencimiento">): PlanStatus {
   if (!c.vencimiento) return { label: "Sin plan", cls: "bad" };
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
@@ -305,6 +353,7 @@ export function planStatus(c: Cliente): PlanStatus {
 }
 
 export function tipoIngreso(i: Ingreso): { label: string; cls: "ok" | "warn" | "bad" } {
+  if (i.glosa) return { label: i.glosa, cls: "ok" };
   if (i.viaCupon) return { label: "Cupón", cls: "warn" };
   if (i.esGarantia) return { label: "Garantía", cls: "warn" };
   if (i.planEstadoAlIngreso === "bad") return { label: fmtCLP(PRECIO_LAVADO_UNICO), cls: "bad" };

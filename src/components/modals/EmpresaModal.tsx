@@ -19,6 +19,31 @@ export default function EmpresaModal({ data: e }: { data: Empresa | null }) {
 
   const clientesOrdenados = [...data.clientes].sort((a, b) => a.nombre.localeCompare(b.nombre));
 
+  // El RUT manda: si al salir del campo coincide con el RUT de un cliente ya
+  // registrado, se usa ese cliente para completar el resto del formulario
+  // (Razón Social, Dirección, Giro y Contacto), sin pisar campos que el
+  // usuario ya haya llenado a mano.
+  const onRutBlur = () => {
+    const rutRaw = rutRef.current?.value.trim() || "";
+    if (!isValidRut(rutRaw)) return;
+    const rutFormateado = formatRut(rutRaw);
+    if (rutRef.current) rutRef.current.value = rutFormateado;
+    const cliente = data.clientes.find((c) => c.rut && formatRut(c.rut) === rutFormateado);
+    if (!cliente) return;
+    if (razonSocialRef.current && !razonSocialRef.current.value.trim()) {
+      razonSocialRef.current.value = cliente.razonSocial || cliente.nombre;
+    }
+    if (direccionRef.current && !direccionRef.current.value.trim() && cliente.direccion) {
+      direccionRef.current.value = cliente.direccion;
+    }
+    if (giroRef.current && !giroRef.current.value.trim() && cliente.giro) {
+      giroRef.current.value = cliente.giro;
+    }
+    if (contactoRef.current && !contactoRef.current.value) {
+      contactoRef.current.value = cliente.id;
+    }
+  };
+
   const guardar = async () => {
     const razonSocial = razonSocialRef.current?.value.trim() || "";
     const rutRaw = rutRef.current?.value.trim() || "";
@@ -86,12 +111,12 @@ export default function EmpresaModal({ data: e }: { data: Empresa | null }) {
     <div className="modal">
       <h3>{e ? "Editar empresa" : "Nueva empresa"}</h3>
       <div className="field">
-        <label>Razón Social</label>
-        <input ref={razonSocialRef} defaultValue={emp.razonSocial || ""} />
+        <label>RUT</label>
+        <input ref={rutRef} defaultValue={emp.rut || ""} placeholder="12.345.678-9" onBlur={onRutBlur} autoFocus={!e} />
       </div>
       <div className="field">
-        <label>RUT</label>
-        <input ref={rutRef} defaultValue={emp.rut || ""} placeholder="12.345.678-9" />
+        <label>Razón Social</label>
+        <input ref={razonSocialRef} defaultValue={emp.razonSocial || ""} />
       </div>
       <div className="field">
         <label>Giro</label>
@@ -111,7 +136,7 @@ export default function EmpresaModal({ data: e }: { data: Empresa | null }) {
           <option value="">Sin contacto asignado</option>
           {clientesOrdenados.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.nombre}
+              {c.nombre} — {c.rut ? formatRut(c.rut) : "sin RUT"}
             </option>
           ))}
         </select>

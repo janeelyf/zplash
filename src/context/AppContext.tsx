@@ -46,6 +46,8 @@ const initialUI: UIState = {
   loginErr: "",
   cierreDesde: null,
   cierreHasta: null,
+  statsDesde: null,
+  statsHasta: null,
   facturaSearch: "",
   loginMode: null,
   perfilSeleccionadoId: null,

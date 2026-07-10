@@ -6,16 +6,20 @@ import {
   PATENTE_FORMATO_MSG,
   PLANES,
   RUT_FORMATO_MSG,
+  TELEFONO_FORMATO_MSG,
   formatRut,
+  formatTelefono,
   isValidPatente,
   isValidRut,
+  isValidTelefono,
   normPlate,
   precioLavadoUnico,
   precioNormal,
   todayYMD,
+  uid,
   vencimientoPorDefectoISO,
 } from "@/lib/helpers";
-import type { Cliente, PagoInfo, Venta } from "@/types";
+import type { Cliente, Empresa, PagoInfo, Venta } from "@/types";
 
 export default function ClientModal({ data: c, contexto }: { data: Cliente | null; contexto?: "operador" | "admin" }) {
   const { data, commit, patchUi, ui } = useApp();
@@ -38,6 +42,27 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
   const [tipoCliente, setTipoCliente] = useState("plan");
   const [err, setErr] = useState("");
 
+  // El RUT manda: al salir del campo se busca en la ficha de Empresas; si ya
+  // existe una con ese RUT se traen sus datos en vez de tipearlos de nuevo.
+  // Si no existe, guardar() la crea con este cliente como contacto.
+  const onRutBlur = () => {
+    const rutRaw = rutRef.current?.value.trim() || "";
+    if (!isValidRut(rutRaw)) return;
+    const rutFormateado = formatRut(rutRaw);
+    if (rutRef.current) rutRef.current.value = rutFormateado;
+    const empresa = data.empresas.find((e) => formatRut(e.rut) === rutFormateado);
+    if (!empresa) return;
+    if (razonSocialRef.current) razonSocialRef.current.value = empresa.razonSocial;
+    if (direccionRef.current) direccionRef.current.value = empresa.direccion || "";
+    if (giroRef.current) giroRef.current.value = empresa.giro || "";
+  };
+
+  const onTelefonoBlur = () => {
+    const raw = telefonoRef.current?.value.trim() || "";
+    if (!raw || !telefonoRef.current) return;
+    telefonoRef.current.value = formatTelefono(raw);
+  };
+
   const guardar = () => {
     const nombre = (nombreRef.current?.value.trim() || "").toUpperCase();
     const patente = normPlate(patenteRef.current?.value || "");
@@ -54,7 +79,12 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
       setErr("Ya existe un cliente con esa patente");
       return;
     }
-    const telefono = telefonoRef.current?.value.trim() || "";
+    const telefonoRaw = telefonoRef.current?.value.trim() || "";
+    const telefono = telefonoRaw ? formatTelefono(telefonoRaw) : "";
+    if (telefono && !isValidTelefono(telefono)) {
+      setErr(TELEFONO_FORMATO_MSG);
+      return;
+    }
     const email = emailRef.current?.value.trim() || "";
     const vehiculo = vehiculoRef.current?.value.trim() || "";
     const tipoDocumento = tipoDoc;
@@ -93,6 +123,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
     const persistir = async (pago?: PagoInfo) => {
       let clientes: Cliente[];
       let ventas = data.ventas;
+      let nuevaEmpresa: Empresa | undefined;
 
       if (c) {
         const actualizado: Cliente = {
@@ -112,6 +143,20 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
           origen,
         };
         clientes = data.clientes.map((x) => (x.id === c.id ? actualizado : x));
+        if (tipoDocumento === "Factura" && rut && !data.empresas.some((e) => formatRut(e.rut) === rut)) {
+          nuevaEmpresa = {
+            id: uid(),
+            razonSocial,
+            rut,
+            giro,
+            direccion,
+            telefono,
+            contactoClienteId: actualizado.id,
+            contactoNombre: actualizado.nombre,
+            creadoEn: new Date().toISOString(),
+            creadoPor: ui.perfilActual?.nombre || (contexto === "operador" ? "" : "Administrador"),
+          };
+        }
         if (vencimiento && vencimiento !== vencimientoAnterior) {
           const venta: Venta = {
             id: "v" + Date.now(),
@@ -148,7 +193,21 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
           creadoPor: contexto === "operador" ? ui.perfilActual?.nombre || "" : "Administrador",
         };
         clientes = [...data.clientes, nuevo];
-        if (vencimiento) {
+        if (tipoDocumento === "Factura" && rut && !data.empresas.some((e) => formatRut(e.rut) === rut)) {
+          nuevaEmpresa = {
+            id: uid(),
+            razonSocial,
+            rut,
+            giro,
+            direccion,
+            telefono,
+            contactoClienteId: nuevo.id,
+            contactoNombre: nuevo.nombre,
+            creadoEn: new Date().toISOString(),
+            creadoPor: ui.perfilActual?.nombre || (contexto === "operador" ? "" : "Administrador"),
+          };
+        }
+        if (vencimiento && contexto === "operador") {
           const venta: Venta = {
             id: "v" + Date.now(),
             clienteId: nuevo.id,
@@ -163,7 +222,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
             voucher: pago?.voucher,
           };
           ventas = [venta, ...ventas];
-        } else if (contexto === "operador") {
+        } else if (!vencimiento && contexto === "operador") {
           // Tipo "unico" (sin plan): igual se cobra un lavado único.
           const venta: Venta = {
             id: "v" + Date.now(),
@@ -182,7 +241,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
         }
       }
 
-      const ok = await commit({ clientes, ventas });
+      const ok = await commit({ clientes, ventas, ...(nuevaEmpresa ? { empresas: [...data.empresas, nuevaEmpresa] } : {}) });
       if (!ok) {
         setErr("No se pudo guardar el cambio (sin conexión con el almacenamiento). Verifica tu conexión e inténtalo de nuevo.");
         return;
@@ -190,9 +249,19 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
       patchUi({ modal: null });
     };
 
+    // Un cliente nuevo creado desde el admin no genera venta ni pide medio de
+    // pago: es solo un registro en la ficha, no un cobro en caja.
+    const creaVenta = c
+      ? !!(vencimiento && vencimiento !== vencimientoAnterior)
+      : contexto === "operador" && !!vencimiento;
+
     if (contexto === "operador") {
       const monto = vencimiento ? precioNormal(data.precios, plan) : precioLavadoUnico(data.precios);
       const descripcion = vencimiento ? `Contratación de plan para ${nombre}` : `Lavado único para ${nombre}`;
+      patchUi({ modal: { type: "pago", monto, descripcion, onConfirm: (pago) => persistir(pago) } });
+    } else if (creaVenta) {
+      const monto = precioNormal(data.precios, plan);
+      const descripcion = c ? `Renovación de plan para ${nombre}` : `Contratación de plan para ${nombre}`;
       patchUi({ modal: { type: "pago", monto, descripcion, onConfirm: (pago) => persistir(pago) } });
     } else {
       persistir();
@@ -212,7 +281,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
       </div>
       <div className="field">
         <label>Teléfono</label>
-        <input ref={telefonoRef} defaultValue={cli.telefono || "+569"} />
+        <input ref={telefonoRef} defaultValue={cli.telefono || "+569"} onBlur={onTelefonoBlur} />
       </div>
       <div className="field">
         <label>Correo electrónico</label>
@@ -224,10 +293,10 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
       </div>
       {contexto === "operador" ? (
         <div className="field">
-          <label>Tipo de cliente</label>
+          <label>Tipo de lavado</label>
           <select ref={tipoClienteRef} value={tipoCliente} onChange={(e) => setTipoCliente(e.target.value)}>
             <option value="plan">Con Plan Ilimitado Mensual</option>
-            <option value="unico">Lavado único (sin plan)</option>
+            <option value="unico">Lavado Full Túnel (sin plan)</option>
           </select>
         </div>
       ) : (
@@ -261,12 +330,12 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
       {tipoDoc === "Factura" && (
         <div>
           <div className="field">
-            <label>Razón Social</label>
-            <input ref={razonSocialRef} defaultValue={cli.razonSocial || ""} />
+            <label>RUT</label>
+            <input ref={rutRef} defaultValue={cli.rut || ""} placeholder="12.345.678-9" onBlur={onRutBlur} />
           </div>
           <div className="field">
-            <label>RUT</label>
-            <input ref={rutRef} defaultValue={cli.rut || ""} placeholder="12.345.678-9" />
+            <label>Razón Social</label>
+            <input ref={razonSocialRef} defaultValue={cli.razonSocial || ""} />
           </div>
           <div className="field">
             <label>Dirección</label>

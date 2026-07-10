@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { eq, ilike } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, ventas } from "@/db/schema";
-import { PLANES, normPlate } from "@/lib/helpers";
+import { PLANES, formatTelefono, normPlate } from "@/lib/helpers";
 
 export const runtime = "nodejs";
 
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
   const patente = extraerPatente(order);
   const email = String(billing.email || "").trim().toLowerCase();
   const nombre = `${billing.first_name || ""} ${billing.last_name || ""}`.trim().toUpperCase() || "SIN NOMBRE";
-  const telefono = String(billing.phone || "");
+  const telefono = formatTelefono(String(billing.phone || ""));
   const fechaOrden = order.date_created ? new Date(order.date_created as string).toISOString() : new Date().toISOString();
   const monto = Number(order.total) || 0;
 

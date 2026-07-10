@@ -102,6 +102,7 @@ function ingresoToRow(i: Ingreso): typeof ingresos.$inferInsert {
     esGarantia: i.esGarantia || false,
     viaCupon: i.viaCupon || false,
     cuponCodigo: i.cuponCodigo || null,
+    glosa: i.glosa || null,
   };
 }
 
@@ -117,6 +118,7 @@ function ingresoFromRow(r: IngresoRow): Ingreso {
     esGarantia: r.esGarantia || undefined,
     viaCupon: r.viaCupon || undefined,
     cuponCodigo: r.cuponCodigo || undefined,
+    glosa: r.glosa || undefined,
   };
 }
 
@@ -247,6 +249,7 @@ function movimientoToRow(m: MovimientoContable): typeof movimientosContables.$in
     documentoNombre: m.documentoNombre || null,
     monto: m.monto || 0,
     estado: m.estado,
+    metodoPago: m.metodoPago || null,
     notas: m.notas || null,
     creadoEn: m.creadoEn,
     creadoPor: m.creadoPor || null,
@@ -268,6 +271,7 @@ function movimientoFromRow(r: MovimientoRow): MovimientoContable {
     documentoNombre: r.documentoNombre || undefined,
     monto: r.monto || 0,
     estado: (r.estado as MovimientoContable["estado"]) || "pendiente",
+    metodoPago: (r.metodoPago as MovimientoContable["metodoPago"]) || undefined,
     notas: r.notas || undefined,
     creadoEn: r.creadoEn,
     creadoPor: r.creadoPor || undefined,

@@ -91,7 +91,7 @@ export default function EERRTab() {
           <thead>
             <tr>
               <th>Cuenta</th>
-              <th style={{ textAlign: "right", textTransform: "capitalize" }}>{nombreMes}</th>
+              <th style={{ textAlign: "right" }}>{nombreMes}</th>
             </tr>
           </thead>
           <tbody>

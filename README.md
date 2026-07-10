@@ -94,6 +94,42 @@ src/
     modals/                # Modales de cliente, confirmación, operador y carga masiva (Excel)
 ```
 
+## Bot de WhatsApp (Twilio Sandbox)
+
+El endpoint `src/app/api/whatsapp/route.ts` responde automáticamente a
+mensajes de WhatsApp usando reglas fijas (sin IA): saludo → menú, patente →
+estado del plan (consulta `clientes` con `planStatus` de `helpers.ts`),
+"1"/"2"/"3" → precios / horario-ubicación / contacto humano. La lógica del
+router vive en `src/lib/whatsapp/router.ts` y los textos en
+`src/lib/whatsapp/contenido.ts`.
+
+### Configuración inicial
+
+1. Crea una cuenta en [Twilio Console](https://console.twilio.com) si no
+   tienes una.
+2. Ve a **Messaging → Try it out → Send a WhatsApp message** para activar el
+   WhatsApp Sandbox. Te dará un número de Twilio y un código para unirte
+   (`join palabra-clave`), que debes enviar una vez por WhatsApp desde el
+   número que uses para probar.
+3. Copia **Account SID** y **Auth Token** desde el dashboard principal de
+   Twilio Console y agrégalos a `.env.local`:
+   ```bash
+   TWILIO_ACCOUNT_SID=tu-account-sid
+   TWILIO_AUTH_TOKEN=tu-auth-token
+   ```
+4. En **Messaging → Settings → WhatsApp Sandbox Settings**, configura "WHEN
+   A MESSAGE COMES IN" apuntando a `https://tu-dominio/api/whatsapp` con
+   método `POST`.
+5. Deploya los cambios para que el endpoint quede disponible en esa URL.
+6. Prueba enviando "hola" al número del sandbox — debe responder con el
+   menú. Envía una patente real de `clientes` para ver el estado del plan.
+
+### Antes de compartir el número con clientes reales
+
+Edita los placeholders de `src/lib/whatsapp/contenido.ts`
+(`HORARIO_UBICACION` y `CONTACTO_HUMANO`) con la dirección, horario y datos
+de contacto reales — están marcados con `// TODO`.
+
 ## Notas
 
 - El logo se extrajo del HTML original (estaba embebido en base64) y quedó en `public/logo.jpg`.

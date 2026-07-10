@@ -57,6 +57,7 @@ export const ingresos = pgTable("ingresos", {
   esGarantia: boolean("es_garantia").notNull().default(false),
   viaCupon: boolean("via_cupon").notNull().default(false),
   cuponCodigo: text("cupon_codigo"),
+  glosa: text("glosa"),
 });
 
 export const ventas = pgTable("ventas", {
@@ -133,6 +134,7 @@ export const movimientosContables = pgTable("movimientos_contables", {
   documentoNombre: text("documento_nombre"),
   monto: numeric("monto", { mode: "number" }).notNull().default(0),
   estado: text("estado").notNull().default("pendiente"),
+  metodoPago: text("metodo_pago"),
   notas: text("notas"),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
   creadoPor: text("creado_por"),

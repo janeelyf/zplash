@@ -32,6 +32,7 @@ export interface Ingreso {
   esGarantia?: boolean;
   viaCupon?: boolean;
   cuponCodigo?: string;
+  glosa?: string;
 }
 
 export interface Venta {
@@ -76,7 +77,7 @@ export interface Empresa {
 }
 
 export interface PagoInfo {
-  metodo: "efectivo" | "tarjeta";
+  metodo: "efectivo" | "tarjeta" | "transferencia";
   voucher?: string;
 }
 
@@ -127,6 +128,10 @@ export interface MovimientoContable {
   // "cuenta_por_pagar" existió como tipo creable hasta que esa pestaña pasó
   // a derivarse de egresos con estado x_rendir/pendiente_pago (ver
   // CuentasPorPagarTab). No quedan filas con ese tipo, así que se retiró.
+  // "cuenta_por_cobrar" sigue en el tipo por compatibilidad con filas
+  // creadas antes de que esa pestaña pasara al mismo esquema: ahora se
+  // deriva de ingresos con estado "pendiente" (ver CuentasPorCobrarTab) y
+  // ya no se crea directamente.
   tipo: "ingreso" | "egreso" | "cuenta_por_cobrar";
   fecha: string;
   descripcion: string;
@@ -139,6 +144,10 @@ export interface MovimientoContable {
   documentoNombre?: string;
   monto: number;
   estado: "pagado" | "pendiente" | "pagado_cc" | "x_rendir" | "pendiente_pago";
+  // Solo aplica a tipo "ingreso" con estado "pagado": Cuentas por Cobrar
+  // (ver CuentasPorCobrarTab) se deriva de los ingresos con estado
+  // "pendiente", así que ahí siempre queda undefined hasta que se cobran.
+  metodoPago?: "efectivo" | "tarjeta" | "transferencia";
   notas?: string;
   creadoEn: string;
   creadoPor?: string;
@@ -204,6 +213,8 @@ export interface UIState {
   loginErr: string;
   cierreDesde: string | null;
   cierreHasta: string | null;
+  statsDesde: string | null;
+  statsHasta: string | null;
   facturaSearch: string;
   loginMode: "select" | "pin" | null;
   perfilSeleccionadoId: string | null;

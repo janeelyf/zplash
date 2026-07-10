@@ -8,7 +8,7 @@ export default function CierreTab() {
   const { data, ui, patchUi } = useApp();
   const desde = ui.cierreDesde || todayYMD();
   const hasta = ui.cierreHasta || todayYMD();
-  const { ingresos, clientes, ventas } = data;
+  const { ingresos, clientes, ventas, movimientosContables } = data;
 
   const ingresosPeriodo = ingresos.filter((i) => inRange(i.fecha, desde, hasta));
   const nuevosPeriodo = clientes.filter((c) => inRange(c.creadoEn, desde, hasta));
@@ -25,6 +25,10 @@ export default function CierreTab() {
   });
   const listaPorCliente = Object.values(porCliente).sort((a, b) => b.cantidad - a.cantidad);
 
+  const clientesPorId = new Map(clientes.map((c) => [c.id, c]));
+  const esNuevoClienteAdmin = (v: (typeof ventasPeriodo)[number]) =>
+    v.tipo === "Plan nuevo" && clientesPorId.get(v.clienteId)?.creadoPor === "Administrador";
+
   const PRODUCTOS = [
     { tipo: "Lavado único", label: "Lavado único" },
     { tipo: "Plan nuevo", label: "Contratación de plan" },
@@ -34,7 +38,7 @@ export default function CierreTab() {
     { tipo: "Cupón Venta Empresa", label: "Cupón Venta Empresa" },
   ];
   const ventasPorTipo = PRODUCTOS.map((p) => {
-    const items = ventasPeriodo.filter((v) => v.tipo === p.tipo);
+    const items = ventasPeriodo.filter((v) => v.tipo === p.tipo && !esNuevoClienteAdmin(v));
     return { ...p, cantidad: items.length, monto: items.reduce((s, v) => s + (v.precio || 0), 0) };
   });
 
@@ -47,18 +51,28 @@ export default function CierreTab() {
     monto: serviciosAdicionalesItems.reduce((s, v) => s + (v.precio || 0), 0),
   };
 
-  const filasVenta = [...ventasPorTipo, serviciosAdicionalesRow];
+  const ingresosContablesPeriodo = movimientosContables.filter(
+    (m) => m.tipo === "ingreso" && inRange(m.fecha, desde, hasta)
+  );
+  const ingresoModuloContabilidadRow = {
+    tipo: "ingreso-modulo-contabilidad",
+    label: "Ingreso por Módulo Contabilidad",
+    cantidad: ingresosContablesPeriodo.length,
+    monto: ingresosContablesPeriodo.reduce((s, m) => s + m.monto, 0),
+  };
+
+  const filasVenta = [...ventasPorTipo, serviciosAdicionalesRow, ingresoModuloContabilidadRow];
   const totalCantidadVentas = filasVenta.reduce((s, f) => s + f.cantidad, 0);
   const totalMontoVentas = filasVenta.reduce((s, f) => s + f.monto, 0);
 
-  const modificacionesAdminItems = ventasPeriodo.filter((v) => v.tipo === "Renovación manual");
+  const modificacionesAdminItems = ventasPeriodo.filter(esNuevoClienteAdmin);
   const modificacionesAdmin = {
     label: "Modificación de planes desde perfil de administrador",
     cantidad: modificacionesAdminItems.length,
     monto: modificacionesAdminItems.reduce((s, v) => s + (v.precio || 0), 0),
   };
 
-  const tiposConocidos = new Set([...PRODUCTOS.map((p) => p.tipo), "Renovación manual"]);
+  const tiposConocidos = new Set(PRODUCTOS.map((p) => p.tipo));
   const otrasVentas = ventasPeriodo.filter((v) => !tiposConocidos.has(v.tipo) && !v.esServicioAdicional);
 
   const cobrado = (v: (typeof ventasPeriodo)[number]) => v.montoCobrado ?? v.precio ?? 0;
@@ -67,7 +81,6 @@ export default function CierreTab() {
   const transferenciaItems = ventasPeriodo.filter((v) => v.metodoPago === "transferencia" && v.estadoPago !== "pendiente");
   const cuentasPorCobrarItems = ventasPeriodo.filter((v) => v.metodoPago === "transferencia" && v.estadoPago === "pendiente");
   const porPagarItems = ventasPeriodo.filter((v) => v.estadoPago === "pendiente" && v.metodoPago !== "transferencia");
-  const sinMetodoItems = ventasPeriodo.filter((v) => !v.metodoPago && v.estadoPago !== "pendiente");
   const metodosPago = [
     { metodo: "Efectivo", cantidad: efectivoItems.length, monto: efectivoItems.reduce((s, v) => s + cobrado(v), 0) },
     { metodo: "Tarjeta", cantidad: tarjetaItems.length, monto: tarjetaItems.reduce((s, v) => s + cobrado(v), 0) },
@@ -80,22 +93,17 @@ export default function CierreTab() {
           },
         ]
       : []),
-    ...(cuentasPorCobrarItems.length
-      ? [
-          {
-            metodo: "Cuentas x Cobrar",
-            cantidad: cuentasPorCobrarItems.length,
-            monto: cuentasPorCobrarItems.reduce((s, v) => s + (v.precio || 0), 0),
-          },
-        ]
-      : []),
+    {
+      metodo: "Cuentas x Cobrar",
+      cantidad: cuentasPorCobrarItems.length,
+      monto: cuentasPorCobrarItems.reduce((s, v) => s + (v.precio || 0), 0),
+    },
     ...(porPagarItems.length
       ? [{ metodo: "Por pagar", cantidad: porPagarItems.length, monto: porPagarItems.reduce((s, v) => s + (v.precio || 0), 0) }]
       : []),
-    ...(sinMetodoItems.length
-      ? [{ metodo: "Sin especificar", cantidad: sinMetodoItems.length, monto: sinMetodoItems.reduce((s, v) => s + (v.precio || 0), 0) }]
-      : []),
   ];
+  const totalCantidadMetodosPago = metodosPago.reduce((s, m) => s + m.cantidad, 0);
+  const totalMontoMetodosPago = metodosPago.reduce((s, m) => s + m.monto, 0);
 
   const facturaPendientesPeriodo = clientes
     .filter((c) => c.tipoDocumento === "Factura")
@@ -232,6 +240,11 @@ export default function CierreTab() {
               <td>{fmtCLP(m.monto)}</td>
             </tr>
           ))}
+          <tr>
+            <td style={{ fontWeight: 700 }}>Total</td>
+            <td style={{ fontWeight: 700 }}>{totalCantidadMetodosPago}</td>
+            <td style={{ fontWeight: 700 }}>{fmtCLP(totalMontoMetodosPago)}</td>
+          </tr>
         </tbody>
       </table>
 

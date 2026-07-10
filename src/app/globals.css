@@ -34,10 +34,12 @@ body {
 h1,
 h2,
 h3,
+h4,
 .display {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   letter-spacing: 0.03em;
   font-weight: 700;
+  text-transform: uppercase;
 }
 #app {
   min-height: 100vh;

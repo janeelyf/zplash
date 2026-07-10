@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { PATENTE_FORMATO_MSG, findClient, isValidPatente, normPlate } from "@/lib/helpers";
+import { PATENTE_FORMATO_MSG, findClient, isValidPatente, normPlate, todayStr } from "@/lib/helpers";
 import Topbar from "@/components/Topbar";
 import OperadorResult from "@/components/OperadorResult";
 import TodayLog from "@/components/TodayLog";
@@ -10,6 +10,8 @@ import type { Ingreso } from "@/types";
 
 export default function OperadorView() {
   const { data, ui, commit, patchUi } = useApp();
+  const hoy = todayStr();
+  const ingresosHoy = data.ingresos.filter((i) => new Date(i.fecha).toDateString() === hoy).length;
   const plateInputRef = useRef<HTMLInputElement>(null);
   const codigoCuponRef = useRef<HTMLInputElement>(null);
   const patenteCuponRef = useRef<HTMLInputElement>(null);
@@ -102,8 +104,8 @@ export default function OperadorView() {
       />
       <div className="content">
         <div className="stat-card" style={{ width: "fit-content", margin: "0 auto 20px", textAlign: "center" }}>
-          <div className="num">{data.ingresos.length}</div>
-          <div className="lbl">Autos ingresados en total</div>
+          <div className="num">{ingresosHoy}</div>
+          <div className="lbl">Autos ingresados hoy</div>
         </div>
         <div className="scan-panel">
           <h2>Validar patente</h2>

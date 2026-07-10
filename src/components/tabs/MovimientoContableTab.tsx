@@ -4,7 +4,9 @@ import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { subirComprobanteGasto } from "@/lib/db";
 import { RUT_FORMATO_MSG, fmtCLP, formatRut, isValidRut, todayYMD } from "@/lib/helpers";
-import type { MovimientoContable } from "@/types";
+import type { MovimientoContable, PagoInfo } from "@/types";
+
+const CATEGORIAS_INGRESO = ["Servicios de Lavado / Túnel", "Otros"] as const;
 
 const CONTRAPARTE_LABEL: Record<MovimientoContable["tipo"], string> = {
   ingreso: "Cliente / Origen",
@@ -102,12 +104,13 @@ export default function MovimientoContableTab({
   tipo: MovimientoContable["tipo"];
   titulo: string;
 }) {
-  const { data, commit } = useApp();
+  const { data, commit, patchUi } = useApp();
   const glosasGasto = data.categoriasGasto.filter((c) => c.activa).map((c) => ({ categoria: c.nombre, grupo: c.grupo }));
   const fechaRef = useRef<HTMLInputElement>(null);
   const descripcionRef = useRef<HTMLInputElement>(null);
-  const categoriaRef = useRef<HTMLInputElement>(null);
   const [categoriaGasto, setCategoriaGasto] = useState("");
+  const [categoriaIngreso, setCategoriaIngreso] = useState("");
+  const [comentarioOtros, setComentarioOtros] = useState("");
   const contraparteRef = useRef<HTMLInputElement>(null);
   const rutProveedorRef = useRef<HTMLInputElement>(null);
   const numeroFacturaRef = useRef<HTMLInputElement>(null);
@@ -115,6 +118,7 @@ export default function MovimientoContableTab({
   const notasRef = useRef<HTMLTextAreaElement>(null);
   const [tipoDocumento, setTipoDocumento] = useState<"Boleta" | "Factura" | null>(null);
   const [estado, setEstado] = useState<MovimientoContable["estado"]>(tipo === "egreso" ? "pagado_cc" : "pagado");
+  const [metodoPago, setMetodoPago] = useState<"efectivo" | "tarjeta" | "transferencia" | null>(null);
   const [archivo, setArchivo] = useState<File | null>(null);
   const archivoInputRef = useRef<HTMLInputElement>(null);
   const [subiendo, setSubiendo] = useState(false);
@@ -134,6 +138,8 @@ export default function MovimientoContableTab({
     })
     .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
+  const estadoBloqueadoPagado = tipo === "ingreso" && categoriaIngreso === CATEGORIAS_INGRESO[0];
+
   const total = items.reduce((s, m) => s + m.monto, 0);
   const totalPagado = items.filter((m) => m.estado === (tipo === "egreso" ? "pagado_cc" : "pagado")).reduce((s, m) => s + m.monto, 0);
   const totalXRendir = items.filter((m) => m.estado === "x_rendir").reduce((s, m) => s + m.monto, 0);
@@ -141,22 +147,61 @@ export default function MovimientoContableTab({
     .filter((m) => m.estado === (tipo === "egreso" ? "pendiente_pago" : "pendiente"))
     .reduce((s, m) => s + m.monto, 0);
 
+  const cierreDiario =
+    tipo === "ingreso"
+      ? Object.values(
+          items.reduce<Record<string, { dia: string; cantidad: number; efectivo: number; tarjeta: number; transferencia: number; pendiente: number; total: number }>>(
+            (acc, m) => {
+              const dia = m.fecha.slice(0, 10);
+              if (!acc[dia]) acc[dia] = { dia, cantidad: 0, efectivo: 0, tarjeta: 0, transferencia: 0, pendiente: 0, total: 0 };
+              acc[dia].cantidad += 1;
+              acc[dia].total += m.monto;
+              if (m.estado === "pagado") {
+                if (m.metodoPago === "efectivo") acc[dia].efectivo += m.monto;
+                else if (m.metodoPago === "tarjeta") acc[dia].tarjeta += m.monto;
+                else if (m.metodoPago === "transferencia") acc[dia].transferencia += m.monto;
+              } else {
+                acc[dia].pendiente += m.monto;
+              }
+              return acc;
+            },
+            {}
+          )
+        ).sort((a, b) => (a.dia < b.dia ? 1 : -1))
+      : [];
+
   const agregar = async () => {
     const fecha = fechaRef.current?.value || todayYMD();
-    const descripcion = descripcionRef.current?.value.trim() || "";
-    const categoria = tipo === "egreso" ? categoriaGasto.trim() : categoriaRef.current?.value.trim() || "";
+    const categoria =
+      tipo === "egreso"
+        ? categoriaGasto.trim()
+        : categoriaIngreso === "Otros"
+          ? comentarioOtros.trim()
+            ? `Otros: ${comentarioOtros.trim()}`
+            : "Otros"
+          : categoriaIngreso;
     const contraparte = contraparteRef.current?.value.trim() || "";
+    const descripcion =
+      tipo === "ingreso" ? categoria + (contraparte ? ` – ${contraparte}` : "") : descripcionRef.current?.value.trim() || "";
     const rutProveedor = tipo === "egreso" ? rutProveedorRef.current?.value.trim() || "" : "";
     const numeroFactura = tipo === "egreso" ? numeroFacturaRef.current?.value.trim() || "" : "";
     const monto = Number(montoTexto || 0);
     const notas = notasRef.current?.value.trim() || "";
 
-    if (!descripcion || !monto || monto <= 0) {
-      setErr({ msg: "Completa la descripción y un monto válido", ok: false });
+    if (tipo === "egreso" && !descripcion) {
+      setErr({ msg: "Completa la descripción", ok: false });
       return;
     }
     if (tipo === "egreso" && !glosasGasto.some((g) => g.categoria === categoria)) {
       setErr({ msg: "Selecciona un tipo de gasto de la lista", ok: false });
+      return;
+    }
+    if (tipo === "ingreso" && !categoriaIngreso) {
+      setErr({ msg: "Selecciona una categoría", ok: false });
+      return;
+    }
+    if (!monto || monto <= 0) {
+      setErr({ msg: "Ingresa un monto válido", ok: false });
       return;
     }
     if (tipo === "egreso" && !tipoDocumento) {
@@ -165,6 +210,10 @@ export default function MovimientoContableTab({
     }
     if (rutProveedor && !isValidRut(rutProveedor)) {
       setErr({ msg: RUT_FORMATO_MSG, ok: false });
+      return;
+    }
+    if (tipo === "ingreso" && estado === "pagado" && !metodoPago) {
+      setErr({ msg: "Selecciona Efectivo, Tarjeta o Transferencia bancaria", ok: false });
       return;
     }
 
@@ -196,7 +245,8 @@ export default function MovimientoContableTab({
       documentoUrl,
       documentoNombre,
       monto,
-      estado,
+      estado: estadoBloqueadoPagado ? "pagado" : estado,
+      metodoPago: tipo === "ingreso" && estado === "pagado" ? metodoPago || undefined : undefined,
       notas: notas || undefined,
       creadoEn: new Date().toISOString(),
       creadoPor: "Administración",
@@ -210,8 +260,9 @@ export default function MovimientoContableTab({
     setErr({ msg: "Movimiento registrado correctamente", ok: true });
     if (fechaRef.current) fechaRef.current.value = "";
     if (descripcionRef.current) descripcionRef.current.value = "";
-    if (categoriaRef.current) categoriaRef.current.value = "";
     setCategoriaGasto("");
+    setCategoriaIngreso("");
+    setComentarioOtros("");
     if (contraparteRef.current) contraparteRef.current.value = "";
     if (rutProveedorRef.current) rutProveedorRef.current.value = "";
     if (numeroFacturaRef.current) numeroFacturaRef.current.value = "";
@@ -221,11 +272,26 @@ export default function MovimientoContableTab({
     setArchivo(null);
     if (archivoInputRef.current) archivoInputRef.current.value = "";
     setEstado(tipo === "egreso" ? "pagado_cc" : "pagado");
+    setMetodoPago(null);
   };
 
   const toggleEstado = (m: MovimientoContable) => {
-    const actualizado: MovimientoContable = { ...m, estado: m.estado === "pagado" ? "pendiente" : "pagado" };
-    commit({ movimientosContables: data.movimientosContables.map((x) => (x.id === m.id ? actualizado : x)) });
+    if (m.estado === "pagado") {
+      const actualizado: MovimientoContable = { ...m, estado: "pendiente", metodoPago: undefined };
+      commit({ movimientosContables: data.movimientosContables.map((x) => (x.id === m.id ? actualizado : x)) });
+      return;
+    }
+    patchUi({
+      modal: {
+        type: "pago",
+        monto: m.monto,
+        descripcion: m.descripcion,
+        onConfirm: (pago: PagoInfo) => {
+          const actualizado: MovimientoContable = { ...m, estado: "pagado", metodoPago: pago.metodo };
+          commit({ movimientosContables: data.movimientosContables.map((x) => (x.id === m.id ? actualizado : x)) });
+        },
+      },
+    });
   };
 
   const cambiarEstadoEgreso = (m: MovimientoContable, nuevoEstado: MovimientoContable["estado"]) => {
@@ -244,16 +310,43 @@ export default function MovimientoContableTab({
           <label>Fecha</label>
           <input ref={fechaRef} type="date" defaultValue={todayYMD()} />
         </div>
-        <div className="field">
-          <label>Descripción</label>
-          <input ref={descripcionRef} placeholder="Ej: Pago de arriendo local" />
-        </div>
+        {tipo === "egreso" && (
+          <div className="field">
+            <label>Descripción</label>
+            <input ref={descripcionRef} placeholder="Ej: Pago de arriendo local" />
+          </div>
+        )}
         <div className="field">
           <label>{tipo === "egreso" ? "Tipo de gasto" : "Categoría"}</label>
           {tipo === "egreso" ? (
             <BuscadorGlosa value={categoriaGasto} onChange={setCategoriaGasto} opciones={glosasGasto} />
           ) : (
-            <input ref={categoriaRef} placeholder="Ej: Arriendo, Insumos, Sueldos..." />
+            <>
+              <select
+                value={categoriaIngreso}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setCategoriaIngreso(v);
+                  if (v === CATEGORIAS_INGRESO[0]) setEstado("pagado");
+                }}
+              >
+                <option value="">Selecciona una categoría...</option>
+                {CATEGORIAS_INGRESO.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+              {categoriaIngreso === "Otros" && (
+                <textarea
+                  value={comentarioOtros}
+                  onChange={(e) => setComentarioOtros(e.target.value)}
+                  placeholder="Escribe un comentario..."
+                  rows={2}
+                  style={{ marginTop: 8 }}
+                />
+              )}
+            </>
           )}
         </div>
         {tipo === "egreso" && (
@@ -350,18 +443,59 @@ export default function MovimientoContableTab({
                 >
                   Pagado
                 </button>
-                <button
-                  type="button"
-                  className={estado === "pendiente" ? "btn" : "btn ghost"}
-                  style={{ flex: 1, marginTop: 0 }}
-                  onClick={() => setEstado("pendiente")}
-                >
-                  Pendiente
-                </button>
+                {!estadoBloqueadoPagado && (
+                  <button
+                    type="button"
+                    className={estado === "pendiente" ? "btn" : "btn ghost"}
+                    style={{ flex: 1, marginTop: 0 }}
+                    onClick={() => {
+                      setEstado("pendiente");
+                      setMetodoPago(null);
+                    }}
+                  >
+                    Pendiente
+                  </button>
+                )}
               </>
             )}
           </div>
+          {estadoBloqueadoPagado && (
+            <div style={{ fontSize: 12, color: "var(--gray)", marginTop: 6 }}>
+              Los ingresos de Servicios de Lavado / Túnel se registran siempre como Pagado.
+            </div>
+          )}
         </div>
+        {tipo === "ingreso" && estado === "pagado" && (
+          <div className="field">
+            <label>Método de pago</label>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className={metodoPago === "efectivo" ? "btn" : "btn ghost"}
+                style={{ flex: 1, marginTop: 0 }}
+                onClick={() => setMetodoPago("efectivo")}
+              >
+                Efectivo
+              </button>
+              <button
+                type="button"
+                className={metodoPago === "tarjeta" ? "btn" : "btn ghost"}
+                style={{ flex: 1, marginTop: 0 }}
+                onClick={() => setMetodoPago("tarjeta")}
+              >
+                Tarjeta
+              </button>
+              <button
+                type="button"
+                className={metodoPago === "transferencia" ? "btn" : "btn ghost"}
+                style={{ flex: 1, marginTop: 0 }}
+                onClick={() => setMetodoPago("transferencia")}
+              >
+                Transferencia bancaria
+              </button>
+            </div>
+          </div>
+        )}
         <div className="field">
           <label>Notas</label>
           <textarea ref={notasRef} rows={2} />
@@ -395,6 +529,50 @@ export default function MovimientoContableTab({
         </div>
       </div>
 
+      {tipo === "ingreso" && (
+        <div style={{ marginBottom: 20 }}>
+          <h3>Cierre de caja diario</h3>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>N° Registros</th>
+                  <th>Efectivo</th>
+                  <th>Tarjeta</th>
+                  <th>Transferencia</th>
+                  <th>Pendiente</th>
+                  <th>Total del día</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cierreDiario.length === 0 ? (
+                  <tr>
+                    <td colSpan={7}>
+                      <div className="empty">Sin registros</div>
+                    </td>
+                  </tr>
+                ) : (
+                  cierreDiario.map((d) => (
+                    <tr key={d.dia}>
+                      <td>{new Date(d.dia + "T12:00:00").toLocaleDateString("es-CL")}</td>
+                      <td>{d.cantidad}</td>
+                      <td>{fmtCLP(d.efectivo)}</td>
+                      <td>{fmtCLP(d.tarjeta)}</td>
+                      <td>{fmtCLP(d.transferencia)}</td>
+                      <td>{fmtCLP(d.pendiente)}</td>
+                      <td>
+                        <strong>{fmtCLP(d.total)}</strong>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <div className="toolbar">
         <input
           placeholder="Buscar por descripción, categoría o contraparte..."
@@ -416,13 +594,14 @@ export default function MovimientoContableTab({
               {tipo === "egreso" && <th>Adjunto</th>}
               <th>Monto</th>
               <th>Estado</th>
+              {tipo !== "egreso" && <th>Método</th>}
               <th></th>
             </tr>
           </thead>
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={tipo === "egreso" ? 11 : 7}>
+                <td colSpan={tipo === "egreso" ? 11 : 8}>
                   <div className="empty">Sin registros</div>
                 </td>
               </tr>
@@ -459,6 +638,17 @@ export default function MovimientoContableTab({
                       </span>
                     )}
                   </td>
+                  {tipo !== "egreso" && (
+                    <td>
+                      {m.metodoPago === "efectivo"
+                        ? "Efectivo"
+                        : m.metodoPago === "tarjeta"
+                          ? "Tarjeta"
+                          : m.metodoPago === "transferencia"
+                            ? "Transferencia bancaria"
+                            : "-"}
+                    </td>
+                  )}
                   <td className="row-actions">
                     {tipo === "egreso" ? (
                       <select
