@@ -230,15 +230,15 @@ create table if not exists config (
 );
 insert into config (id, pin_admin) values (true, '1234') on conflict (id) do nothing;
 
--- RLS: esta app no usa Supabase Auth, así que por defecto habilitamos
--- acceso completo al rol anónimo — el mismo modelo "abierto" que ya tenía
--- el proyecto en Firestore. La excepción es "perfiles": esa tabla guarda
--- la clave de cada persona (que además da acceso al resto de módulos),
--- así que al anon NO se le da ninguna política sobre esa tabla (con RLS
--- habilitada y sin políticas, el acceso queda denegado por defecto). Todo
--- lo que toca `clave` — login, alta de perfil, cambio de clave — pasa por
--- rutas server-side (/api/perfiles/*) usando la conexión directa
--- (DATABASE_URL), que sí puede saltarse RLS.
+-- RLS: esta app no usa Supabase Auth. Todo el acceso a estas tablas —
+-- lectura y escritura — pasa por Server Actions (`src/lib/db.ts`, "use
+-- server") a través de la conexión directa a Postgres (DATABASE_URL), que
+-- se salta RLS. El navegador nunca consulta estas tablas vía PostgREST con
+-- la anon key, así que no se le da NINGUNA política al rol anon: con RLS
+-- habilitada y sin políticas, el acceso queda denegado por defecto. Esto
+-- incluye a "perfiles" (guarda la clave de cada persona) por el mismo
+-- motivo. La única excepción real es Storage (bucket comprobantes-gastos,
+-- ver más abajo), que sí se usa con la anon key.
 alter table empresas enable row level security;
 alter table clientes enable row level security;
 alter table ingresos enable row level security;
@@ -250,28 +250,19 @@ alter table cupones enable row level security;
 alter table movimientos_contables enable row level security;
 alter table categorias_gasto enable row level security;
 
--- Cada política se recrea (drop + create) para que este archivo se pueda
--- correr completo las veces que sea necesario sin errores de "ya existe".
+-- Sin políticas para anon en ninguna de estas tablas (ver comentario
+-- arriba). Se dropean explícitamente por si el proyecto ya tenía las
+-- políticas "anon full access" de una versión anterior de este archivo.
 drop policy if exists "anon full access" on empresas;
-create policy "anon full access" on empresas for all to anon using (true) with check (true);
 drop policy if exists "anon full access" on clientes;
-create policy "anon full access" on clientes for all to anon using (true) with check (true);
 drop policy if exists "anon full access" on ingresos;
-create policy "anon full access" on ingresos for all to anon using (true) with check (true);
 drop policy if exists "anon full access" on ventas;
-create policy "anon full access" on ventas for all to anon using (true) with check (true);
--- perfiles: sin política para anon a propósito (ver comentario arriba).
 drop policy if exists "anon full access" on perfiles;
 drop policy if exists "anon full access" on precios;
-create policy "anon full access" on precios for all to anon using (true) with check (true);
 drop policy if exists "anon full access" on config;
-create policy "anon full access" on config for all to anon using (true) with check (true);
 drop policy if exists "anon full access" on cupones;
-create policy "anon full access" on cupones for all to anon using (true) with check (true);
 drop policy if exists "anon full access" on movimientos_contables;
-create policy "anon full access" on movimientos_contables for all to anon using (true) with check (true);
 drop policy if exists "anon full access" on categorias_gasto;
-create policy "anon full access" on categorias_gasto for all to anon using (true) with check (true);
 
 -- Bucket de Storage para adjuntar el comprobante (boleta/factura escaneada)
 -- de un egreso/gasto.
