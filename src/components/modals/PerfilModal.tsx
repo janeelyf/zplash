@@ -7,6 +7,7 @@ import type { PerfilPublico } from "@/types";
 export default function PerfilModal({ data: p }: { data: PerfilPublico | null }) {
   const { data, ui, commit, patchUi } = useApp();
   const nombreRef = useRef<HTMLInputElement>(null);
+  const iconoRef = useRef<HTMLInputElement>(null);
   const claveRef = useRef<HTMLInputElement>(null);
   const actorClaveRef = useRef<HTMLInputElement>(null);
   const [err, setErr] = useState("");
@@ -29,8 +30,10 @@ export default function PerfilModal({ data: p }: { data: PerfilPublico | null })
       return;
     }
 
+    const icono = iconoRef.current?.value.trim() || "";
+
     if (p) {
-      const actualizado: PerfilPublico = { ...p, nombre };
+      const actualizado: PerfilPublico = { ...p, nombre, icono };
       const ok = await commit({ perfiles: data.perfiles.map((x) => (x.id === p.id ? actualizado : x)) });
       if (!ok) {
         setErr("No se pudo guardar (sin conexión). Intenta de nuevo.");
@@ -70,7 +73,7 @@ export default function PerfilModal({ data: p }: { data: PerfilPublico | null })
       }
       // El perfil ya quedó creado en el servidor; esto solo refleja el
       // cambio en el estado local para que aparezca sin recargar la página.
-      const nuevo: PerfilPublico = { id: json.id, nombre, modulos: [] };
+      const nuevo: PerfilPublico = { id: json.id, nombre, modulos: [], icono };
       await commit({ perfiles: [...data.perfiles, nuevo] });
       patchUi({ modal: null });
     } catch {
@@ -86,6 +89,10 @@ export default function PerfilModal({ data: p }: { data: PerfilPublico | null })
       <div className="field">
         <label>Nombre</label>
         <input ref={nombreRef} defaultValue={p?.nombre || ""} />
+      </div>
+      <div className="field">
+        <label>Ícono (emoji, opcional)</label>
+        <input ref={iconoRef} defaultValue={p?.icono || ""} maxLength={4} placeholder="👤" style={{ maxWidth: 80 }} />
       </div>
       {!p && (
         <>

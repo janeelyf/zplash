@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { useApp } from "@/context/AppContext";
+import { ordenarPerfiles } from "@/lib/helpers";
 import type { PerfilPublico } from "@/types";
 
 export default function LoginScreen() {
@@ -19,14 +20,14 @@ export default function LoginScreen() {
         <div className="sub">¿Quién eres?</div>
       </div>
       <div className="role-grid">
-        {data.perfiles.map((p) => (
+        {ordenarPerfiles(data.perfiles).map((p) => (
           <button
             key={p.id}
             className="role-btn"
             style={{ width: 150, padding: "22px 16px" }}
             onClick={() => patchUi({ loginMode: "pin", perfilSeleccionadoId: p.id, loginErr: "" })}
           >
-            <div className="icon">{p.modulos.includes("permisos") ? "👑" : "👤"}</div>
+            <div className="icon">{p.icono || (p.modulos.includes("permisos") ? "👑" : "👤")}</div>
             <div className="label">{p.nombre}</div>
           </button>
         ))}

@@ -98,6 +98,7 @@ create table if not exists perfiles (
   nombre text not null unique,
   clave text not null,
   modulos jsonb not null default '[]'::jsonb,
+  icono text,
   creado_en timestamptz not null default now()
 );
 

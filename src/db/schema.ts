@@ -93,6 +93,7 @@ export const perfiles = pgTable("perfiles", {
   nombre: text("nombre").notNull().unique(),
   clave: text("clave").notNull(),
   modulos: jsonb("modulos").$type<string[]>().notNull().default([]),
+  icono: text("icono"),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
 });
 

@@ -119,6 +119,7 @@ export interface PerfilPublico {
   id: string;
   nombre: string;
   modulos: Modulo[];
+  icono?: string;
 }
 
 export interface MovimientoContable {

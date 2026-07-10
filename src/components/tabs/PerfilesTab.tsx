@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { MODULO_LABELS, TODOS_LOS_MODULOS } from "@/lib/helpers";
+import { MODULO_LABELS, ordenarPerfiles, TODOS_LOS_MODULOS } from "@/lib/helpers";
 import type { Modulo, PerfilPublico } from "@/types";
 
 export default function PerfilesTab() {
@@ -49,7 +49,7 @@ export default function PerfilesTab() {
               </td>
             </tr>
           ) : (
-            data.perfiles.map((p) => (
+            ordenarPerfiles(data.perfiles).map((p) => (
               <PerfilRow key={p.id} perfil={p} puedeAsignarPermisos={puedeAsignarPermisos} onEliminar={() => eliminar(p)} />
             ))
           )}

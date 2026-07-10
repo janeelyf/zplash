@@ -260,6 +260,24 @@ export function isValidRut(rut: string | null | undefined): boolean {
 export const RUT_FORMATO_MSG =
   "RUT inválido. Debe llevar separador de miles y el dígito verificador al final separado por un guion (ej. 12.345.678-9).";
 
+// Orden de la pantalla de login y de la pestaña Perfiles: los operadores van
+// primero (alfabético), y los perfiles de gestión quedan fijos al final en
+// este orden — "Administración" y luego "Gerencia" — sin importar dónde caigan
+// alfabéticamente.
+const ORDEN_ESPECIAL_PERFIL: Record<string, number> = {
+  Administración: 1,
+  Gerencia: 2,
+};
+
+export function ordenarPerfiles(perfiles: PerfilPublico[]): PerfilPublico[] {
+  return [...perfiles].sort((a, b) => {
+    const pa = ORDEN_ESPECIAL_PERFIL[a.nombre] || 0;
+    const pb = ORDEN_ESPECIAL_PERFIL[b.nombre] || 0;
+    if (pa !== pb) return pa - pb;
+    return a.nombre.localeCompare(b.nombre, "es");
+  });
+}
+
 export function findClient(clientes: Cliente[], plate: string): Cliente | undefined {
   return clientes.find((c) => normPlate(c.patente) === normPlate(plate));
 }

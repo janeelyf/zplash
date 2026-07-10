@@ -33,7 +33,7 @@ import type {
 type ClienteRow = typeof clientes.$inferSelect;
 type IngresoRow = typeof ingresos.$inferSelect;
 type VentaRow = typeof ventas.$inferSelect;
-type PerfilPublicoRow = Pick<typeof perfiles.$inferSelect, "id" | "nombre" | "modulos">;
+type PerfilPublicoRow = Pick<typeof perfiles.$inferSelect, "id" | "nombre" | "modulos" | "icono">;
 type CategoriaGastoRow = typeof categoriasGasto.$inferSelect;
 type CuponRow = typeof cupones.$inferSelect;
 type MovimientoRow = typeof movimientosContables.$inferSelect;
@@ -176,11 +176,16 @@ function ventaFromRow(r: VentaRow): Venta {
 // nombre/modulos desde acá (ver upsertPerfiles). Crear un perfil nuevo o
 // cambiar una clave pasa por rutas server-side dedicadas (/api/perfiles/*).
 function perfilToRow(p: PerfilPublico): Omit<typeof perfiles.$inferInsert, "clave"> {
-  return { id: p.id, nombre: p.nombre, modulos: p.modulos };
+  return { id: p.id, nombre: p.nombre, modulos: p.modulos, icono: p.icono || null };
 }
 
 function perfilPublicoFromRow(r: PerfilPublicoRow): PerfilPublico {
-  return { id: r.id, nombre: r.nombre, modulos: (r.modulos as PerfilPublico["modulos"]) || [] };
+  return {
+    id: r.id,
+    nombre: r.nombre,
+    modulos: (r.modulos as PerfilPublico["modulos"]) || [],
+    icono: r.icono || undefined,
+  };
 }
 
 function categoriaGastoToRow(c: CategoriaGasto): typeof categoriasGasto.$inferInsert {
@@ -367,7 +372,7 @@ export async function loadAll(): Promise<AppData> {
     safe(db.select().from(clientes)),
     safe(db.select().from(ingresos).orderBy(desc(ingresos.fecha))),
     safe(db.select().from(ventas).orderBy(desc(ventas.fecha))),
-    safe(db.select({ id: perfiles.id, nombre: perfiles.nombre, modulos: perfiles.modulos }).from(perfiles)),
+    safe(db.select({ id: perfiles.id, nombre: perfiles.nombre, modulos: perfiles.modulos, icono: perfiles.icono }).from(perfiles)),
     safe(db.select().from(precios)),
     safe(db.select().from(config).limit(1)),
     safe(db.select().from(cupones).orderBy(desc(cupones.creadoEn))),
