@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useApp } from "@/context/AppContext";
+import DatosTransferencia from "@/components/DatosTransferencia";
 import { fmtCLP } from "@/lib/helpers";
 import type { PagoInfo } from "@/types";
 
@@ -64,6 +65,7 @@ export default function PagoModal({
           Transferencia bancaria
         </button>
       </div>
+      {metodo === "transferencia" && <DatosTransferencia />}
       <div className="err">{err}</div>
       <div className="modal-actions">
         <button className="btn ghost" onClick={() => patchUi({ modal: null })}>

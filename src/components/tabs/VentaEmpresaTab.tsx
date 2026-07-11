@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
+import DatosTransferencia from "@/components/DatosTransferencia";
 import { RUT_FORMATO_MSG, fmtCLP, formatRut, generarCodigoCupon, isValidRut, uid } from "@/lib/helpers";
 import type { Cupon, Empresa, Venta } from "@/types";
 
@@ -318,6 +319,7 @@ export default function VentaEmpresaTab() {
                 </button>
               </div>
             )}
+            {metodoPago === "transferencia" && <DatosTransferencia />}
           </div>
         )}
         <div className="err" style={{ color: err?.ok ? "var(--green)" : undefined }}>

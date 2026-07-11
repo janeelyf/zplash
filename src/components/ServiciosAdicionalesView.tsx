@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
+import DatosTransferencia from "@/components/DatosTransferencia";
 import {
   PATENTE_FORMATO_MSG,
   RUT_FORMATO_MSG,
@@ -53,7 +54,7 @@ export default function ServiciosAdicionalesView() {
   const [ajuste, setAjuste] = useState<0 | 5000 | 10000>(0);
   const [tipoDoc, setTipoDoc] = useState<"Boleta" | "Factura">("Boleta");
   const [estadoPago, setEstadoPago] = useState<EstadoPago | null>(null);
-  const [metodoPago, setMetodoPago] = useState<"efectivo" | "tarjeta" | null>(null);
+  const [metodoPago, setMetodoPago] = useState<"efectivo" | "tarjeta" | "transferencia" | null>(null);
   const [err, setErr] = useState("");
 
   const clienteExistente = patenteBuscada ? findClient(data.clientes, patenteBuscada) || null : null;
@@ -634,7 +635,19 @@ export default function ServiciosAdicionalesView() {
                     >
                       Tarjeta
                     </button>
+                    <button
+                      type="button"
+                      className={metodoPago === "transferencia" ? "btn" : "btn ghost"}
+                      style={{ flex: 1, marginTop: 0 }}
+                      onClick={() => {
+                        setMetodoPago("transferencia");
+                        setErr("");
+                      }}
+                    >
+                      Transferencia bancaria
+                    </button>
                   </div>
+                  {metodoPago === "transferencia" && <DatosTransferencia />}
                 </div>
               )}
 

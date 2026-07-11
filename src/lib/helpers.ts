@@ -13,6 +13,14 @@ export const PRECIO_LAVADO_UNICO = 9990;
 /** Clave usada dentro de Precios para guardar el valor editable del lavado único. */
 export const LAVADO_UNICO_KEY = "Lavado único";
 
+/** Datos de la cuenta bancaria de la empresa, mostrados al cliente cuando el operador elige "Transferencia bancaria" como forma de pago. */
+export const DATOS_TRANSFERENCIA = [
+  { label: "Nombre", valor: "SERVICIOS E INVERSIONES LAS AGUILAS SPA" },
+  { label: "RUT", valor: "76.969.928-7" },
+  { label: "Cuenta Corriente Banco Santander", valor: "0-000-9448956-3" },
+  { label: "Mail", valor: "TB@ZPLASH.CL" },
+];
+
 export interface ServicioAdicional {
   id: string;
   categoria: string;
