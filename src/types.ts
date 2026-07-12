@@ -1,4 +1,18 @@
-export interface Cliente {
+// Snapshot opcional de datos de facturación. Lo comparten Cliente y Venta a
+// propósito (mismos 5 campos en ambas tablas, ver supabase/schema.sql): al
+// registrar una venta con Factura se copian los datos vigentes del cliente
+// en ese momento, para no perder el dato histórico si el cliente los cambia
+// después. Empresa NO usa este tipo: ahí razonSocial/rut son el registro
+// maestro (obligatorios, sin tipoDocumento), no una copia puntual.
+export interface DatosFacturacion {
+  tipoDocumento?: "Boleta" | "Factura";
+  razonSocial?: string;
+  rut?: string;
+  direccion?: string;
+  giro?: string;
+}
+
+export interface Cliente extends DatosFacturacion {
   id: string;
   nombre: string;
   patente: string;
@@ -6,11 +20,6 @@ export interface Cliente {
   email?: string;
   vehiculo?: string;
   plan?: string;
-  tipoDocumento?: "Boleta" | "Factura";
-  razonSocial?: string;
-  rut?: string;
-  direccion?: string;
-  giro?: string;
   vencimiento?: string | null;
   fechaContratacion?: string | null;
   origen?: "WEB" | "LOCAL";
@@ -35,7 +44,7 @@ export interface Ingreso {
   glosa?: string;
 }
 
-export interface Venta {
+export interface Venta extends DatosFacturacion {
   id: string;
   clienteId: string;
   patente: string;
@@ -49,14 +58,12 @@ export interface Venta {
   voucher?: string;
   horaEntrega?: string;
   notas?: string;
+  // "Cuánto se pagó en el momento de la venta" — vocabulario propio de POS,
+  // distinto a propósito de MovimientoContable.estado (ver más abajo): no
+  // son el mismo concepto aunque ambos se llamen "estado de pago".
   estadoPago?: "pagado" | "abono50" | "pendiente";
   montoCobrado?: number;
   esServicioAdicional?: boolean;
-  tipoDocumento?: "Boleta" | "Factura";
-  razonSocial?: string;
-  rut?: string;
-  direccion?: string;
-  giro?: string;
 }
 
 // Empresas de compra y venta para emitir/recibir facturas. contactoClienteId
@@ -143,6 +150,10 @@ export interface MovimientoContable {
   documentoUrl?: string;
   documentoNombre?: string;
   monto: number;
+  // Ciclo de vida contable del movimiento — vocabulario propio, distinto a
+  // propósito de Venta.estadoPago: no se unifican porque describen cosas
+  // distintas (aquí no existe un equivalente a "abono50", allá no existe
+  // "x_rendir"/"pagado_cc"). Ver evaluación en supabase/schema.sql.
   estado: "pagado" | "pendiente" | "pagado_cc" | "x_rendir" | "pendiente_pago";
   // Solo aplica a tipo "ingreso" con estado "pagado": Cuentas por Cobrar
   // (ver CuentasPorCobrarTab) se deriva de los ingresos con estado

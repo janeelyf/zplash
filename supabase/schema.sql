@@ -25,9 +25,9 @@ create table if not exists clientes (
 );
 
 -- Empresas de compra y venta para emitir/recibir facturas. contacto_cliente_id
--- es informativo (sin foreign key estricta, mismo criterio que
--- ingresos/ventas.cliente_id): contacto_nombre queda denormalizado por si el
--- cliente referenciado se elimina después.
+-- referencia a clientes.id (ver FK más abajo, ON DELETE SET NULL): si el
+-- cliente contacto se elimina, la empresa queda desvinculada pero no se
+-- borra; contacto_nombre queda denormalizado igual para no perder el dato.
 create table if not exists empresas (
   id text primary key,
   razon_social text not null,
@@ -41,10 +41,10 @@ create table if not exists empresas (
   creado_por text
 );
 
--- cliente_id es informativo (sin foreign key estricta): en Firestore nunca
--- hubo integridad referencial, así que hay ingresos/ventas históricos que
--- pueden apuntar a un cliente que ya fue eliminado. Se mantiene así a
--- propósito para no perder ese historial ni bloquear la migración.
+-- cliente_id referencia a clientes.id (ver FK más abajo, ON DELETE SET
+-- NULL): en Firestore nunca hubo integridad referencial, así que hay
+-- ingresos/ventas históricos que apuntan a un cliente ya eliminado — la FK
+-- con SET NULL preserva ese historial en vez de bloquearlo o borrarlo.
 create table if not exists ingresos (
   id text primary key,
   cliente_id text,
@@ -142,6 +142,10 @@ create table if not exists movimientos_contables (
   documento_url text,
   documento_nombre text,
   monto numeric not null default 0,
+  -- Ciclo de vida contable, no confundir con ventas.estado_pago (POS): son
+  -- vocabularios distintos a propósito, evaluado y descartado unificarlos
+  -- porque los valores no tienen equivalente cruzado (abono50 vs
+  -- x_rendir/pagado_cc). Ver MovimientoContable/Venta en src/types.ts.
   estado text not null default 'pendiente',
   notas text,
   creado_en timestamptz not null default now(),
@@ -230,6 +234,42 @@ create table if not exists config (
 );
 insert into config (id, pin_admin) values (true, '1234') on conflict (id) do nothing;
 
+-- Foreign keys: solo en las relaciones donde se verificó que no hay filas
+-- huérfanas irreconciliables (ver evaluación en supabase/add-foreign-keys.sql
+-- para bases ya existentes). ON DELETE SET NULL preserva el historial si se
+-- borra el cliente/cupón referenciado, en vez de bloquear el borrado o
+-- arrastrar el borrado en cascada. Quedan pendientes (no se fuerzan) las
+-- relaciones de creado_por→perfiles.nombre, categoria→categorias_gasto.nombre
+-- y plan→precios.plan: tienen valores sintéticos o históricos que no calzan
+-- con una FK (ver MovimientoContable/Venta en src/types.ts).
+alter table ingresos add constraint ingresos_cliente_id_fkey
+  foreign key (cliente_id) references clientes(id) on delete set null;
+alter table ventas add constraint ventas_cliente_id_fkey
+  foreign key (cliente_id) references clientes(id) on delete set null;
+alter table empresas add constraint empresas_contacto_cliente_id_fkey
+  foreign key (contacto_cliente_id) references clientes(id) on delete set null;
+alter table ingresos add constraint ingresos_cupon_codigo_fkey
+  foreign key (cupon_codigo) references cupones(codigo) on delete set null;
+
+-- Log de auditoría: quién modificó qué fila y cuándo, para las tablas que
+-- mueven dinero o datos de clientes. Se escribe a nivel de aplicación (ver
+-- commit() en AppContext.tsx), no con triggers: esta app no usa Supabase
+-- Auth/RLS, toda la escritura pasa por una sola conexión server-side
+-- (DATABASE_URL) que no sabe qué perfil está logueado a nivel de DB. Por eso
+-- NO captura ediciones manuales hechas directo en el SQL Editor de Supabase.
+create table if not exists auditoria (
+  id bigserial primary key,
+  tabla text not null,
+  registro_id text not null,
+  accion text not null check (accion in ('insert', 'update', 'delete')),
+  datos_anteriores jsonb,
+  datos_nuevos jsonb,
+  usuario text,
+  creado_en timestamptz not null default now()
+);
+create index if not exists auditoria_tabla_registro_idx on auditoria (tabla, registro_id);
+create index if not exists auditoria_creado_en_idx on auditoria (creado_en desc);
+
 -- RLS: esta app no usa Supabase Auth. Todo el acceso a estas tablas —
 -- lectura y escritura — pasa por Server Actions (`src/lib/db.ts`, "use
 -- server") a través de la conexión directa a Postgres (DATABASE_URL), que
@@ -249,10 +289,12 @@ alter table config enable row level security;
 alter table cupones enable row level security;
 alter table movimientos_contables enable row level security;
 alter table categorias_gasto enable row level security;
+alter table auditoria enable row level security;
 
 -- Sin políticas para anon en ninguna de estas tablas (ver comentario
 -- arriba). Se dropean explícitamente por si el proyecto ya tenía las
 -- políticas "anon full access" de una versión anterior de este archivo.
+drop policy if exists "anon full access" on auditoria;
 drop policy if exists "anon full access" on empresas;
 drop policy if exists "anon full access" on clientes;
 drop policy if exists "anon full access" on ingresos;

@@ -30,9 +30,9 @@ export const clientes = pgTable("clientes", {
 });
 
 // Empresas de compra y venta para emitir/recibir facturas. contacto_cliente_id
-// es informativo (sin foreign key estricta), mismo criterio que
-// ingresos/ventas.cliente_id: contacto_nombre queda denormalizado por si el
-// cliente referenciado se elimina después.
+// referencia a clientes.id con ON DELETE SET NULL: si el cliente contacto se
+// elimina, la empresa queda desvinculada pero no se borra; contacto_nombre
+// queda denormalizado igual para no perder el dato en pantalla.
 export const empresas = pgTable("empresas", {
   id: text("id").primaryKey(),
   razonSocial: text("razon_social").notNull(),
@@ -40,7 +40,7 @@ export const empresas = pgTable("empresas", {
   giro: text("giro"),
   direccion: text("direccion"),
   telefono: text("telefono"),
-  contactoClienteId: text("contacto_cliente_id"),
+  contactoClienteId: text("contacto_cliente_id").references(() => clientes.id, { onDelete: "set null" }),
   contactoNombre: text("contacto_nombre"),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
   creadoPor: text("creado_por"),
@@ -48,7 +48,7 @@ export const empresas = pgTable("empresas", {
 
 export const ingresos = pgTable("ingresos", {
   id: text("id").primaryKey(),
-  clienteId: text("cliente_id"),
+  clienteId: text("cliente_id").references(() => clientes.id, { onDelete: "set null" }),
   patente: text("patente").notNull(),
   nombre: text("nombre").notNull(),
   fecha: timestamptz("fecha").notNull().defaultNow(),
@@ -56,13 +56,13 @@ export const ingresos = pgTable("ingresos", {
   operador: text("operador"),
   esGarantia: boolean("es_garantia").notNull().default(false),
   viaCupon: boolean("via_cupon").notNull().default(false),
-  cuponCodigo: text("cupon_codigo"),
+  cuponCodigo: text("cupon_codigo").references(() => cupones.codigo, { onDelete: "set null" }),
   glosa: text("glosa"),
 });
 
 export const ventas = pgTable("ventas", {
   id: text("id").primaryKey(),
-  clienteId: text("cliente_id"),
+  clienteId: text("cliente_id").references(() => clientes.id, { onDelete: "set null" }),
   patente: text("patente").notNull(),
   nombre: text("nombre").notNull(),
   plan: text("plan").notNull().default(""),
