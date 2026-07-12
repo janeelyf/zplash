@@ -1,7 +1,20 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import type { AppData, CategoriaGasto, Cliente, Cupon, Empresa, MovimientoContable, PerfilPublico, UIState } from "@/types";
+import type {
+  AppData,
+  AuditoriaEntrada,
+  CategoriaGasto,
+  Cliente,
+  Cupon,
+  Empresa,
+  Ingreso,
+  MovimientoContable,
+  PerfilPublico,
+  TablaAuditada,
+  UIState,
+  Venta,
+} from "@/types";
 import { CATEGORIAS_GASTO_DEFAULT, PERFILES_DEFAULT, PRECIOS_DEFAULT } from "@/lib/helpers";
 import {
   deleteClientes,
@@ -9,6 +22,7 @@ import {
   deleteEmpresas,
   deleteMovimientosContables,
   deletePerfiles,
+  insertAuditoria,
   insertIngresos,
   insertVentas,
   loadAll,
@@ -81,6 +95,44 @@ function diffPorId<T extends { id: string }>(previos: T[], siguientes: T[]) {
   return { cambiados, eliminados };
 }
 
+// Arma las entradas de auditoría para una tabla a partir del mismo diff que
+// ya se usa para decidir qué escribir en Supabase (ver diffPorId): una fila
+// en `cambiados` es "insert" si no existía antes, "update" si sí; una fila
+// en `eliminados` es "delete". No se llama a esto para perfiles/precios/
+// categoriasGasto/config: quedan fuera del alcance de la auditoría a
+// propósito (bajo riesgo/volumen).
+function auditEntries<T extends { id: string }>(
+  tabla: TablaAuditada,
+  previos: T[],
+  cambiados: T[],
+  eliminados: string[],
+  usuario: string | null
+): AuditoriaEntrada[] {
+  const prevById = new Map(previos.map((x) => [x.id, x]));
+  const entradas: AuditoriaEntrada[] = cambiados.map((row) => {
+    const anterior = prevById.get(row.id);
+    return {
+      tabla,
+      registroId: row.id,
+      accion: anterior ? "update" : "insert",
+      datosAnteriores: anterior ?? null,
+      datosNuevos: row,
+      usuario,
+    };
+  });
+  for (const id of eliminados) {
+    entradas.push({
+      tabla,
+      registroId: id,
+      accion: "delete",
+      datosAnteriores: prevById.get(id) ?? null,
+      datosNuevos: null,
+      usuario,
+    });
+  }
+  return entradas;
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AppData>(initialData);
   const [ui, setUi] = useState<UIState>(initialUI);
@@ -114,21 +166,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setData(next);
 
     const ops: Promise<boolean>[] = [];
+    const auditoria: AuditoriaEntrada[] = [];
+    const usuario = ui.perfilActual?.nombre || null;
 
     if (patch.clientes) {
       const { cambiados, eliminados } = diffPorId<Cliente>(previous.clientes, patch.clientes);
       if (cambiados.length) ops.push(upsertClientes(cambiados));
       if (eliminados.length) ops.push(deleteClientes(eliminados));
+      auditoria.push(...auditEntries("clientes", previous.clientes, cambiados, eliminados, usuario));
     }
     if (patch.ingresos) {
       const prevIds = new Set(previous.ingresos.map((i) => i.id));
       const nuevos = patch.ingresos.filter((i) => !prevIds.has(i.id));
       if (nuevos.length) ops.push(insertIngresos(nuevos));
+      auditoria.push(...auditEntries<Ingreso>("ingresos", previous.ingresos, nuevos, [], usuario));
     }
     if (patch.ventas) {
       const prevIds = new Set(previous.ventas.map((v) => v.id));
       const nuevas = patch.ventas.filter((v) => !prevIds.has(v.id));
       if (nuevas.length) ops.push(insertVentas(nuevas));
+      auditoria.push(...auditEntries<Venta>("ventas", previous.ventas, nuevas, [], usuario));
     }
     if (patch.perfiles) {
       const { cambiados, eliminados } = diffPorId<PerfilPublico>(previous.perfiles, patch.perfiles);
@@ -137,16 +194,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     // La clave de un perfil nunca se escribe desde acá (perfilToRow no la
     // incluye) — crearla o cambiarla pasa por rutas server-side dedicadas
-    // (/api/perfiles/crear, /api/perfiles/cambiar-clave).
+    // (/api/perfiles/crear, /api/perfiles/cambiar-clave). Perfiles queda
+    // fuera del alcance de la auditoría (ver TablaAuditada en @/types).
     if (patch.cupones) {
       const { cambiados, eliminados } = diffPorId<Cupon>(previous.cupones, patch.cupones);
       if (cambiados.length) ops.push(upsertCupones(cambiados));
       if (eliminados.length) ops.push(deleteCupones(eliminados));
+      auditoria.push(...auditEntries("cupones", previous.cupones, cambiados, eliminados, usuario));
     }
     if (patch.movimientosContables) {
       const { cambiados, eliminados } = diffPorId<MovimientoContable>(previous.movimientosContables, patch.movimientosContables);
       if (cambiados.length) ops.push(upsertMovimientosContables(cambiados));
       if (eliminados.length) ops.push(deleteMovimientosContables(eliminados));
+      auditoria.push(...auditEntries("movimientos_contables", previous.movimientosContables, cambiados, eliminados, usuario));
     }
     if (patch.categoriasGasto) {
       const { cambiados } = diffPorId<CategoriaGasto>(previous.categoriasGasto, patch.categoriasGasto);
@@ -156,6 +216,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const { cambiados, eliminados } = diffPorId<Empresa>(previous.empresas, patch.empresas);
       if (cambiados.length) ops.push(upsertEmpresas(cambiados));
       if (eliminados.length) ops.push(deleteEmpresas(eliminados));
+      auditoria.push(...auditEntries("empresas", previous.empresas, cambiados, eliminados, usuario));
     }
     if (patch.precios) {
       ops.push(upsertPrecios(patch.precios));
@@ -172,6 +233,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // Revertimos el estado local: si no se guardó en Supabase, la app no debe
       // seguir mostrando el cambio como aplicado (otras sesiones nunca lo verán).
       setData(previous);
+    } else if (auditoria.length) {
+      // Best-effort: un fallo acá no revierte la escritura de negocio, que
+      // ya se confirmó guardada (ver insertAuditoria en @/lib/db).
+      insertAuditoria(auditoria);
     }
     return ok;
   }

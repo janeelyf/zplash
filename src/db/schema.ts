@@ -1,4 +1,4 @@
-import { boolean, integer, jsonb, numeric, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { bigserial, boolean, integer, jsonb, numeric, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 // Refleja supabase/schema.sql (fuente de verdad del DDL). Este archivo solo
 // existe para que Drizzle tipe las queries — no gestiona migraciones; el
@@ -152,4 +152,22 @@ export const categoriasGasto = pgTable("categorias_gasto", {
 export const config = pgTable("config", {
   id: boolean("id").primaryKey().default(true),
   pinAdmin: text("pin_admin").notNull().default("1234"),
+});
+
+// Log de auditoría: quién modificó qué fila y cuándo, para las tablas que
+// mueven dinero o datos de clientes (clientes/ingresos/ventas/empresas/
+// cupones/movimientos_contables). Se escribe a nivel de aplicación (ver
+// commit() en AppContext.tsx), no con triggers: esta app no usa Supabase
+// Auth/RLS, toda la escritura pasa por una sola conexión server-side
+// (DATABASE_URL) que no sabe qué perfil está logueado a nivel de DB. Por eso
+// NO captura ediciones manuales hechas directo en el SQL Editor de Supabase.
+export const auditoria = pgTable("auditoria", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  tabla: text("tabla").notNull(),
+  registroId: text("registro_id").notNull(),
+  accion: text("accion").notNull(),
+  datosAnteriores: jsonb("datos_anteriores"),
+  datosNuevos: jsonb("datos_nuevos"),
+  usuario: text("usuario"),
+  creadoEn: timestamptz("creado_en").notNull().defaultNow(),
 });
