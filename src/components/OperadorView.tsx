@@ -13,10 +13,12 @@ export default function OperadorView() {
   const hoy = todayStr();
   const ingresosHoy = data.ingresos.filter((i) => new Date(i.fecha).toDateString() === hoy).length;
   const plateInputRef = useRef<HTMLInputElement>(null);
+  const fotoPatenteRef = useRef<HTMLInputElement>(null);
   const codigoCuponRef = useRef<HTMLInputElement>(null);
   const patenteCuponRef = useRef<HTMLInputElement>(null);
   const [cuponErr, setCuponErr] = useState<{ msg: string; ok: boolean } | null>(null);
   const [plateErr, setPlateErr] = useState("");
+  const [escaneando, setEscaneando] = useState(false);
 
   const clearPlate = () => {
     if (plateInputRef.current) plateInputRef.current.value = "";
@@ -32,6 +34,36 @@ export default function OperadorView() {
     setPlateErr("");
     const c = findClient(data.clientes, plate);
     patchUi({ operResult: c ? { found: true, cliente: c } : { found: false, plate } });
+  };
+
+  // Atajo, no reemplazo: si la lectura falla o no encuentra nada, el
+  // operador sigue escribiendo la patente a mano con normalidad. El
+  // resultado se deja en el input para que lo revise/corrija antes de
+  // tocar "Validar" — el reconocimiento nunca es 100% confiable.
+  const escanearPatente = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setPlateErr("");
+    setEscaneando(true);
+    try {
+      const formData = new FormData();
+      formData.append("imagen", file);
+      const res = await fetch("/api/reconocer-patente", { method: "POST", body: formData });
+      const json = await res.json();
+      if (!res.ok || !json.patente) {
+        setPlateErr("No se pudo leer la patente en la foto. Escríbela a mano.");
+        return;
+      }
+      if (plateInputRef.current) {
+        plateInputRef.current.value = json.patente;
+        plateInputRef.current.focus();
+      }
+    } catch {
+      setPlateErr("No se pudo leer la patente (sin conexión). Escríbela a mano.");
+    } finally {
+      setEscaneando(false);
+    }
   };
 
   const canjearCupon = async () => {
@@ -120,6 +152,23 @@ export default function OperadorView() {
               if (e.key === "Enter") doValidate();
             }}
           />
+          <br />
+          <input
+            ref={fotoPatenteRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            style={{ display: "none" }}
+            onChange={escanearPatente}
+          />
+          <button
+            className="btn ghost"
+            style={{ marginTop: 10 }}
+            disabled={escaneando}
+            onClick={() => fotoPatenteRef.current?.click()}
+          >
+            {escaneando ? "Leyendo patente..." : "📷 Escanear patente"}
+          </button>
           <br />
           {plateErr && <div className="err">{plateErr}</div>}
           <button className="btn" onClick={doValidate}>
