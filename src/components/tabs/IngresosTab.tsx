@@ -49,7 +49,7 @@ export default function IngresosTab() {
                   <td>{fmtHora(i.fecha)}</td>
                   <td className="plate-tag">{i.patente}</td>
                   <td>{i.nombre}</td>
-                  <td>{i.operador || "-"}</td>
+                  <td>{i.creadoPor || "-"}</td>
                   <td>
                     <span className={`status-pill ${tipo.cls}`}>{tipo.label}</span>
                   </td>

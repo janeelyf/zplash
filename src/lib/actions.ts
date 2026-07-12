@@ -25,7 +25,7 @@ export function registrarIngreso(
     nombre: cliente.nombre,
     fecha: new Date().toISOString(),
     planEstadoAlIngreso: estadoPlan,
-    operador: operadorActual || "",
+    creadoPor: operadorActual || "",
     esGarantia: esGarantia || undefined,
     glosa: glosa || undefined,
   };
@@ -62,7 +62,7 @@ export function renovarPlan(
     precio: precioPreferencial(data.precios, cliente.plan || ""),
     tipo: "Renovación preferencial",
     fecha: new Date().toISOString(),
-    operador: operadorActual || "",
+    creadoPor: operadorActual || "",
     metodoPago: pago?.metodo,
     voucher: pago?.voucher,
   };

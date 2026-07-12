@@ -37,7 +37,7 @@ export interface Ingreso {
   nombre: string;
   fecha: string;
   planEstadoAlIngreso: "ok" | "warn" | "bad";
-  operador?: string;
+  creadoPor?: string;
   esGarantia?: boolean;
   viaCupon?: boolean;
   cuponCodigo?: string;
@@ -53,7 +53,7 @@ export interface Venta extends DatosFacturacion {
   precio: number;
   tipo: string;
   fecha: string;
-  operador?: string;
+  creadoPor?: string;
   metodoPago?: "efectivo" | "tarjeta" | "transferencia";
   voucher?: string;
   horaEntrega?: string;

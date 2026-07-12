@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
     precio: monto,
     tipo: existente ? "Renovación (Web)" : "Plan nuevo (Web)",
     fecha: fechaOrden,
-    operador: "Automático (Web)",
+    creadoPor: "Automático (Web)",
     metodoPago: "tarjeta",
     esServicioAdicional: false,
   };

@@ -75,7 +75,7 @@ export default function OperadorView() {
       nombre: nombreIngreso,
       fecha: ahora,
       planEstadoAlIngreso: "ok",
-      operador: ui.perfilActual?.nombre || "",
+      creadoPor: ui.perfilActual?.nombre || "",
       viaCupon: true,
       cuponCodigo: cupon.codigo,
     };

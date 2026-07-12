@@ -114,7 +114,7 @@ export default function VentaEmpresaTab() {
         precio: valorTotal,
         tipo: "Cupón Venta Empresa",
         fecha: new Date().toISOString(),
-        operador: "Administrador",
+        creadoPor: "Administrador",
         tipoDocumento: tipoDoc,
         razonSocial,
         rut,

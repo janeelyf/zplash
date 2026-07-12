@@ -261,7 +261,7 @@ export default function ServiciosAdicionalesView() {
         nombre,
         fecha: ahora,
         planEstadoAlIngreso: planStatus(clienteParaIngreso).cls,
-        operador: ui.perfilActual?.nombre || "",
+        creadoPor: ui.perfilActual?.nombre || "",
         glosa: GLOSA_LIMPIEZA_COMPLETA,
       };
       clientes = clientes.map((c) =>
@@ -279,7 +279,7 @@ export default function ServiciosAdicionalesView() {
       precio: l.precio,
       tipo: l.nombre,
       fecha: ahora,
-      operador: ui.perfilActual?.nombre || "",
+      creadoPor: ui.perfilActual?.nombre || "",
       metodoPago: estadoPago === "pendiente" ? undefined : metodoPago || undefined,
       horaEntrega: horaEntrega || undefined,
       notas: notas || undefined,

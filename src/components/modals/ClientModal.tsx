@@ -217,7 +217,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
             precio: precioNormal(data.precios, plan),
             tipo: "Plan nuevo",
             fecha: new Date().toISOString(),
-            operador: ui.perfilActual?.nombre || "",
+            creadoPor: ui.perfilActual?.nombre || "",
             metodoPago: pago?.metodo,
             voucher: pago?.voucher,
           };
@@ -233,7 +233,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
             precio: precioLavadoUnico(data.precios),
             tipo: "Lavado único",
             fecha: new Date().toISOString(),
-            operador: ui.perfilActual?.nombre || "",
+            creadoPor: ui.perfilActual?.nombre || "",
             metodoPago: pago?.metodo,
             voucher: pago?.voucher,
           };

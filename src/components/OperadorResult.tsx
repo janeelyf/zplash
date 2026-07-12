@@ -97,7 +97,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
         precio: precioLavadoUnico(data.precios),
         tipo: "Lavado único",
         fecha: new Date().toISOString(),
-        operador: ui.perfilActual?.nombre || "",
+        creadoPor: ui.perfilActual?.nombre || "",
         metodoPago: pago.metodo,
         voucher: pago.voucher,
       };
@@ -164,7 +164,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
         precio: precioOfertaWeb,
         tipo: "Renovación Web (manual)",
         fecha: new Date().toISOString(),
-        operador: ui.perfilActual?.nombre || "",
+        creadoPor: ui.perfilActual?.nombre || "",
         metodoPago: pago.metodo,
         voucher: pago.voucher,
       };
@@ -195,7 +195,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
         precio,
         tipo: "Plan nuevo",
         fecha: new Date().toISOString(),
-        operador: ui.perfilActual?.nombre || "",
+        creadoPor: ui.perfilActual?.nombre || "",
         metodoPago: pago.metodo,
         voucher: pago.voucher,
       };
@@ -461,7 +461,7 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
         precio,
         tipo: tipoVenta,
         fecha: new Date().toISOString(),
-        operador: ui.perfilActual?.nombre || "",
+        creadoPor: ui.perfilActual?.nombre || "",
         metodoPago: pago.metodo,
         voucher: pago.voucher,
       };
@@ -493,7 +493,7 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
         nombre: "Sin registro",
         fecha: ahora,
         planEstadoAlIngreso: "bad",
-        operador: ui.perfilActual?.nombre || "",
+        creadoPor: ui.perfilActual?.nombre || "",
       };
       const venta: Venta = {
         id: "v" + Date.now(),
@@ -504,7 +504,7 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
         precio: precioLavadoUnico(data.precios),
         tipo: "Lavado único",
         fecha: ahora,
-        operador: ui.perfilActual?.nombre || "",
+        creadoPor: ui.perfilActual?.nombre || "",
         metodoPago: pago.metodo,
         voucher: pago.voucher,
       };
