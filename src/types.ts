@@ -143,48 +143,6 @@ export interface PerfilPublico {
   icono?: string;
 }
 
-// Ficha de Remuneraciones de un colaborador — datos de contratación que
-// amplían su perfil (mismo id que PerfilPublico.id). Separada de
-// PerfilPublico a propósito: PerfilPublico alimenta la pantalla de login
-// (visible sin haber iniciado sesión), así que estos datos —más sensibles—
-// no viajan ahí aunque vivan en la misma fila de la tabla perfiles.
-export interface ColaboradorFicha {
-  id: string;
-  nombre: string;
-  icono?: string;
-  rut?: string;
-  cargo?: string;
-  fechaIngreso?: string | null;
-  sueldoBase?: number;
-}
-
-// Una liquidación de sueldo (un período pagado a un colaborador). totalLiquido
-// se calcula en el formulario (sueldoBase + gratificacion + bonos + horasExtra
-// - descuentoAfp - descuentoSalud - descuentoImpuesto - otrosDescuentos) y se
-// guarda ya resuelto, igual que Venta.precio: no se recalcula al vuelo desde
-// las liquidaciones, así que el desglose se puede editar después sin
-// depender de que las columnas involucradas no hayan cambiado de significado.
-export interface LiquidacionSueldo {
-  id: string;
-  perfilId: string;
-  periodo: string; // "YYYY-MM"
-  sueldoBase: number;
-  gratificacion: number;
-  bonos: number;
-  horasExtra: number;
-  descuentoAfp: number;
-  descuentoSalud: number;
-  descuentoImpuesto: number;
-  otrosDescuentos: number;
-  totalLiquido: number;
-  fechaPago: string;
-  documentoUrl?: string;
-  documentoNombre?: string;
-  notas?: string;
-  creadoEn: string;
-  creadoPor?: string;
-}
-
 export interface MovimientoContable {
   id: string;
   // "cuenta_por_pagar" existió como tipo creable hasta que esa pestaña pasó
@@ -236,14 +194,7 @@ export type Precios = Record<string, { normal: number; promo: number }>;
 // Tablas cubiertas por el log de auditoría (las que mueven dinero o datos de
 // clientes). Perfiles/precios/categoriasGasto/config quedan fuera a
 // propósito: bajo riesgo/volumen, ver evaluación en supabase/add-auditoria.sql.
-export type TablaAuditada =
-  | "clientes"
-  | "ingresos"
-  | "ventas"
-  | "empresas"
-  | "cupones"
-  | "movimientos_contables"
-  | "liquidaciones_sueldo";
+export type TablaAuditada = "clientes" | "ingresos" | "ventas" | "empresas" | "cupones" | "movimientos_contables";
 
 // Una entrada del log de auditoría. Es de solo escritura desde la app (no
 // se carga a AppData/memoria, se revisa directo en Supabase); se genera y
@@ -270,8 +221,6 @@ export interface AppData {
   movimientosContables: MovimientoContable[];
   categoriasGasto: CategoriaGasto[];
   empresas: Empresa[];
-  colaboradores: ColaboradorFicha[];
-  liquidacionesSueldo: LiquidacionSueldo[];
 }
 
 export type PlanStatusCls = "ok" | "warn" | "bad";

@@ -15,8 +15,6 @@ function appDataVacia(): AppData {
     movimientosContables: [],
     categoriasGasto: [],
     empresas: [],
-    colaboradores: [],
-    liquidacionesSueldo: [],
   };
 }
 

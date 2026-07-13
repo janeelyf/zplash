@@ -7,7 +7,6 @@ import GastoEstadoTab from "@/components/tabs/GastoEstadoTab";
 import CuentasPorPagarTab from "@/components/tabs/CuentasPorPagarTab";
 import CuentasPorCobrarTab from "@/components/tabs/CuentasPorCobrarTab";
 import EERRTab from "@/components/tabs/EERRTab";
-import RemuneracionesTab from "@/components/tabs/RemuneracionesTab";
 
 const TABS = [
   { id: "egreso", label: "Egresos / Gastos" },
@@ -15,7 +14,6 @@ const TABS = [
   { id: "ingreso", label: "Ingresos" },
   { id: "cuenta_por_cobrar", label: "Cuentas por Cobrar" },
   { id: "cuenta_por_pagar", label: "Cuentas por Pagar" },
-  { id: "remuneraciones", label: "Remuneraciones" },
   { id: "eerr", label: "EERR" },
 ] as const;
 
@@ -52,8 +50,6 @@ export default function ContabilidadView() {
               <CuentasPorPagarTab />
             ) : tabActual.id === "cuenta_por_cobrar" ? (
               <CuentasPorCobrarTab />
-            ) : tabActual.id === "remuneraciones" ? (
-              <RemuneracionesTab />
             ) : (
               <MovimientoContableTab tipo={tabActual.id} titulo={tabActual.label} />
             )}
