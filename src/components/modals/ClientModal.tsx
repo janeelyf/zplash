@@ -116,7 +116,6 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
       vencimiento = vencVal ? new Date(vencVal).toISOString() : null;
     }
 
-    const vencimientoAnterior = cli.vencimiento || null;
     const origen: "WEB" | "LOCAL" =
       contexto === "operador" ? "LOCAL" : origenRef.current?.value === "WEB" ? "WEB" : "LOCAL";
 
@@ -156,21 +155,6 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
             creadoEn: new Date().toISOString(),
             creadoPor: ui.perfilActual?.nombre || (contexto === "operador" ? "" : "Administrador"),
           };
-        }
-        if (vencimiento && vencimiento !== vencimientoAnterior) {
-          const venta: Venta = {
-            id: "v" + Date.now(),
-            clienteId: actualizado.id,
-            patente: actualizado.patente,
-            nombre: actualizado.nombre,
-            plan: actualizado.plan || "",
-            precio: precioNormal(data.precios, plan),
-            tipo: "Renovación manual",
-            fecha: new Date().toISOString(),
-            metodoPago: pago?.metodo,
-            voucher: pago?.voucher,
-          };
-          ventas = [venta, ...ventas];
         }
       } else {
         const nuevo: Cliente = {
@@ -249,19 +233,13 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
       patchUi({ modal: null });
     };
 
-    // Un cliente nuevo creado desde el admin no genera venta ni pide medio de
-    // pago: es solo un registro en la ficha, no un cobro en caja.
-    const creaVenta = c
-      ? !!(vencimiento && vencimiento !== vencimientoAnterior)
-      : contexto === "operador" && !!vencimiento;
-
+    // Solo el operador (punto de venta) cobra: editar un cliente existente
+    // desde el admin es un cambio en su ficha, nunca pide medio de pago ni
+    // genera una venta/movimiento en el cierre de caja. Lo mismo aplica a un
+    // cliente nuevo creado desde el admin.
     if (contexto === "operador") {
       const monto = vencimiento ? precioNormal(data.precios, plan) : precioLavadoUnico(data.precios);
       const descripcion = vencimiento ? `Contratación de plan para ${nombre}` : `Lavado único para ${nombre}`;
-      patchUi({ modal: { type: "pago", monto, descripcion, onConfirm: (pago) => persistir(pago) } });
-    } else if (creaVenta) {
-      const monto = precioNormal(data.precios, plan);
-      const descripcion = c ? `Renovación de plan para ${nombre}` : `Contratación de plan para ${nombre}`;
       patchUi({ modal: { type: "pago", monto, descripcion, onConfirm: (pago) => persistir(pago) } });
     } else {
       persistir();
