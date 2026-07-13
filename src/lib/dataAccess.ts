@@ -19,6 +19,7 @@ import {
   auditoria,
   categoriasGasto,
   clientes,
+  cobrosOneclick,
   config,
   cupones,
   empresas,
@@ -26,6 +27,7 @@ import {
   movimientosContables,
   perfiles,
   precios,
+  suscripcionesOneclick,
   ventas,
 } from "@/db/schema";
 import { supabase } from "@/lib/supabase";
@@ -633,4 +635,47 @@ export async function subirComprobanteGasto(id: string, file: File): Promise<str
   }
   const { data } = supabase.storage.from(COMPROBANTES_BUCKET).getPublicUrl(path);
   return data.publicUrl;
+}
+
+export interface SuscripcionOneclickInfo {
+  id: string;
+  estado: string;
+  proximoCobro: string | null;
+  cardTipo: string | null;
+  cardUltimosDigitos: string | null;
+  ultimoCobro: { estado: string; fecha: string } | null;
+}
+
+/** Estado de la suscripción Oneclick de un cliente para mostrar en
+ * ClienteInfoModal, o null si nunca inscribió una tarjeta. */
+export async function obtenerSuscripcionOneclick(patente: string): Promise<SuscripcionOneclickInfo | null> {
+  const db = getDb();
+  const [suscripcion] = await db
+    .select()
+    .from(suscripcionesOneclick)
+    .where(eq(suscripcionesOneclick.patente, patente))
+    .limit(1);
+  if (!suscripcion) return null;
+
+  const [ultimoCobro] = await db
+    .select({ estado: cobrosOneclick.estado, fecha: cobrosOneclick.creadoEn })
+    .from(cobrosOneclick)
+    .where(eq(cobrosOneclick.suscripcionId, suscripcion.id))
+    .orderBy(desc(cobrosOneclick.creadoEn))
+    .limit(1);
+
+  return {
+    id: suscripcion.id,
+    estado: suscripcion.estado,
+    proximoCobro: suscripcion.proximoCobro,
+    cardTipo: suscripcion.cardTipo,
+    cardUltimosDigitos: suscripcion.cardUltimosDigitos,
+    ultimoCobro: ultimoCobro ? { estado: ultimoCobro.estado, fecha: ultimoCobro.fecha } : null,
+  };
+}
+
+/** Fila cruda de la suscripción, para pasarle a cobrarSuscripcion() desde el Server Action de reintento manual. */
+export async function obtenerSuscripcionOneclickPorId(id: string) {
+  const [suscripcion] = await getDb().select().from(suscripcionesOneclick).where(eq(suscripcionesOneclick.id, id)).limit(1);
+  return suscripcion || null;
 }

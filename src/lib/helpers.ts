@@ -316,6 +316,12 @@ export function isValidTelefono(tel: string | null | undefined): boolean {
 export const TELEFONO_FORMATO_MSG =
   "Teléfono inválido. Debe ser un celular chileno: +569 seguido de 8 dígitos (ej. +56912345678).";
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function isValidEmail(email: string | null | undefined): boolean {
+  return EMAIL_REGEX.test((email || "").trim());
+}
+
 // Orden de la pantalla de login y de la pestaña Perfiles: los operadores van
 // primero (alfabético), y los perfiles de gestión quedan fijos al final en
 // este orden — "Administración" y luego "Gerencia" — sin importar dónde caigan

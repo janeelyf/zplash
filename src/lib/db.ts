@@ -8,6 +8,8 @@
 // datos; la lógica real de acceso a datos vive en @/lib/dataAccess, que no
 // tiene esta directiva y por lo tanto no es invocable desde el navegador.
 import * as dataAccess from "@/lib/dataAccess";
+import type { SuscripcionOneclickInfo } from "@/lib/dataAccess";
+import { cobrarSuscripcion } from "@/lib/pagos";
 import { tieneModulo, tieneSesionValida } from "@/lib/session";
 import type {
   AppData,
@@ -115,4 +117,19 @@ export async function insertAuditoria(entradas: AuditoriaEntrada[]): Promise<boo
 export async function subirComprobanteGasto(id: string, file: File): Promise<string | null> {
   if (!(await tieneSesionValida())) return null;
   return dataAccess.subirComprobanteGasto(id, file);
+}
+
+export async function obtenerSuscripcionOneclick(patente: string): Promise<SuscripcionOneclickInfo | null> {
+  if (!(await tieneModulo("clientes"))) return null;
+  return dataAccess.obtenerSuscripcionOneclick(patente);
+}
+
+// Reintento manual de un cobro rechazado, disparado desde ClienteInfoModal.
+// Usa la misma cobrarSuscripcion() que el cron diario — si el ciclo del mes
+// ya se cobró (aprobado o rechazado), lanza y el modal muestra el error.
+export async function cobrarSuscripcionManual(suscripcionId: string): Promise<{ estado: "aprobada" | "rechazada" } | null> {
+  if (!(await tieneModulo("clientes"))) return null;
+  const suscripcion = await dataAccess.obtenerSuscripcionOneclickPorId(suscripcionId);
+  if (!suscripcion) return null;
+  return cobrarSuscripcion(suscripcion);
 }

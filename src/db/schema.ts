@@ -164,6 +164,67 @@ export const config = pgTable("config", {
   pinAdmin: text("pin_admin").notNull().default("1234"),
 });
 
+// Ciclo de vida de una transacción Webpay Plus iniciada desde /pagar. A
+// diferencia del webhook de WooCommerce (que solo sincroniza pedidos que un
+// tercero ya cobró), acá ZPlash es quien habla directo con Transbank: no se
+// debe crear una fila en `ventas` hasta que Transaction.commit() confirme el
+// pago (response_code === 0) en /api/pagos/webpay/retorno.
+export const pagosWebpay = pgTable("pagos_webpay", {
+  buyOrder: text("buy_order").primaryKey(), // máx 26 caracteres (límite Transbank)
+  sessionId: text("session_id").notNull(),
+  patente: text("patente").notNull(),
+  tipo: text("tipo").notNull(), // "plan_nuevo" | "renovacion" | "servicio"
+  servicioId: text("servicio_id"), // solo si tipo = "servicio" (ver SERVICIOS_ADICIONALES)
+  monto: numeric("monto", { mode: "number" }).notNull(),
+  estado: text("estado").notNull().default("iniciada"), // iniciada|aprobada|rechazada|anulada
+  token: text("token"),
+  authorizationCode: text("authorization_code"),
+  responseCode: integer("response_code"),
+  ventaId: text("venta_id").references(() => ventas.id, { onDelete: "set null" }),
+  creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+  actualizadoEn: timestamptz("actualizado_en"),
+});
+
+// Tarjeta inscrita en Oneclick Mall para renovación automática mensual. Una
+// sola fila por patente (username exigido por Transbank, usamos la patente
+// normalizada). tokenInscripcion solo se usa mientras está "pendiente"
+// (correlaciona el callback de MallInscription.finish con esta fila).
+export const suscripcionesOneclick = pgTable("suscripciones_oneclick", {
+  id: text("id").primaryKey(),
+  patente: text("patente").notNull(),
+  clienteId: text("cliente_id").references(() => clientes.id, { onDelete: "set null" }),
+  username: text("username").notNull().unique(),
+  email: text("email").notNull(),
+  tokenInscripcion: text("token_inscripcion"),
+  tbkUser: text("tbk_user"),
+  cardTipo: text("card_tipo"),
+  cardUltimosDigitos: text("card_ultimos_digitos"),
+  estado: text("estado").notNull().default("pendiente"), // pendiente|activa|cancelada
+  proximoCobro: timestamptz("proximo_cobro"),
+  creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+  actualizadoEn: timestamptz("actualizado_en"),
+});
+
+// Cada intento de cobro mensual (automático vía cron, primer cobro tras
+// inscribir, o manual desde ClienteInfoModal) contra una suscripción activa.
+// A propósito NO hay unique(suscripcionId, cicloYm): un ciclo puede tener
+// varias filas "rechazada" (reintentos), pero cobrarSuscripcion() en
+// @/lib/pagos revisa antes de cobrar que no exista ya una "aprobada" para
+// ese ciclo, para no cobrar dos veces un mismo mes.
+export const cobrosOneclick = pgTable("cobros_oneclick", {
+  id: text("id").primaryKey(), // buyOrder: se usa como parent y child buy_order
+  suscripcionId: text("suscripcion_id")
+    .notNull()
+    .references(() => suscripcionesOneclick.id, { onDelete: "cascade" }),
+  cicloYm: text("ciclo_ym").notNull(), // "YYYY-MM"
+  monto: numeric("monto", { mode: "number" }).notNull(),
+  estado: text("estado").notNull(), // aprobada|rechazada
+  responseCode: integer("response_code"),
+  authorizationCode: text("authorization_code"),
+  ventaId: text("venta_id").references(() => ventas.id, { onDelete: "set null" }),
+  creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+});
+
 // Log de auditoría: quién modificó qué fila y cuándo, para las tablas que
 // mueven dinero o datos de clientes (clientes/ingresos/ventas/empresas/
 // cupones/movimientos_contables). Se escribe a nivel de aplicación (ver
