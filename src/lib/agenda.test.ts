@@ -14,7 +14,7 @@ function cita(overrides: Partial<Cita> = {}): Cita {
     nombre: "JUAN",
     fechaHora: "2026-07-14T10:00:00",
     duracionMinutos: 30,
-    estado: "confirmada",
+    estado: "agendado",
     origen: "interno",
     creadoEn: "2026-07-14T09:00:00",
     ...overrides,

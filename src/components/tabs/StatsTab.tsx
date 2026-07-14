@@ -82,6 +82,22 @@ export default function StatsTab() {
   const top10 = [...conVisitas].sort((a, b) => b.cantidad - a.cantidad || ordenNombre(a, b)).slice(0, 10);
   const bottom10 = [...conVisitas].sort((a, b) => a.cantidad - b.cantidad || ordenNombre(a, b)).slice(0, 10);
 
+  // Distribución de pasadas: cuántos clientes con plan pasaron exactamente N veces en el período,
+  // y qué porcentaje representan sobre el total de clientes con plan.
+  const distribucionVisitas = new Map<number, number>();
+  clientesConPlan.forEach((c) => {
+    const cantidad = visitasPorCliente.get(c.id) || 0;
+    distribucionVisitas.set(cantidad, (distribucionVisitas.get(cantidad) || 0) + 1);
+  });
+  const filasDistribucion = Array.from(distribucionVisitas.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([cantidad, clientes]) => ({
+      cantidad,
+      clientes,
+      pct: clientesConPlan.length ? ((clientes / clientesConPlan.length) * 100).toFixed(1) + "%" : "0.0%",
+      pctPasadas: totalVisitasPlan ? (((cantidad * clientes) / totalVisitasPlan) * 100).toFixed(1) + "%" : "0.0%",
+    }));
+
   return (
     <div>
       <div className="stat-grid">
@@ -213,6 +229,38 @@ export default function StatsTab() {
           <div className="lbl">Promedio de pasadas por cliente con plan ({clientesConPlan.length} clientes)</div>
         </div>
       </div>
+
+      <h3 style={{ fontSize: 16, color: "var(--gold)", margin: "24px 0 10px" }}>
+        Distribución de pasadas · clientes con plan
+      </h3>
+      <table style={{ marginBottom: 24 }}>
+        <thead>
+          <tr>
+            <th>Cantidad de pasadas</th>
+            <th>Clientes</th>
+            <th>% sobre clientes con plan</th>
+            <th>% sobre pasadas totales</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filasDistribucion.length === 0 ? (
+            <tr>
+              <td colSpan={4}>
+                <div className="empty">Sin clientes con plan</div>
+              </td>
+            </tr>
+          ) : (
+            filasDistribucion.map(({ cantidad, clientes, pct, pctPasadas }) => (
+              <tr key={cantidad}>
+                <td>{cantidad}</td>
+                <td>{clientes}</td>
+                <td>{pct}</td>
+                <td>{pctPasadas}</td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
 
       <h3 style={{ fontSize: 16, color: "var(--gold)", margin: "24px 0 10px" }}>
         Top 10 clientes que más han pasado

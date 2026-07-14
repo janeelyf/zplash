@@ -1,0 +1,1 @@
+ALTER TABLE "ventas" ADD COLUMN "fecha_entrega" text;

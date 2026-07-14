@@ -29,6 +29,7 @@ import {
   horariosAgenda,
   ingresos,
   movimientosContables,
+  pagosWebpay,
   perfiles,
   precios,
   servicios,
@@ -171,6 +172,9 @@ function ventaToRow(v: Venta): typeof ventas.$inferInsert {
     metodoPago: v.metodoPago || null,
     voucher: v.voucher || null,
     horaEntrega: v.horaEntrega || null,
+    fechaEntrega: v.fechaEntrega || null,
+    citaId: v.citaId || null,
+    cantidadItems: v.cantidadItems || 1,
     notas: v.notas || null,
     estadoPago: v.estadoPago || null,
     montoCobrado: v.montoCobrado ?? null,
@@ -199,6 +203,9 @@ function ventaFromRow(r: VentaRow): Venta {
     metodoPago: (r.metodoPago as Venta["metodoPago"]) || undefined,
     voucher: r.voucher || undefined,
     horaEntrega: r.horaEntrega || undefined,
+    fechaEntrega: r.fechaEntrega || undefined,
+    citaId: r.citaId || undefined,
+    cantidadItems: r.cantidadItems || undefined,
     notas: r.notas || undefined,
     estadoPago: (r.estadoPago as Venta["estadoPago"]) || undefined,
     montoCobrado: r.montoCobrado === null || r.montoCobrado === undefined ? undefined : r.montoCobrado,
@@ -587,6 +594,38 @@ export async function insertVentas(rows: Venta[]): Promise<boolean> {
     return true;
   } catch (error) {
     console.error("Error guardando ventas", error);
+    return false;
+  }
+}
+
+// A diferencia de insertVentas (solo altas), esto permite actualizar una
+// venta ya guardada — necesario para completar el pago de un saldo pendiente
+// al retirar el vehículo (ver cambiarStatusCita en ServiciosAdicionalesView).
+export async function upsertVentas(rows: Venta[]): Promise<boolean> {
+  if (!rows.length) return true;
+  try {
+    await upsertRows(ventas, ventas.id, rows.map(ventaToRow));
+    return true;
+  } catch (error) {
+    console.error("Error actualizando ventas", error);
+    return false;
+  }
+}
+
+// Borra también el pago Transbank (Webpay Plus u Oneclick) que haya generado
+// la venta, si tuvo uno: ambas tablas de pago guardan `ventaId` con onDelete
+// "set null", así que sin este paso previo quedarían filas huérfanas en vez
+// de desaparecer junto con el servicio que las originó.
+export async function deleteVentas(ids: string[]): Promise<boolean> {
+  if (!ids.length) return true;
+  try {
+    const db = getDb();
+    await db.delete(pagosWebpay).where(inArray(pagosWebpay.ventaId, ids));
+    await db.delete(cobrosOneclick).where(inArray(cobrosOneclick.ventaId, ids));
+    await db.delete(ventas).where(inArray(ventas.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error eliminando ventas", error);
     return false;
   }
 }

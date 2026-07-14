@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import PriceInput from "@/components/PriceInput";
 import { useApp } from "@/context/AppContext";
 import {
   GRUPOS_GASTO_EERR,
@@ -24,13 +25,19 @@ export default function ConfigTab() {
   const nuevaCategoriaNombreRef = useRef<HTMLInputElement>(null);
   const nuevaCategoriaGrupoRef = useRef<HTMLSelectElement>(null);
   const [categoriaErr, setCategoriaErr] = useState<{ msg: string; ok: boolean } | null>(null);
-  const normalRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const promoRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const lavadoUnicoRef = useRef<HTMLInputElement>(null);
-  const planOneclickRef = useRef<HTMLInputElement>(null);
-  const servicioRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const catalogoServicios = data.servicios.filter((s) => s.activo);
   const categoriasServicios = Array.from(new Set(catalogoServicios.map((s) => s.categoria || "")));
+  const [normalVals, setNormalVals] = useState<Record<string, string>>(() =>
+    Object.fromEntries(PLANES.map((p) => [p, String(precioNormal(data.precios, p))]))
+  );
+  const [promoVals, setPromoVals] = useState<Record<string, string>>(() =>
+    Object.fromEntries(PLANES.map((p) => [p, String(precioPreferencial(data.precios, p))]))
+  );
+  const [lavadoUnicoVal, setLavadoUnicoVal] = useState(() => String(precioLavadoUnico(data.precios)));
+  const [planOneclickVal, setPlanOneclickVal] = useState(() => String(precioPlanOneclick(data.precios)));
+  const [servicioVals, setServicioVals] = useState<Record<string, string>>(() =>
+    Object.fromEntries(catalogoServicios.map((s) => [s.id, String(precioServicio(data.precios, s.id))]))
+  );
 
   const savePin = async () => {
     const cur = curPinRef.current?.value || "";
@@ -63,15 +70,12 @@ export default function ConfigTab() {
   const savePrecios = async () => {
     const precios = { ...data.precios };
     PLANES.forEach((p) => {
-      const nInp = normalRefs.current[p];
-      const pInp = promoRefs.current[p];
-      precios[p] = { normal: Number(nInp?.value) || 0, promo: Number(pInp?.value) || 0 };
+      precios[p] = { normal: Number(normalVals[p]) || 0, promo: Number(promoVals[p]) || 0 };
     });
-    precios[LAVADO_UNICO_KEY] = { normal: Number(lavadoUnicoRef.current?.value) || 0, promo: 0 };
-    precios[PLAN_ONECLICK_KEY] = { normal: Number(planOneclickRef.current?.value) || 0, promo: 0 };
+    precios[LAVADO_UNICO_KEY] = { normal: Number(lavadoUnicoVal) || 0, promo: 0 };
+    precios[PLAN_ONECLICK_KEY] = { normal: Number(planOneclickVal) || 0, promo: 0 };
     catalogoServicios.forEach((s) => {
-      const inp = servicioRefs.current[s.id];
-      precios[s.id] = { normal: Number(inp?.value) || 0, promo: 0 };
+      precios[s.id] = { normal: Number(servicioVals[s.id]) || 0, promo: 0 };
     });
     await commit({ precios });
     setPrecioErr({ msg: "Precios actualizados correctamente", ok: true });
@@ -208,24 +212,16 @@ export default function ConfigTab() {
           <div key={p}>
             <div className="field">
               <label>Precio normal — {p}</label>
-              <input
-                type="number"
-                min={0}
-                defaultValue={precioNormal(data.precios, p)}
-                ref={(el) => {
-                  normalRefs.current[p] = el;
-                }}
+              <PriceInput
+                value={normalVals[p] ?? ""}
+                onChange={(v) => setNormalVals((cur) => ({ ...cur, [p]: v }))}
               />
             </div>
             <div className="field">
               <label>Precio promoción de renovación — {p}</label>
-              <input
-                type="number"
-                min={0}
-                defaultValue={precioPreferencial(data.precios, p)}
-                ref={(el) => {
-                  promoRefs.current[p] = el;
-                }}
+              <PriceInput
+                value={promoVals[p] ?? ""}
+                onChange={(v) => setPromoVals((cur) => ({ ...cur, [p]: v }))}
               />
             </div>
           </div>
@@ -234,7 +230,7 @@ export default function ConfigTab() {
         <h3 style={{ marginTop: 22 }}>Lavado túnel (sin plan)</h3>
         <div className="field">
           <label>Precio lavado único</label>
-          <input type="number" min={0} defaultValue={precioLavadoUnico(data.precios)} ref={lavadoUnicoRef} />
+          <PriceInput value={lavadoUnicoVal} onChange={setLavadoUnicoVal} />
         </div>
 
         <h3 style={{ marginTop: 22 }}>Pagos web (/pagar)</h3>
@@ -244,7 +240,7 @@ export default function ConfigTab() {
         </div>
         <div className="field">
           <label>Precio con renovación automática</label>
-          <input type="number" min={0} defaultValue={precioPlanOneclick(data.precios)} ref={planOneclickRef} />
+          <PriceInput value={planOneclickVal} onChange={setPlanOneclickVal} />
         </div>
 
         <h3 style={{ marginTop: 22 }}>Servicios adicionales</h3>
@@ -259,13 +255,9 @@ export default function ConfigTab() {
             {catalogoServicios.filter((s) => s.categoria === cat).map((s) => (
               <div className="field" key={s.id}>
                 <label>{s.nombre}</label>
-                <input
-                  type="number"
-                  min={0}
-                  defaultValue={precioServicio(data.precios, s.id)}
-                  ref={(el) => {
-                    servicioRefs.current[s.id] = el;
-                  }}
+                <PriceInput
+                  value={servicioVals[s.id] ?? ""}
+                  onChange={(v) => setServicioVals((cur) => ({ ...cur, [s.id]: v }))}
                 />
               </div>
             ))}

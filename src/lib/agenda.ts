@@ -1,5 +1,19 @@
 import type { BloqueoAgenda, Cita, HorarioAgenda } from "@/types";
 
+// Circuito interno del vehículo, en el orden en que normalmente ocurre;
+// "no_asistio"/"cancelada" son salidas fuera de ese camino feliz. Compartido
+// entre la tabla "Citas del día" de la Agenda y la columna Status del log de
+// Servicios registrados: ambas muestran/editan el mismo Cita.estado.
+export const ESTADOS_CITA: { valor: Cita["estado"]; label: string }[] = [
+  { valor: "agendado", label: "Agendado" },
+  { valor: "recibido", label: "Recibido" },
+  { valor: "en_limpieza", label: "En Limpieza" },
+  { valor: "listo_entrega", label: "Listo para Entrega" },
+  { valor: "retirado", label: "Retirado" },
+  { valor: "no_asistio", label: "No asistió" },
+  { valor: "cancelada", label: "Cancelada" },
+];
+
 function minutosDesdeMedianoche(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);
   return h * 60 + m;

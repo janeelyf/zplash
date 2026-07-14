@@ -1,0 +1,1 @@
+ALTER TABLE "ventas" ADD COLUMN "cantidad_items" integer DEFAULT 1 NOT NULL;

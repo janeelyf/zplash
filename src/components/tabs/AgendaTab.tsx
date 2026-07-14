@@ -1,8 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
+import PriceInput from "@/components/PriceInput";
 import { useApp } from "@/context/AppContext";
-import { fmtCLP, precioServicio, todayYMD, uid } from "@/lib/helpers";
+import { ESTADOS_CITA } from "@/lib/agenda";
+import { fmtCLP, precioServicio, sumarDias, todayYMD, uid } from "@/lib/helpers";
 import type { BloqueoAgenda, Cita, HorarioAgenda, Servicio } from "@/types";
 
 const DIAS = [
@@ -14,20 +16,6 @@ const DIAS = [
   { valor: 6, nombre: "Sábado" },
   { valor: 0, nombre: "Domingo" },
 ];
-
-const ESTADOS_CITA: { valor: Cita["estado"]; label: string }[] = [
-  { valor: "pendiente", label: "Pendiente" },
-  { valor: "confirmada", label: "Confirmada" },
-  { valor: "completada", label: "Completada" },
-  { valor: "cancelada", label: "Cancelada" },
-  { valor: "no_asistio", label: "No asistió" },
-];
-
-function sumarDias(fecha: string, delta: number): string {
-  const d = new Date(`${fecha}T00:00:00`);
-  d.setDate(d.getDate() + delta);
-  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-}
 
 // Vista de día (igual estructura que la Agenda de ConsultaPro: navegar
 // día a día en vez de un calendario semanal completo). Cada cita lista los
@@ -120,7 +108,7 @@ function ServiciosCatalogo() {
   const nombreRef = useRef<HTMLInputElement>(null);
   const categoriaRef = useRef<HTMLInputElement>(null);
   const duracionRef = useRef<HTMLInputElement>(null);
-  const precioRef = useRef<HTMLInputElement>(null);
+  const [precioTexto, setPrecioTexto] = useState("");
 
   const categorias = Array.from(new Set(data.servicios.map((s) => s.categoria || "Sin categoría")));
 
@@ -142,7 +130,7 @@ function ServiciosCatalogo() {
       duracionMinutos: duracion,
       activo: true,
     };
-    const precioInicial = Number(precioRef.current?.value) || 0;
+    const precioInicial = Number(precioTexto) || 0;
     const ok = await commit({
       servicios: [...data.servicios, nuevo],
       precios: { ...data.precios, [nuevo.id]: { normal: precioInicial, promo: 0 } },
@@ -155,7 +143,7 @@ function ServiciosCatalogo() {
     if (nombreRef.current) nombreRef.current.value = "";
     if (categoriaRef.current) categoriaRef.current.value = "";
     if (duracionRef.current) duracionRef.current.value = "";
-    if (precioRef.current) precioRef.current.value = "";
+    setPrecioTexto("");
   };
 
   const toggleActivo = (s: Servicio) => {
@@ -228,7 +216,7 @@ function ServiciosCatalogo() {
       </div>
       <div className="field">
         <label>Precio inicial</label>
-        <input ref={precioRef} type="number" min={0} />
+        <PriceInput value={precioTexto} onChange={setPrecioTexto} />
       </div>
       <div className="err" style={{ color: err?.ok ? "var(--green)" : undefined }}>
         {err?.msg || ""}

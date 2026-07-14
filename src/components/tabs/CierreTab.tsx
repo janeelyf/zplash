@@ -47,7 +47,11 @@ export default function CierreTab() {
   const serviciosAdicionalesRow = {
     tipo: "servicios-adicionales",
     label: "Servicios adicionales (detailing, tapiz, motor, chasis, etc.)",
-    cantidad: serviciosAdicionalesItems.length,
+    // Un registro puede combinar varios servicios en una sola fila (ver
+    // cantidadItems en registrar() de ServiciosAdicionalesView) — se suma
+    // cantidadItems en vez de contar filas para no subestimar cuántos
+    // servicios se vendieron realmente.
+    cantidad: serviciosAdicionalesItems.reduce((s, v) => s + (v.cantidadItems ?? 1), 0),
     monto: serviciosAdicionalesItems.reduce((s, v) => s + (v.precio || 0), 0),
   };
 

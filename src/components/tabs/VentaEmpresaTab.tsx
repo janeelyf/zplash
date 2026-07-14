@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import DatosTransferencia from "@/components/DatosTransferencia";
+import PriceInput from "@/components/PriceInput";
 import {
   PATENTE_FORMATO_MSG,
   RUT_FORMATO_MSG,
@@ -31,7 +32,7 @@ export default function VentaEmpresaTab() {
   const { data, commit } = useApp();
   const nombreRef = useRef<HTMLInputElement>(null);
   const cantidadRef = useRef<HTMLInputElement>(null);
-  const valorRef = useRef<HTMLInputElement>(null);
+  const [valorTexto, setValorTexto] = useState("");
   const caducidadRef = useRef<HTMLInputElement>(null);
   const razonSocialRef = useRef<HTMLInputElement>(null);
   const rutRef = useRef<HTMLInputElement>(null);
@@ -45,7 +46,7 @@ export default function VentaEmpresaTab() {
   const [busqueda, setBusqueda] = useState("");
 
   const dNombreRef = useRef<HTMLInputElement>(null);
-  const dValorRef = useRef<HTMLInputElement>(null);
+  const [dValorTexto, setDValorTexto] = useState("");
   const dCaducidadRef = useRef<HTMLInputElement>(null);
   const dPatenteRef = useRef<HTMLInputElement>(null);
   const [dTipoValor, setDTipoValor] = useState<"monto" | "porcentaje">("monto");
@@ -70,7 +71,7 @@ export default function VentaEmpresaTab() {
   const generar = async () => {
     const nombreLote = nombreRef.current?.value.trim() || "";
     const cantidad = Number(cantidadRef.current?.value || 0);
-    const valorTotal = Number(valorRef.current?.value || 0);
+    const valorTotal = Number(valorTexto || 0);
     const fechaCaducidad = caducidadRef.current?.value || "";
     if (!nombreLote || !cantidad || cantidad < 1 || !fechaCaducidad) {
       setErr({ msg: "Completa nombre, cantidad y fecha de caducidad", ok: false });
@@ -183,7 +184,7 @@ export default function VentaEmpresaTab() {
     });
     if (nombreRef.current) nombreRef.current.value = "";
     if (cantidadRef.current) cantidadRef.current.value = "";
-    if (valorRef.current) valorRef.current.value = "";
+    setValorTexto("");
     if (caducidadRef.current) caducidadRef.current.value = "";
     if (razonSocialRef.current) razonSocialRef.current.value = "";
     if (rutRef.current) rutRef.current.value = "";
@@ -201,7 +202,7 @@ export default function VentaEmpresaTab() {
 
   const crearDescuento = async () => {
     const nombreLote = dNombreRef.current?.value.trim() || "";
-    const valor = Number(dValorRef.current?.value || 0);
+    const valor = Number(dValorTexto || 0);
     const fechaCaducidad = dCaducidadRef.current?.value || "";
     const patente = dAbierto ? "" : normPlate(dPatenteRef.current?.value || "");
     if (!nombreLote || !valor || valor <= 0 || !fechaCaducidad) {
@@ -245,7 +246,7 @@ export default function VentaEmpresaTab() {
       ok: true,
     });
     if (dNombreRef.current) dNombreRef.current.value = "";
-    if (dValorRef.current) dValorRef.current.value = "";
+    setDValorTexto("");
     if (dCaducidadRef.current) dCaducidadRef.current.value = "";
     if (dPatenteRef.current) dPatenteRef.current.value = "";
     setDTipoValor("monto");
@@ -319,12 +320,12 @@ export default function VentaEmpresaTab() {
         </div>
         <div className="field">
           <label>Valor total del lote (0 = gratis)</label>
-          <input
-            ref={valorRef}
-            type="number"
-            min={0}
-            placeholder="0"
-            onChange={(e) => setHayValor(Number(e.target.value) > 0)}
+          <PriceInput
+            value={valorTexto}
+            onChange={(v) => {
+              setValorTexto(v);
+              setHayValor(Number(v) > 0);
+            }}
           />
         </div>
         <div className="field">
@@ -456,13 +457,18 @@ export default function VentaEmpresaTab() {
         </div>
         <div className="field">
           <label>{dTipoValor === "porcentaje" ? "Porcentaje de descuento" : "Monto a descontar"}</label>
-          <input
-            ref={dValorRef}
-            type="number"
-            min={0}
-            max={dTipoValor === "porcentaje" ? 100 : undefined}
-            placeholder={dTipoValor === "porcentaje" ? "15" : "1000"}
-          />
+          {dTipoValor === "porcentaje" ? (
+            <input
+              type="number"
+              min={0}
+              max={100}
+              placeholder="15"
+              value={dValorTexto}
+              onChange={(e) => setDValorTexto(e.target.value)}
+            />
+          ) : (
+            <PriceInput value={dValorTexto} onChange={setDValorTexto} />
+          )}
         </div>
         <div className="field">
           <label>Fecha de caducidad</label>

@@ -57,6 +57,19 @@ export interface Venta extends DatosFacturacion {
   metodoPago?: "efectivo" | "tarjeta" | "transferencia";
   voucher?: string;
   horaEntrega?: string;
+  fechaEntrega?: string;
+  // Liga esta venta a la Cita creada en el mismo registro (ver registrar()
+  // en ServiciosAdicionalesView), para poder mostrar y editar su Status en
+  // el log "Servicios registrados" sin tener que adivinar la cita por
+  // patente/fecha.
+  citaId?: string;
+  // Cuántos servicios del catálogo/personalizados se combinaron en este
+  // registro (ver registrar() en ServiciosAdicionalesView: un vehículo con
+  // varios servicios elegidos genera UNA sola Venta con el precio total,
+  // no una fila por servicio). Usado para no perder la métrica "cantidad de
+  // servicios vendidos" en Cierre de Caja cuando ahora "cantidad de filas"
+  // ya no equivale a eso.
+  cantidadItems?: number;
   notas?: string;
   // "Cuánto se pagó en el momento de la venta" — vocabulario propio de POS,
   // distinto a propósito de MovimientoContable.estado (ver más abajo): no
@@ -241,7 +254,11 @@ export interface Cita {
   telefono?: string;
   fechaHora: string;
   duracionMinutos: number;
-  estado: "pendiente" | "confirmada" | "completada" | "cancelada" | "no_asistio";
+  // Circuito interno del vehículo: agendado → recibido → en_limpieza →
+  // listo_entrega → retirado, con "cancelada"/"no_asistio" como salidas
+  // fuera de ese camino feliz (ver validarDisponibilidad en lib/agenda.ts,
+  // que solo excluye "cancelada" al chequear choques de horario).
+  estado: "agendado" | "recibido" | "en_limpieza" | "listo_entrega" | "retirado" | "cancelada" | "no_asistio";
   notas?: string;
   origen: "interno" | "publico";
   creadoPor?: string;

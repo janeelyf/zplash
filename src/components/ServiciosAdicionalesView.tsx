@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
 import DatosTransferencia from "@/components/DatosTransferencia";
-import { validarDisponibilidad } from "@/lib/agenda";
+import PriceInput from "@/components/PriceInput";
+import { ESTADOS_CITA, validarDisponibilidad } from "@/lib/agenda";
 import {
   PATENTE_FORMATO_MSG,
   RUT_FORMATO_MSG,
@@ -16,10 +17,11 @@ import {
   normPlate,
   planStatus,
   precioServicio,
-  todayStr,
+  sumarDias,
   todayYMD,
   uid,
   uidIngreso,
+  ymd,
 } from "@/lib/helpers";
 import type { Cita, Cliente, Empresa, Ingreso, Venta } from "@/types";
 
@@ -50,7 +52,7 @@ export default function ServiciosAdicionalesView() {
   const giroRef = useRef<HTMLInputElement>(null);
   const notasRef = useRef<HTMLTextAreaElement>(null);
   const detallePersonalizadoRef = useRef<HTMLInputElement>(null);
-  const montoPersonalizadoRef = useRef<HTMLInputElement>(null);
+  const [montoPersonalizadoTexto, setMontoPersonalizadoTexto] = useState("");
 
   const [patenteBuscada, setPatenteBuscada] = useState<string | null>(null);
   const [serviciosSeleccionados, setServiciosSeleccionados] = useState<string[]>([]);
@@ -61,6 +63,9 @@ export default function ServiciosAdicionalesView() {
   const [metodoPago, setMetodoPago] = useState<"efectivo" | "tarjeta" | "transferencia" | null>(null);
   const [fechaCita, setFechaCita] = useState(todayYMD());
   const [horaCita, setHoraCita] = useState("");
+  const [fechaEntregaCampo, setFechaEntregaCampo] = useState("");
+  const [horaEntregaCampo, setHoraEntregaCampo] = useState("");
+  const [fechaLog, setFechaLog] = useState(todayYMD());
   const [err, setErr] = useState("");
 
   const clienteExistente = patenteBuscada ? findClient(data.clientes, patenteBuscada) || null : null;
@@ -104,7 +109,7 @@ export default function ServiciosAdicionalesView() {
 
   const agregarPersonalizado = () => {
     const nombre = detallePersonalizadoRef.current?.value.trim() || "";
-    const monto = Number(montoPersonalizadoRef.current?.value || "0");
+    const monto = Number(montoPersonalizadoTexto || "0");
     if (!nombre || !monto || monto <= 0) {
       setErr("Ingresa un detalle y un monto válido para el servicio personalizado");
       return;
@@ -112,11 +117,42 @@ export default function ServiciosAdicionalesView() {
     setErr("");
     setItemsPersonalizados((prev) => [...prev, { id: "custom-" + Date.now(), nombre, precio: monto }]);
     if (detallePersonalizadoRef.current) detallePersonalizadoRef.current.value = "";
-    if (montoPersonalizadoRef.current) montoPersonalizadoRef.current.value = "";
+    setMontoPersonalizadoTexto("");
   };
 
   const quitarPersonalizado = (id: string) => {
     setItemsPersonalizados((prev) => prev.filter((i) => i.id !== id));
+  };
+
+  // Al retirar el vehículo (último paso del circuito) se cobra cualquier
+  // saldo pendiente de las ventas ligadas a esa cita antes de aplicar el
+  // cambio de status: si ya estaba todo pagado, se aplica directo.
+  const cambiarStatusCita = (citaId: string, estado: Cita["estado"]) => {
+    if (estado === "retirado") {
+      const ventasCita = data.ventas.filter((v) => v.citaId === citaId);
+      const totalPrecio = ventasCita.reduce((s, v) => s + v.precio, 0);
+      const totalCobrado = ventasCita.reduce((s, v) => s + (v.montoCobrado ?? 0), 0);
+      const saldo = totalPrecio - totalCobrado;
+      if (saldo > 0) {
+        patchUi({
+          modal: {
+            type: "pago",
+            monto: saldo,
+            descripcion: `Saldo pendiente — ${ventasCita[0]?.patente || ""}`,
+            onConfirm: (pago) => {
+              commit({
+                ventas: data.ventas.map((v) =>
+                  v.citaId === citaId ? { ...v, estadoPago: "pagado", montoCobrado: v.precio, metodoPago: pago.metodo } : v
+                ),
+                citas: data.citas.map((c) => (c.id === citaId ? { ...c, estado } : c)),
+              });
+            },
+          },
+        });
+        return;
+      }
+    }
+    commit({ citas: data.citas.map((c) => (c.id === citaId ? { ...c, estado } : c)) });
   };
 
   // El RUT manda: al salir del campo se busca en la ficha de Empresas; si ya
@@ -155,6 +191,8 @@ export default function ServiciosAdicionalesView() {
     setMetodoPago(null);
     setFechaCita(todayYMD());
     setHoraCita("");
+    setFechaEntregaCampo("");
+    setHoraEntregaCampo("");
   };
 
   const cambiarPatente = () => {
@@ -166,6 +204,8 @@ export default function ServiciosAdicionalesView() {
     setMetodoPago(null);
     setFechaCita(todayYMD());
     setHoraCita("");
+    setFechaEntregaCampo("");
+    setHoraEntregaCampo("");
     setErr("");
   };
 
@@ -189,7 +229,7 @@ export default function ServiciosAdicionalesView() {
       return;
     }
     if (horarioConfigurado && !horaCita) {
-      setErr("Selecciona una hora para el servicio");
+      setErr("Selecciona una hora de inicio para el servicio");
       return;
     }
     if (horaCita && horarioConfigurado) {
@@ -219,7 +259,8 @@ export default function ServiciosAdicionalesView() {
     const rut = tipoDoc === "Factura" ? formatRut(rutRaw) : "";
     const direccion = tipoDoc === "Factura" ? direccionRef.current?.value.trim() || "" : "";
     const giro = tipoDoc === "Factura" ? giroRef.current?.value.trim() || "" : "";
-    const horaEntrega = horaCita || "";
+    const horaEntrega = horaEntregaCampo || "";
+    const fechaEntrega = horaEntregaCampo ? fechaEntregaCampo || fechaCita : "";
     const notas = notasRef.current?.value.trim() || "";
 
     setErr("");
@@ -309,52 +350,65 @@ export default function ServiciosAdicionalesView() {
       ingresosNuevos = [ingreso, ...data.ingresos];
     }
 
-    const ventasNuevas: Venta[] = lineas.map((l, idx) => ({
-      id: "v" + Date.now() + "-" + idx,
-      clienteId,
-      patente,
-      nombre,
-      plan: "",
-      precio: l.precio,
-      tipo: l.nombre,
-      fecha: ahora,
-      creadoPor: ui.perfilActual?.nombre || "",
-      metodoPago: estadoPago === "pendiente" ? undefined : metodoPago || undefined,
-      horaEntrega: horaEntrega || undefined,
-      notas: notas || undefined,
-      estadoPago,
-      montoCobrado: totalListado > 0 ? Math.round((l.precio / totalListado) * montoCobradoTotal) : 0,
-      esServicioAdicional: true,
-    }));
-
     // La Agenda queda fusionada con la venta: el registro deja reservada su
     // hora en `citas`, con los servicios del catálogo elegidos ligados vía
     // cita_servicios (ver upsertCitas en dataAccess.ts) — equivalente a
     // cita_procedimientos en ConsultaPro, no un nombre concatenado en texto.
-    const citaNueva: Cita | undefined = horaCita
-      ? {
-          id: uid(),
-          clienteId,
-          servicioIds: serviciosSeleccionados,
-          patente,
-          nombre,
-          telefono: telefono || undefined,
-          fechaHora: `${fechaCita}T${horaCita}:00`,
-          duracionMinutos: duracionCita,
-          estado: "confirmada",
-          notas: notas || undefined,
-          origen: "interno",
-          creadoPor: ui.perfilActual?.nombre || "",
-          creadoEn: ahora,
-        }
-      : undefined;
+    // citaId se comparte con las ventas para poder mostrar/editar el Status
+    // (circuito interno del vehículo) desde el log de Servicios registrados.
+    // Se crea siempre, aunque no se haya elegido "Fecha y hora de Inicio"
+    // (sin horario de atención configurado ese campo es opcional y casi
+    // nunca se llena): todo vehículo que pasa por acá debe quedar trackeable
+    // en el circuito, se haya agendado con hora o no.
+    const citaId = uid();
+
+    // Un vehículo = un registro: aunque se hayan elegido varios servicios,
+    // se guarda UNA sola Venta con el precio total y el detalle de
+    // servicios listado en `tipo` (cantidadItems guarda cuántos se
+    // combinaron, para no perder esa métrica en Cierre de Caja).
+    const ventaNueva: Venta = {
+      id: "v" + Date.now(),
+      clienteId,
+      patente,
+      nombre,
+      plan: "",
+      precio: totalListado,
+      tipo: lineas.map((l) => l.nombre).join(", "),
+      fecha: ahora,
+      creadoPor: ui.perfilActual?.nombre || "",
+      metodoPago: estadoPago === "pendiente" ? undefined : metodoPago || undefined,
+      horaEntrega: horaEntrega || undefined,
+      fechaEntrega: fechaEntrega || undefined,
+      citaId,
+      cantidadItems: lineas.length,
+      notas: notas || undefined,
+      estadoPago,
+      montoCobrado: montoCobradoTotal,
+      esServicioAdicional: true,
+    };
+
+    const citaNueva: Cita = {
+      id: citaId,
+      clienteId,
+      servicioIds: serviciosSeleccionados,
+      patente,
+      nombre,
+      telefono: telefono || undefined,
+      fechaHora: horaCita ? `${fechaCita}T${horaCita}:00` : ahora,
+      duracionMinutos: duracionCita,
+      estado: "agendado",
+      notas: notas || undefined,
+      origen: "interno",
+      creadoPor: ui.perfilActual?.nombre || "",
+      creadoEn: ahora,
+    };
 
     const ok = await commit({
       clientes,
-      ventas: [...ventasNuevas, ...data.ventas],
+      ventas: [ventaNueva, ...data.ventas],
       ingresos: ingresosNuevos,
       ...(nuevaEmpresa ? { empresas: [...data.empresas, nuevaEmpresa] } : {}),
-      ...(citaNueva ? { citas: [citaNueva, ...data.citas] } : {}),
+      citas: [citaNueva, ...data.citas],
     });
     if (!ok) {
       setErr(ERROR_GUARDADO);
@@ -370,10 +424,28 @@ export default function ServiciosAdicionalesView() {
     setMetodoPago(null);
     setFechaCita(todayYMD());
     setHoraCita("");
+    setFechaEntregaCampo("");
+    setHoraEntregaCampo("");
   };
 
-  const hoy = todayStr();
-  const hoyList = data.ventas.filter((v) => v.esServicioAdicional && new Date(v.fecha).toDateString() === hoy);
+  const logList = data.ventas.filter((v) => v.esServicioAdicional && ymd(new Date(v.fecha)) === fechaLog);
+
+  // Solo Gerencia (módulo "permisos", mismo criterio que PerfilesTab) puede
+  // borrar un servicio ya registrado: es destructivo y además elimina el
+  // pago Transbank asociado, si tuvo uno (ver deleteVentas en dataAccess.ts).
+  const puedeEliminarServicios = ui.perfilActual?.modulos.includes("permisos") || false;
+
+  const eliminarServicio = (v: Venta) => {
+    patchUi({
+      modal: {
+        type: "confirm",
+        mensaje: `¿Eliminar el servicio de ${v.patente} (${v.nombre})? Esta acción no se puede deshacer y también elimina el pago asociado, si existe.`,
+        onConfirm: () => {
+          commit({ ventas: data.ventas.filter((x) => x.id !== v.id) });
+        },
+      },
+    });
+  };
 
   return (
     <>
@@ -480,10 +552,9 @@ export default function ServiciosAdicionalesView() {
                             fontSize: 14,
                           }}
                         />
-                        <input
-                          ref={montoPersonalizadoRef}
-                          type="number"
-                          min={0}
+                        <PriceInput
+                          value={montoPersonalizadoTexto}
+                          onChange={setMontoPersonalizadoTexto}
                           placeholder="Monto"
                           style={{
                             flex: "1 1 120px",
@@ -615,7 +686,7 @@ export default function ServiciosAdicionalesView() {
                 )}
                 {lineas.length > 0 && (
                   <div className="field">
-                    <label>Fecha y hora del servicio{horarioConfigurado ? " *" : ""}</label>
+                    <label>Fecha y hora de Inicio{horarioConfigurado ? " *" : ""}</label>
                     <div style={{ display: "flex", gap: 10 }}>
                       <input
                         type="date"
@@ -630,6 +701,29 @@ export default function ServiciosAdicionalesView() {
                       {horarioConfigurado
                         ? `Duración estimada: ${duracionCita} min. Se agenda en la Agenda del negocio.`
                         : "Configura el horario de atención en Administrador de ingresos → Agenda para validar disponibilidad automáticamente."}
+                    </div>
+                  </div>
+                )}
+                {lineas.length > 0 && (
+                  <div className="field">
+                    <label>Fecha y hora de Entrega</label>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <input
+                        type="date"
+                        min={fechaCita}
+                        value={fechaEntregaCampo || fechaCita}
+                        onChange={(e) => setFechaEntregaCampo(e.target.value)}
+                        style={{ flex: 1 }}
+                      />
+                      <input
+                        type="time"
+                        value={horaEntregaCampo}
+                        onChange={(e) => setHoraEntregaCampo(e.target.value)}
+                        style={{ flex: 1 }}
+                      />
+                    </div>
+                    <div className="hint" style={{ textAlign: "left", marginTop: 6 }}>
+                      Cuándo estará listo el vehículo para el cliente. No reserva hora en la Agenda.
                     </div>
                   </div>
                 )}
@@ -740,30 +834,128 @@ export default function ServiciosAdicionalesView() {
         </div>
 
         <div className="today-log">
-          <h3>Servicios registrados hoy</h3>
-          {hoyList.length === 0 ? (
-            <div className="empty">Aún no hay servicios registrados hoy</div>
-          ) : (
-            hoyList.map((v) => (
-              <div className="log-row" key={v.id} title={v.notas || undefined}>
-                <span className="plate">{v.patente}</span>
-                <span>
-                  {v.nombre} — {v.tipo}
-                </span>
-                {v.estadoPago && (
-                  <span
-                    className={`status-pill ${v.estadoPago === "pagado" ? "ok" : v.estadoPago === "abono50" ? "warn" : "bad"}`}
-                  >
-                    {v.estadoPago === "pagado" ? "Pagado" : v.estadoPago === "abono50" ? "Abono 50%" : "Por pagar"}
-                  </span>
+          <h3>Servicios registrados{fechaLog === todayYMD() ? " hoy" : ` el ${fechaLog}`}</h3>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+            <button className="btn ghost" style={{ marginTop: 0 }} onClick={() => setFechaLog(sumarDias(fechaLog, -1))}>
+              ← Día anterior
+            </button>
+            <input type="date" value={fechaLog} onChange={(e) => setFechaLog(e.target.value)} style={{ flex: "0 0 auto" }} />
+            <button className="btn ghost" style={{ marginTop: 0 }} onClick={() => setFechaLog(sumarDias(fechaLog, 1))}>
+              Día siguiente →
+            </button>
+            {fechaLog !== todayYMD() && (
+              <button className="btn ghost" style={{ marginTop: 0 }} onClick={() => setFechaLog(todayYMD())}>
+                Volver a hoy
+              </button>
+            )}
+          </div>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Patente</th>
+                  <th>Servicio</th>
+                  <th>Pago</th>
+                  <th>Entrega</th>
+                  <th>Status</th>
+                  <th>Precio</th>
+                  {puedeEliminarServicios && <th></th>}
+                </tr>
+              </thead>
+              <tbody>
+                {logList.length === 0 ? (
+                  <tr>
+                    <td colSpan={puedeEliminarServicios ? 7 : 6}>
+                      <div className="empty">Sin servicios registrados ese día</div>
+                    </td>
+                  </tr>
+                ) : (
+                  logList.map((v) => (
+                    <tr key={v.id} title={v.notas || undefined}>
+                      <td>
+                        <span className="plate-tag">{v.patente}</span>
+                      </td>
+                      <td>
+                        {v.nombre} — {v.tipo}
+                      </td>
+                      <td>
+                        {v.estadoPago && (
+                          <span
+                            className={`status-pill ${v.estadoPago === "pagado" ? "ok" : v.estadoPago === "abono50" ? "warn" : "bad"}`}
+                          >
+                            {v.estadoPago === "pagado" ? "Pagado" : v.estadoPago === "abono50" ? "Abono 50%" : "Por pagar"}
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        {v.horaEntrega
+                          ? `${v.fechaEntrega && v.fechaEntrega !== todayYMD() ? `${v.fechaEntrega} ` : ""}${v.horaEntrega}`
+                          : "—"}
+                      </td>
+                      <td>
+                        {v.citaId ? (
+                          <StatusCell
+                            estadoActual={data.citas.find((c) => c.id === v.citaId)?.estado || "agendado"}
+                            onCambiar={(estado) => cambiarStatusCita(v.citaId!, estado)}
+                          />
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td>{fmtCLP(v.precio)}</td>
+                      {puedeEliminarServicios && (
+                        <td className="row-actions">
+                          <button className="icon-btn" onClick={() => eliminarServicio(v)}>
+                            Eliminar
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))
                 )}
-                {v.horaEntrega && <span>Entrega {v.horaEntrega}</span>}
-                <span>{fmtCLP(v.precio)}</span>
-              </div>
-            ))
-          )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </>
+  );
+}
+
+// Selector + botón "Cambiar" en vez de aplicar al vuelo con onChange: así el
+// cambio de status (incluido el cobro de saldo al pasar a "Retirado") solo
+// ocurre cuando el usuario confirma, no con un clic accidental en el select.
+function StatusCell({
+  estadoActual,
+  onCambiar,
+}: {
+  estadoActual: Cita["estado"];
+  onCambiar: (estado: Cita["estado"]) => void;
+}) {
+  const [seleccion, setSeleccion] = useState<Cita["estado"]>(estadoActual);
+
+  useEffect(() => {
+    setSeleccion(estadoActual);
+  }, [estadoActual]);
+
+  return (
+    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+      <select value={seleccion} onChange={(e) => setSeleccion(e.target.value as Cita["estado"])} style={{ fontSize: 13 }}>
+        {ESTADOS_CITA.map((e) => (
+          <option key={e.valor} value={e.valor}>
+            {e.label}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        className="btn ghost"
+        style={{ marginTop: 0, padding: "4px 10px", fontSize: 12 }}
+        disabled={seleccion === estadoActual}
+        onClick={() => onCambiar(seleccion)}
+      >
+        Cambiar
+      </button>
+    </div>
   );
 }

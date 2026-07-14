@@ -30,6 +30,7 @@ import {
   deleteMovimientosContables,
   deletePerfiles,
   deleteServicios,
+  deleteVentas,
   insertAuditoria,
   insertIngresos,
   insertVentas,
@@ -45,6 +46,7 @@ import {
   upsertPerfiles,
   upsertPrecios,
   upsertServicios,
+  upsertVentas,
   waitForStorage,
 } from "@/lib/db";
 
@@ -196,11 +198,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (nuevos.length) ops.push(insertIngresos(nuevos));
       auditoria.push(...auditEntries<Ingreso>("ingresos", previous.ingresos, nuevos, [], usuario));
     }
+    // citas se resuelve ANTES de tocar ventas (ver más abajo, awaited aparte
+    // del resto de `ops`): ventas.citaId tiene FK a citas.id y ambas suelen
+    // llegar juntas en el mismo commit (ver registrar() en
+    // ServiciosAdicionalesView) — si corrieran en paralelo vía Promise.all,
+    // el insert de ventas podía llegar a la base antes que el de citas y
+    // violar la FK.
+    let citasOk = true;
+    if (patch.citas) {
+      const { cambiados, eliminados } = diffPorId<Cita>(previous.citas, patch.citas);
+      const citaResults = await Promise.all([
+        cambiados.length ? upsertCitas(cambiados) : true,
+        eliminados.length ? deleteCitas(eliminados) : true,
+      ]);
+      citasOk = citaResults.every(Boolean);
+      auditoria.push(...auditEntries("citas", previous.citas, cambiados, eliminados, usuario));
+    }
+
     if (patch.ventas) {
       const prevIds = new Set(previous.ventas.map((v) => v.id));
-      const nuevas = patch.ventas.filter((v) => !prevIds.has(v.id));
+      const { cambiados, eliminados } = diffPorId<Venta>(previous.ventas, patch.ventas);
+      const nuevas = cambiados.filter((v) => !prevIds.has(v.id));
+      const editadas = cambiados.filter((v) => prevIds.has(v.id));
       if (nuevas.length) ops.push(insertVentas(nuevas));
-      auditoria.push(...auditEntries<Venta>("ventas", previous.ventas, nuevas, [], usuario));
+      if (editadas.length) ops.push(upsertVentas(editadas));
+      if (eliminados.length) ops.push(deleteVentas(eliminados));
+      auditoria.push(...auditEntries<Venta>("ventas", previous.ventas, cambiados, eliminados, usuario));
     }
     if (patch.perfiles) {
       const { cambiados, eliminados } = diffPorId<PerfilPublico>(previous.perfiles, patch.perfiles);
@@ -251,15 +274,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (cambiados.length) ops.push(upsertBloqueosAgenda(cambiados));
       if (eliminados.length) ops.push(deleteBloqueosAgenda(eliminados));
     }
-    if (patch.citas) {
-      const { cambiados, eliminados } = diffPorId<Cita>(previous.citas, patch.citas);
-      if (cambiados.length) ops.push(upsertCitas(cambiados));
-      if (eliminados.length) ops.push(deleteCitas(eliminados));
-      auditoria.push(...auditEntries("citas", previous.citas, cambiados, eliminados, usuario));
-    }
-
     const results = await Promise.all(ops);
-    const ok = results.every(Boolean);
+    const ok = citasOk && results.every(Boolean);
     setStorageReady(ok);
     if (!ok) {
       console.error("No se pudo guardar toda la información en el almacenamiento persistente");
