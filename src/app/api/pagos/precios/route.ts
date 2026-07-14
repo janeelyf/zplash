@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { precios } from "@/db/schema";
-import { PLANES, SERVICIOS_ADICIONALES, precioNormal, precioServicioAdicional } from "@/lib/helpers";
+import { PLANES, SERVICIOS_ADICIONALES, precioNormal, precioPlanOneclick, precioServicioAdicional } from "@/lib/helpers";
 
 export const runtime = "nodejs";
 
@@ -17,6 +17,7 @@ export async function GET() {
 
     return NextResponse.json({
       plan: { nombre: PLANES[0], precio: precioNormal(preciosMap, PLANES[0]) },
+      planOneclick: { nombre: PLANES[0], precio: precioPlanOneclick(preciosMap) },
       servicios: SERVICIOS_ADICIONALES.map((s) => ({
         id: s.id,
         nombre: s.nombre,

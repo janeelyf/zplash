@@ -13,6 +13,7 @@ interface EstadoPlan {
 
 interface PreciosResp {
   plan: { nombre: string; precio: number };
+  planOneclick: { nombre: string; precio: number };
   servicios: { id: string; nombre: string; categoria?: string; precio: number }[];
 }
 
@@ -192,14 +193,18 @@ export default function PagarPage() {
 
           {!mostrarAuto ? (
             <button className="btn ghost" style={{ marginTop: 10 }} onClick={() => setMostrarAuto(true)}>
-              ¿Preferís que se renueve solo cada mes?
+              {precios
+                ? `Renovación automática — ${fmtCLP(precios.planOneclick.precio)}/mes (ahorras ${fmtCLP(precios.plan.precio - precios.planOneclick.precio)})`
+                : "¿Preferís que se renueve solo cada mes?"}
             </button>
           ) : (
             <div className="field" style={{ marginTop: 14 }}>
               <label>Email (para confirmar la inscripción de tu tarjeta)</label>
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tu@email.cl" />
               <button className="btn" style={{ marginTop: 10 }} onClick={activarAutomatica} disabled={inscribiendo}>
-                {inscribiendo ? "Redirigiendo..." : "Activar renovación automática"}
+                {inscribiendo
+                  ? "Redirigiendo..."
+                  : `Activar renovación automática${precios ? ` — ${fmtCLP(precios.planOneclick.precio)}/mes` : ""}`}
               </button>
             </div>
           )}

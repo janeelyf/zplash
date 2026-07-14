@@ -13,6 +13,22 @@ export const PRECIO_LAVADO_UNICO = 9990;
 /** Clave usada dentro de Precios para guardar el valor editable del lavado único. */
 export const LAVADO_UNICO_KEY = "Lavado único";
 
+/**
+ * Precio del plan para quien contrata con renovación automática (Oneclick
+ * Mall) desde /pagar — más barato que pagar un período a la vez con Webpay
+ * Plus, para incentivar la renovación automática. Es un canal de venta
+ * digital aparte y NO tiene relación con `precioPreferencial`/`promo`, que es
+ * el descuento de renovación para un cliente físico atendido en el local.
+ */
+export const PRECIO_PLAN_ONECLICK_DEFAULT = 19990;
+
+/** Clave usada dentro de Precios para guardar el valor editable del plan con renovación automática. */
+export const PLAN_ONECLICK_KEY = "Plan Ilimitado Mensual (Renovación Automática)";
+
+export function precioPlanOneclick(precios: Precios): number {
+  return (precios[PLAN_ONECLICK_KEY] && precios[PLAN_ONECLICK_KEY].normal) || PRECIO_PLAN_ONECLICK_DEFAULT;
+}
+
 /** Datos de la cuenta bancaria de la empresa, mostrados al cliente cuando el operador elige "Transferencia bancaria" como forma de pago. */
 export const DATOS_TRANSFERENCIA = [
   { label: "Nombre", valor: "SERVICIOS E INVERSIONES LAS AGUILAS SPA" },

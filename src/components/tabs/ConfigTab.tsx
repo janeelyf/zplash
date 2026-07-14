@@ -6,9 +6,11 @@ import {
   GRUPOS_GASTO_EERR,
   LAVADO_UNICO_KEY,
   PLANES,
+  PLAN_ONECLICK_KEY,
   SERVICIOS_ADICIONALES,
   precioLavadoUnico,
   precioNormal,
+  precioPlanOneclick,
   precioPreferencial,
   precioServicioAdicional,
 } from "@/lib/helpers";
@@ -26,6 +28,7 @@ export default function ConfigTab() {
   const normalRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const promoRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const lavadoUnicoRef = useRef<HTMLInputElement>(null);
+  const planOneclickRef = useRef<HTMLInputElement>(null);
   const servicioRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const categoriasServicios = Array.from(new Set(SERVICIOS_ADICIONALES.map((s) => s.categoria)));
 
@@ -65,6 +68,7 @@ export default function ConfigTab() {
       precios[p] = { normal: Number(nInp?.value) || 0, promo: Number(pInp?.value) || 0 };
     });
     precios[LAVADO_UNICO_KEY] = { normal: Number(lavadoUnicoRef.current?.value) || 0, promo: 0 };
+    precios[PLAN_ONECLICK_KEY] = { normal: Number(planOneclickRef.current?.value) || 0, promo: 0 };
     SERVICIOS_ADICIONALES.forEach((s) => {
       const inp = servicioRefs.current[s.id];
       precios[s.id] = { normal: Number(inp?.value) || 0, promo: 0 };
@@ -231,6 +235,16 @@ export default function ConfigTab() {
         <div className="field">
           <label>Precio lavado único</label>
           <input type="number" min={0} defaultValue={precioLavadoUnico(data.precios)} ref={lavadoUnicoRef} />
+        </div>
+
+        <h3 style={{ marginTop: 22 }}>Pagos web (/pagar)</h3>
+        <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
+          Precio del Plan Ilimitado Mensual cuando el cliente contrata con renovación automática (Oneclick) desde la
+          web — canal aparte de la renovación preferencial de arriba, pensado para incentivar la renovación automática.
+        </div>
+        <div className="field">
+          <label>Precio con renovación automática</label>
+          <input type="number" min={0} defaultValue={precioPlanOneclick(data.precios)} ref={planOneclickRef} />
         </div>
 
         <h3 style={{ marginTop: 22 }}>Servicios adicionales</h3>

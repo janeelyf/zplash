@@ -6,11 +6,15 @@
   --silver: #c9c6ba; /* versión escala de grises del logo */
   --gray: #8a8780;
 
-  /* Fondos derivados del negro de marca (mismo matiz, distinta luminosidad) */
-  --bg: #0d0b09;
-  --bg-panel: #17140f;
-  --bg-card: #201c17;
-  --border: #2f2b24;
+  /* Fondos derivados del negro de marca (mismo matiz, distinta luminosidad).
+     --bg calza exacto con el color de fondo del archivo logo.jpg (#1e1e1c,
+     muestreado directo del PNG) para que el logo se funda con la página sin
+     que se note el recuadro de la imagen; bg-panel/bg-card/border quedan
+     desplazados el mismo delta para mantener los mismos saltos de contraste. */
+  --bg: #1e1e1c;
+  --bg-panel: #282722;
+  --bg-card: #312f2a;
+  --border: #403e37;
 
   /* Estados funcionales (no son colores de marca, son semántica de UI: éxito/alerta/error) */
   --red: #e5484d;

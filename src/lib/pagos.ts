@@ -3,8 +3,9 @@ import { TransactionDetail } from "transbank-sdk";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, cobrosOneclick, precios, suscripcionesOneclick, ventas } from "@/db/schema";
-import { PLANES, mesActualKey, precioNormal, uid } from "@/lib/helpers";
+import { PLAN_ONECLICK_KEY, PLANES, mesActualKey, precioPlanOneclick, uid } from "@/lib/helpers";
 import { oneclickChildCommerceCode, oneclickTransaction } from "@/lib/transbank";
+import type { Precios } from "@/types";
 
 function addDaysISO(iso: string, dias: number): string {
   const d = new Date(iso);
@@ -123,9 +124,9 @@ export async function cobrarSuscripcion(suscripcion: SuscripcionOneclick): Promi
     throw new Error("Suscripción sin tbkUser, no se puede cobrar");
   }
 
-  const [filaPrecio] = await db.select().from(precios).where(eq(precios.plan, PLANES[0])).limit(1);
-  const preciosMap = filaPrecio ? { [PLANES[0]]: { normal: filaPrecio.normal, promo: filaPrecio.promo } } : {};
-  const monto = precioNormal(preciosMap, PLANES[0]);
+  const [filaPrecio] = await db.select().from(precios).where(eq(precios.plan, PLAN_ONECLICK_KEY)).limit(1);
+  const preciosMap: Precios = filaPrecio ? { [PLAN_ONECLICK_KEY]: { normal: filaPrecio.normal, promo: filaPrecio.promo } } : {};
+  const monto = precioPlanOneclick(preciosMap);
 
   const buyOrder = "oc" + Date.now().toString(36) + Math.floor(Math.random() * 36).toString(36);
   const cicloYm = mesActualKey();
