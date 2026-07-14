@@ -1,0 +1,5 @@
+{
+  "crons": [
+    { "path": "/api/pagos/oneclick/cobrar", "schedule": "0 13 * * *" }
+  ]
+}

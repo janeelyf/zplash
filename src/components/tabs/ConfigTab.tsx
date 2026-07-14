@@ -1,18 +1,133 @@
 "use client";
 
 import { useRef, useState } from "react";
+import PriceInput from "@/components/PriceInput";
 import { useApp } from "@/context/AppContext";
 import {
-  GRUPOS_GASTO_EERR,
   LAVADO_UNICO_KEY,
   PLANES,
-  SERVICIOS_ADICIONALES,
+  PLAN_ONECLICK_KEY,
   precioLavadoUnico,
   precioNormal,
+  precioPlanOneclick,
   precioPreferencial,
-  precioServicioAdicional,
+  precioServicio,
+  todayYMD,
 } from "@/lib/helpers";
-import type { CategoriaGasto } from "@/types";
+import type { ConfigGlobal } from "@/types";
+
+function HorarioOperador() {
+  const { data, commit } = useApp();
+  const [cfg, setCfg] = useState<ConfigGlobal>(data.config);
+  const festivoRef = useRef<HTMLInputElement>(null);
+  const [guardando, setGuardando] = useState(false);
+  const [msg, setMsg] = useState<{ texto: string; ok: boolean } | null>(null);
+
+  const campo = (k: keyof Omit<ConfigGlobal, "festivos">, v: string) => setCfg((c) => ({ ...c, [k]: v }));
+
+  const agregarFestivo = () => {
+    const fecha = festivoRef.current?.value;
+    if (!fecha || cfg.festivos.includes(fecha)) return;
+    setCfg((c) => ({ ...c, festivos: [...c.festivos, fecha].sort() }));
+    if (festivoRef.current) festivoRef.current.value = "";
+  };
+
+  const quitarFestivo = (fecha: string) => {
+    setCfg((c) => ({ ...c, festivos: c.festivos.filter((f) => f !== fecha) }));
+  };
+
+  const guardar = async () => {
+    if (
+      cfg.horarioOperadorSemanaInicio >= cfg.horarioOperadorSemanaFin ||
+      cfg.horarioOperadorFindeInicio >= cfg.horarioOperadorFindeFin
+    ) {
+      setMsg({ texto: "La hora de inicio debe ser anterior a la hora de fin", ok: false });
+      return;
+    }
+    setGuardando(true);
+    const ok = await commit({ config: cfg });
+    setGuardando(false);
+    setMsg({
+      texto: ok ? "Horario guardado correctamente" : "No se pudo guardar (sin conexión). Intenta de nuevo.",
+      ok,
+    });
+  };
+
+  return (
+    <div className="modal" style={{ maxWidth: 420, margin: "0 0 20px 0" }}>
+      <h3>Horario de registro — Operador</h3>
+      <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
+        Fuera de este horario, un operador estándar no puede registrar el ingreso de un vehículo. Administración y
+        Gerencia no tienen esta restricción.
+      </div>
+
+      <div className="hint" style={{ textAlign: "left", marginBottom: 8, textTransform: "uppercase", fontWeight: 700 }}>
+        Lunes a viernes
+      </div>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14 }}>
+        <input
+          type="time"
+          value={cfg.horarioOperadorSemanaInicio}
+          onChange={(e) => campo("horarioOperadorSemanaInicio", e.target.value)}
+          style={{ width: 130 }}
+        />
+        <span style={{ color: "var(--gray)" }}>a</span>
+        <input
+          type="time"
+          value={cfg.horarioOperadorSemanaFin}
+          onChange={(e) => campo("horarioOperadorSemanaFin", e.target.value)}
+          style={{ width: 130 }}
+        />
+      </div>
+
+      <div className="hint" style={{ textAlign: "left", marginBottom: 8, textTransform: "uppercase", fontWeight: 700 }}>
+        Sábado, domingo y festivos
+      </div>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14 }}>
+        <input
+          type="time"
+          value={cfg.horarioOperadorFindeInicio}
+          onChange={(e) => campo("horarioOperadorFindeInicio", e.target.value)}
+          style={{ width: 130 }}
+        />
+        <span style={{ color: "var(--gray)" }}>a</span>
+        <input
+          type="time"
+          value={cfg.horarioOperadorFindeFin}
+          onChange={(e) => campo("horarioOperadorFindeFin", e.target.value)}
+          style={{ width: 130 }}
+        />
+      </div>
+
+      <div className="hint" style={{ textAlign: "left", marginBottom: 8, textTransform: "uppercase", fontWeight: 700 }}>
+        Festivos
+      </div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
+        <input ref={festivoRef} type="date" min={todayYMD()} />
+        <button className="btn ghost" style={{ marginTop: 0, padding: "3px 10px", fontSize: "0.82rem" }} onClick={agregarFestivo}>
+          + Agregar festivo
+        </button>
+      </div>
+      {cfg.festivos.length > 0 && (
+        <div style={{ marginBottom: 10 }}>
+          {cfg.festivos.map((f) => (
+            <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0", borderBottom: "1px solid var(--border)" }}>
+              <div style={{ flex: 1 }}>{f}</div>
+              <button className="icon-btn" onClick={() => quitarFestivo(f)}>
+                Quitar
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="err" style={{ color: msg?.ok ? "var(--green)" : undefined }}>{msg?.texto || ""}</div>
+      <button className="btn" disabled={guardando} onClick={guardar}>
+        {guardando ? "Guardando…" : "Guardar horario"}
+      </button>
+    </div>
+  );
+}
 
 export default function ConfigTab() {
   const { data, ui, commit } = useApp();
@@ -20,14 +135,19 @@ export default function ConfigTab() {
   const newPinRef = useRef<HTMLInputElement>(null);
   const [cfgErr, setCfgErr] = useState<{ msg: string; ok: boolean } | null>(null);
   const [precioErr, setPrecioErr] = useState<{ msg: string; ok: boolean } | null>(null);
-  const nuevaCategoriaNombreRef = useRef<HTMLInputElement>(null);
-  const nuevaCategoriaGrupoRef = useRef<HTMLSelectElement>(null);
-  const [categoriaErr, setCategoriaErr] = useState<{ msg: string; ok: boolean } | null>(null);
-  const normalRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const promoRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const lavadoUnicoRef = useRef<HTMLInputElement>(null);
-  const servicioRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const categoriasServicios = Array.from(new Set(SERVICIOS_ADICIONALES.map((s) => s.categoria)));
+  const catalogoServicios = data.servicios.filter((s) => s.activo);
+  const categoriasServicios = Array.from(new Set(catalogoServicios.map((s) => s.categoria || "")));
+  const [normalVals, setNormalVals] = useState<Record<string, string>>(() =>
+    Object.fromEntries(PLANES.map((p) => [p, String(precioNormal(data.precios, p))]))
+  );
+  const [promoVals, setPromoVals] = useState<Record<string, string>>(() =>
+    Object.fromEntries(PLANES.map((p) => [p, String(precioPreferencial(data.precios, p))]))
+  );
+  const [lavadoUnicoVal, setLavadoUnicoVal] = useState(() => String(precioLavadoUnico(data.precios)));
+  const [planOneclickVal, setPlanOneclickVal] = useState(() => String(precioPlanOneclick(data.precios)));
+  const [servicioVals, setServicioVals] = useState<Record<string, string>>(() =>
+    Object.fromEntries(catalogoServicios.map((s) => [s.id, String(precioServicio(data.precios, s.id))]))
+  );
 
   const savePin = async () => {
     const cur = curPinRef.current?.value || "";
@@ -60,48 +180,15 @@ export default function ConfigTab() {
   const savePrecios = async () => {
     const precios = { ...data.precios };
     PLANES.forEach((p) => {
-      const nInp = normalRefs.current[p];
-      const pInp = promoRefs.current[p];
-      precios[p] = { normal: Number(nInp?.value) || 0, promo: Number(pInp?.value) || 0 };
+      precios[p] = { normal: Number(normalVals[p]) || 0, promo: Number(promoVals[p]) || 0 };
     });
-    precios[LAVADO_UNICO_KEY] = { normal: Number(lavadoUnicoRef.current?.value) || 0, promo: 0 };
-    SERVICIOS_ADICIONALES.forEach((s) => {
-      const inp = servicioRefs.current[s.id];
-      precios[s.id] = { normal: Number(inp?.value) || 0, promo: 0 };
+    precios[LAVADO_UNICO_KEY] = { normal: Number(lavadoUnicoVal) || 0, promo: 0 };
+    precios[PLAN_ONECLICK_KEY] = { normal: Number(planOneclickVal) || 0, promo: 0 };
+    catalogoServicios.forEach((s) => {
+      precios[s.id] = { normal: Number(servicioVals[s.id]) || 0, promo: 0 };
     });
     await commit({ precios });
     setPrecioErr({ msg: "Precios actualizados correctamente", ok: true });
-  };
-
-  const agregarCategoria = async () => {
-    const nombre = nuevaCategoriaNombreRef.current?.value.trim() || "";
-    const grupo = nuevaCategoriaGrupoRef.current?.value || GRUPOS_GASTO_EERR[0].grupo;
-    if (!nombre) {
-      setCategoriaErr({ msg: "Escribe el nombre de la glosa", ok: false });
-      return;
-    }
-    if (data.categoriasGasto.some((c) => c.nombre.toLowerCase() === nombre.toLowerCase())) {
-      setCategoriaErr({ msg: "Ya existe una glosa con ese nombre", ok: false });
-      return;
-    }
-    const nueva: CategoriaGasto = { id: "cg" + Date.now() + Math.floor(Math.random() * 1000), nombre, grupo, activa: true };
-    const ok = await commit({ categoriasGasto: [...data.categoriasGasto, nueva] });
-    if (!ok) {
-      setCategoriaErr({ msg: "No se pudo guardar (sin conexión). Intenta de nuevo.", ok: false });
-      return;
-    }
-    setCategoriaErr({ msg: "Glosa agregada correctamente", ok: true });
-    if (nuevaCategoriaNombreRef.current) nuevaCategoriaNombreRef.current.value = "";
-  };
-
-  const toggleActivaCategoria = (cat: CategoriaGasto) => {
-    const actualizada = { ...cat, activa: !cat.activa };
-    commit({ categoriasGasto: data.categoriasGasto.map((c) => (c.id === cat.id ? actualizada : c)) });
-  };
-
-  const cambiarGrupoCategoria = (cat: CategoriaGasto, grupo: string) => {
-    const actualizada = { ...cat, grupo };
-    commit({ categoriasGasto: data.categoriasGasto.map((c) => (c.id === cat.id ? actualizada : c)) });
   };
 
   return (
@@ -123,78 +210,7 @@ export default function ConfigTab() {
           Guardar
         </button>
       </div>
-      <div className="modal" style={{ maxWidth: 520, margin: "0 0 20px 0" }}>
-        <h3>Categorías de gasto</h3>
-        <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
-          Estas son las glosas seleccionables en &quot;Tipo de gasto&quot; al registrar un egreso. Los 5 grupos son fijos (son la
-          estructura del EERR); puedes agregar, reasignar de grupo, o desactivar una glosa sin borrarla — desactivarla
-          la saca del selector de gastos nuevos, pero conserva el historial ya registrado con ella.
-        </div>
-        <div className="field">
-          <label>Nueva glosa</label>
-          <input ref={nuevaCategoriaNombreRef} placeholder="Ej: Mantención de Aire Acondicionado" />
-        </div>
-        <div className="field">
-          <label>Grupo</label>
-          <select ref={nuevaCategoriaGrupoRef} defaultValue={GRUPOS_GASTO_EERR[0].grupo}>
-            {GRUPOS_GASTO_EERR.map((g) => (
-              <option key={g.grupo} value={g.grupo}>
-                {g.grupo}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="err" style={{ color: categoriaErr?.ok ? "var(--green)" : undefined }}>
-          {categoriaErr?.msg || ""}
-        </div>
-        <button className="btn" onClick={agregarCategoria}>
-          Agregar glosa
-        </button>
-
-        {GRUPOS_GASTO_EERR.map((g) => {
-          const categorias = data.categoriasGasto.filter((c) => c.grupo === g.grupo);
-          if (!categorias.length) return null;
-          return (
-            <div key={g.grupo} style={{ marginTop: 22 }}>
-              <div
-                className="hint"
-                style={{ textAlign: "left", marginBottom: 8, textTransform: "uppercase", fontWeight: 700 }}
-              >
-                {g.grupo}
-              </div>
-              {categorias.map((c) => (
-                <div
-                  key={c.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: "8px 0",
-                    borderBottom: "1px solid var(--border)",
-                    opacity: c.activa ? 1 : 0.5,
-                  }}
-                >
-                  <div style={{ flex: 1 }}>{c.nombre}</div>
-                  <select
-                    value={c.grupo}
-                    onChange={(e) => cambiarGrupoCategoria(c, e.target.value)}
-                    style={{ maxWidth: 220 }}
-                  >
-                    {GRUPOS_GASTO_EERR.map((go) => (
-                      <option key={go.grupo} value={go.grupo}>
-                        {go.grupo}
-                      </option>
-                    ))}
-                  </select>
-                  <button className="icon-btn" onClick={() => toggleActivaCategoria(c)}>
-                    {c.activa ? "Desactivar" : "Reactivar"}
-                  </button>
-                </div>
-              ))}
-            </div>
-          );
-        })}
-      </div>
+      <HorarioOperador />
       <div className="modal" style={{ maxWidth: 420, margin: 0 }}>
         <h3>Precios y renovación preferencial</h3>
         <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
@@ -204,24 +220,16 @@ export default function ConfigTab() {
           <div key={p}>
             <div className="field">
               <label>Precio normal — {p}</label>
-              <input
-                type="number"
-                min={0}
-                defaultValue={precioNormal(data.precios, p)}
-                ref={(el) => {
-                  normalRefs.current[p] = el;
-                }}
+              <PriceInput
+                value={normalVals[p] ?? ""}
+                onChange={(v) => setNormalVals((cur) => ({ ...cur, [p]: v }))}
               />
             </div>
             <div className="field">
               <label>Precio promoción de renovación — {p}</label>
-              <input
-                type="number"
-                min={0}
-                defaultValue={precioPreferencial(data.precios, p)}
-                ref={(el) => {
-                  promoRefs.current[p] = el;
-                }}
+              <PriceInput
+                value={promoVals[p] ?? ""}
+                onChange={(v) => setPromoVals((cur) => ({ ...cur, [p]: v }))}
               />
             </div>
           </div>
@@ -230,7 +238,17 @@ export default function ConfigTab() {
         <h3 style={{ marginTop: 22 }}>Lavado túnel (sin plan)</h3>
         <div className="field">
           <label>Precio lavado único</label>
-          <input type="number" min={0} defaultValue={precioLavadoUnico(data.precios)} ref={lavadoUnicoRef} />
+          <PriceInput value={lavadoUnicoVal} onChange={setLavadoUnicoVal} />
+        </div>
+
+        <h3 style={{ marginTop: 22 }}>Pagos web (/pagar)</h3>
+        <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
+          Precio del Plan Ilimitado Mensual cuando el cliente contrata con renovación automática (Oneclick) desde la
+          web — canal aparte de la renovación preferencial de arriba, pensado para incentivar la renovación automática.
+        </div>
+        <div className="field">
+          <label>Precio con renovación automática</label>
+          <PriceInput value={planOneclickVal} onChange={setPlanOneclickVal} />
         </div>
 
         <h3 style={{ marginTop: 22 }}>Servicios adicionales</h3>
@@ -242,16 +260,12 @@ export default function ConfigTab() {
             >
               {cat}
             </div>
-            {SERVICIOS_ADICIONALES.filter((s) => s.categoria === cat).map((s) => (
+            {catalogoServicios.filter((s) => s.categoria === cat).map((s) => (
               <div className="field" key={s.id}>
                 <label>{s.nombre}</label>
-                <input
-                  type="number"
-                  min={0}
-                  defaultValue={precioServicioAdicional(data.precios, s)}
-                  ref={(el) => {
-                    servicioRefs.current[s.id] = el;
-                  }}
+                <PriceInput
+                  value={servicioVals[s.id] ?? ""}
+                  onChange={(v) => setServicioVals((cur) => ({ ...cur, [s.id]: v }))}
                 />
               </div>
             ))}

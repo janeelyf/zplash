@@ -17,30 +17,43 @@ import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import { getDb } from "@/db";
 import {
   auditoria,
+  bloqueosAgenda,
   categoriasGasto,
+  citaServicios,
+  citas,
   clientes,
+  cobrosOneclick,
   config,
   cupones,
   empresas,
+  horariosAgenda,
   ingresos,
   movimientosContables,
+  pagosWebpay,
   perfiles,
   precios,
+  servicios,
+  suscripcionesOneclick,
   ventas,
 } from "@/db/schema";
 import { supabase } from "@/lib/supabase";
-import { CATEGORIAS_GASTO_DEFAULT, PERFILES_DEFAULT, PRECIOS_DEFAULT } from "@/lib/helpers";
+import { CATEGORIAS_GASTO_DEFAULT, CONFIG_DEFAULT, PERFILES_DEFAULT, PRECIOS_DEFAULT, SERVICIOS_DEFAULT } from "@/lib/helpers";
 import type {
   AppData,
   AuditoriaEntrada,
+  BloqueoAgenda,
   CategoriaGasto,
+  Cita,
   Cliente,
+  ConfigGlobal,
   Cupon,
   Empresa,
+  HorarioAgenda,
   Ingreso,
   MovimientoContable,
   PerfilPublico,
   Precios,
+  Servicio,
   Venta,
 } from "@/types";
 
@@ -53,6 +66,11 @@ type CuponRow = typeof cupones.$inferSelect;
 type MovimientoRow = typeof movimientosContables.$inferSelect;
 type PrecioRow = typeof precios.$inferSelect;
 type EmpresaRow = typeof empresas.$inferSelect;
+type ServicioRow = typeof servicios.$inferSelect;
+type HorarioAgendaRow = typeof horariosAgenda.$inferSelect;
+type BloqueoAgendaRow = typeof bloqueosAgenda.$inferSelect;
+type CitaRow = typeof citas.$inferSelect;
+type ConfigRow = typeof config.$inferSelect;
 
 function clienteToRow(c: Cliente): typeof clientes.$inferInsert {
   return {
@@ -120,6 +138,7 @@ function ingresoToRow(i: Ingreso): typeof ingresos.$inferInsert {
     viaCupon: i.viaCupon || false,
     cuponCodigo: i.cuponCodigo || null,
     glosa: i.glosa || null,
+    citaId: i.citaId || null,
   };
 }
 
@@ -136,6 +155,7 @@ function ingresoFromRow(r: IngresoRow): Ingreso {
     viaCupon: r.viaCupon || undefined,
     cuponCodigo: r.cuponCodigo || undefined,
     glosa: r.glosa || undefined,
+    citaId: r.citaId || undefined,
   };
 }
 
@@ -156,6 +176,9 @@ function ventaToRow(v: Venta): typeof ventas.$inferInsert {
     metodoPago: v.metodoPago || null,
     voucher: v.voucher || null,
     horaEntrega: v.horaEntrega || null,
+    fechaEntrega: v.fechaEntrega || null,
+    citaId: v.citaId || null,
+    cantidadItems: v.cantidadItems || 1,
     notas: v.notas || null,
     estadoPago: v.estadoPago || null,
     montoCobrado: v.montoCobrado ?? null,
@@ -184,6 +207,9 @@ function ventaFromRow(r: VentaRow): Venta {
     metodoPago: (r.metodoPago as Venta["metodoPago"]) || undefined,
     voucher: r.voucher || undefined,
     horaEntrega: r.horaEntrega || undefined,
+    fechaEntrega: r.fechaEntrega || undefined,
+    citaId: r.citaId || undefined,
+    cantidadItems: r.cantidadItems || undefined,
     notas: r.notas || undefined,
     estadoPago: (r.estadoPago as Venta["estadoPago"]) || undefined,
     montoCobrado: r.montoCobrado === null || r.montoCobrado === undefined ? undefined : r.montoCobrado,
@@ -338,6 +364,105 @@ function empresaFromRow(r: EmpresaRow): Empresa {
   };
 }
 
+function servicioToRow(s: Servicio): typeof servicios.$inferInsert {
+  return { id: s.id, nombre: s.nombre, categoria: s.categoria || null, duracionMinutos: s.duracionMinutos, activo: s.activo };
+}
+
+function servicioFromRow(r: ServicioRow): Servicio {
+  return { id: r.id, nombre: r.nombre, categoria: r.categoria || undefined, duracionMinutos: r.duracionMinutos, activo: r.activo };
+}
+
+function configToRow(c: ConfigGlobal): typeof config.$inferInsert {
+  return {
+    id: true,
+    horarioOperadorSemanaInicio: c.horarioOperadorSemanaInicio,
+    horarioOperadorSemanaFin: c.horarioOperadorSemanaFin,
+    horarioOperadorFindeInicio: c.horarioOperadorFindeInicio,
+    horarioOperadorFindeFin: c.horarioOperadorFindeFin,
+    festivos: c.festivos,
+  };
+}
+
+function configFromRow(r: ConfigRow): ConfigGlobal {
+  return {
+    horarioOperadorSemanaInicio: r.horarioOperadorSemanaInicio,
+    horarioOperadorSemanaFin: r.horarioOperadorSemanaFin,
+    horarioOperadorFindeInicio: r.horarioOperadorFindeInicio,
+    horarioOperadorFindeFin: r.horarioOperadorFindeFin,
+    festivos: r.festivos ?? [],
+  };
+}
+
+function horarioAgendaToRow(h: HorarioAgenda): typeof horariosAgenda.$inferInsert {
+  return { id: h.id, diaSemana: h.diaSemana, horaInicio: h.horaInicio, horaFin: h.horaFin };
+}
+
+function horarioAgendaFromRow(r: HorarioAgendaRow): HorarioAgenda {
+  return { id: r.id, diaSemana: r.diaSemana, horaInicio: r.horaInicio, horaFin: r.horaFin };
+}
+
+function bloqueoAgendaToRow(b: BloqueoAgenda): typeof bloqueosAgenda.$inferInsert {
+  return {
+    id: b.id,
+    fecha: b.fecha,
+    todoElDia: b.todoElDia,
+    horaInicio: b.horaInicio || null,
+    horaFin: b.horaFin || null,
+    motivo: b.motivo || null,
+    creadoEn: b.creadoEn,
+    creadoPor: b.creadoPor || null,
+  };
+}
+
+function bloqueoAgendaFromRow(r: BloqueoAgendaRow): BloqueoAgenda {
+  return {
+    id: r.id,
+    fecha: r.fecha,
+    todoElDia: r.todoElDia,
+    horaInicio: r.horaInicio || undefined,
+    horaFin: r.horaFin || undefined,
+    motivo: r.motivo || undefined,
+    creadoEn: r.creadoEn,
+    creadoPor: r.creadoPor || undefined,
+  };
+}
+
+function citaToRow(c: Cita): typeof citas.$inferInsert {
+  return {
+    id: c.id,
+    clienteId: c.clienteId || null,
+    patente: c.patente,
+    nombre: c.nombre,
+    telefono: c.telefono || null,
+    fechaHora: c.fechaHora,
+    duracionMinutos: c.duracionMinutos,
+    estado: c.estado,
+    notas: c.notas || null,
+    origen: c.origen,
+    creadoPor: c.creadoPor || null,
+    creadoEn: c.creadoEn,
+  };
+}
+
+/** servicioIds viene resuelto aparte (join con cita_servicios, ver loadAll) porque no vive en la fila de `citas`. */
+function citaFromRow(r: CitaRow, servicioIds: string[]): Cita {
+  return {
+    id: r.id,
+    clienteId: r.clienteId || undefined,
+    servicioIds,
+    patente: r.patente,
+    nombre: r.nombre,
+    telefono: r.telefono || undefined,
+    fechaHora: r.fechaHora,
+    duracionMinutos: r.duracionMinutos,
+    estado: r.estado as Cita["estado"],
+    notas: r.notas || undefined,
+    origen: r.origen as Cita["origen"],
+    creadoPor: r.creadoPor || undefined,
+    creadoEn: r.creadoEn,
+  };
+}
+
 function preciosFromRows(rows: PrecioRow[]): Precios {
   const result: Precios = {};
   for (const r of rows) {
@@ -401,6 +526,12 @@ export async function loadAll(): Promise<AppData> {
     movimientosRows,
     categoriasGastoRows,
     empresasRows,
+    serviciosRows,
+    horariosAgendaRows,
+    bloqueosAgendaRows,
+    citasRows,
+    citaServiciosRows,
+    configRows,
   ] = await Promise.all([
     safe(db.select().from(clientes)),
     safe(db.select().from(ingresos).orderBy(desc(ingresos.fecha))),
@@ -411,6 +542,12 @@ export async function loadAll(): Promise<AppData> {
     safe(db.select().from(movimientosContables).orderBy(desc(movimientosContables.fecha))),
     safe(db.select().from(categoriasGasto).orderBy(asc(categoriasGasto.nombre))),
     safe(db.select().from(empresas).orderBy(asc(empresas.razonSocial))),
+    safe(db.select().from(servicios).orderBy(asc(servicios.nombre))),
+    safe(db.select().from(horariosAgenda).orderBy(asc(horariosAgenda.diaSemana))),
+    safe(db.select().from(bloqueosAgenda).orderBy(asc(bloqueosAgenda.fecha))),
+    safe(db.select().from(citas).orderBy(asc(citas.fechaHora))),
+    safe(db.select().from(citaServicios)),
+    safe(db.select().from(config).limit(1)),
   ]);
 
   const perfilesData = perfilesRows.length ? perfilesRows.map(perfilPublicoFromRow) : PERFILES_DEFAULT;
@@ -418,6 +555,15 @@ export async function loadAll(): Promise<AppData> {
   const categoriasGastoData = categoriasGastoRows.length
     ? categoriasGastoRows.map(categoriaGastoFromRow)
     : CATEGORIAS_GASTO_DEFAULT;
+  const serviciosData = serviciosRows.length ? serviciosRows.map(servicioFromRow) : SERVICIOS_DEFAULT;
+  const configData = configRows.length ? configFromRow(configRows[0]) : CONFIG_DEFAULT;
+
+  const servicioIdsPorCita = new Map<string, string[]>();
+  for (const cs of citaServiciosRows) {
+    const lista = servicioIdsPorCita.get(cs.citaId) ?? [];
+    lista.push(cs.servicioId);
+    servicioIdsPorCita.set(cs.citaId, lista);
+  }
 
   return {
     clientes: clientesRows.map(clienteFromRow),
@@ -429,7 +575,30 @@ export async function loadAll(): Promise<AppData> {
     cupones: cuponesRows.map(cuponFromRow),
     movimientosContables: movimientosRows.map(movimientoFromRow),
     empresas: empresasRows.map(empresaFromRow),
+    servicios: serviciosData,
+    horariosAgenda: horariosAgendaRows.map(horarioAgendaFromRow),
+    bloqueosAgenda: bloqueosAgendaRows.map(bloqueoAgendaFromRow),
+    citas: citasRows.map((r) => citaFromRow(r, servicioIdsPorCita.get(r.id) ?? [])),
+    config: configData,
   };
+}
+
+/** Lectura directa (sin pasar por loadAll) para el chequeo server-side del bloqueo
+ * horario del módulo Operador (ver insertIngresos en @/lib/db) — no confía en el
+ * horario que traiga el cliente en AppData, que podría estar desactualizado o alterado. */
+export async function getConfig(): Promise<ConfigGlobal> {
+  const [row] = await getDb().select().from(config).limit(1);
+  return row ? configFromRow(row) : CONFIG_DEFAULT;
+}
+
+export async function upsertConfig(cfg: ConfigGlobal): Promise<boolean> {
+  try {
+    await upsertRows(config, config.id, [configToRow(cfg)]);
+    return true;
+  } catch (error) {
+    console.error("Error guardando configuración", error);
+    return false;
+  }
 }
 
 export async function upsertClientes(rows: Cliente[]): Promise<boolean> {
@@ -472,6 +641,38 @@ export async function insertVentas(rows: Venta[]): Promise<boolean> {
     return true;
   } catch (error) {
     console.error("Error guardando ventas", error);
+    return false;
+  }
+}
+
+// A diferencia de insertVentas (solo altas), esto permite actualizar una
+// venta ya guardada — necesario para completar el pago de un saldo pendiente
+// al retirar el vehículo (ver cambiarStatusCita en ServiciosAdicionalesView).
+export async function upsertVentas(rows: Venta[]): Promise<boolean> {
+  if (!rows.length) return true;
+  try {
+    await upsertRows(ventas, ventas.id, rows.map(ventaToRow));
+    return true;
+  } catch (error) {
+    console.error("Error actualizando ventas", error);
+    return false;
+  }
+}
+
+// Borra también el pago Transbank (Webpay Plus u Oneclick) que haya generado
+// la venta, si tuvo uno: ambas tablas de pago guardan `ventaId` con onDelete
+// "set null", así que sin este paso previo quedarían filas huérfanas en vez
+// de desaparecer junto con el servicio que las originó.
+export async function deleteVentas(ids: string[]): Promise<boolean> {
+  if (!ids.length) return true;
+  try {
+    const db = getDb();
+    await db.delete(pagosWebpay).where(inArray(pagosWebpay.ventaId, ids));
+    await db.delete(cobrosOneclick).where(inArray(cobrosOneclick.ventaId, ids));
+    await db.delete(ventas).where(inArray(ventas.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error eliminando ventas", error);
     return false;
   }
 }
@@ -594,6 +795,109 @@ export async function deleteEmpresas(ids: string[]): Promise<boolean> {
   }
 }
 
+export async function upsertServicios(rows: Servicio[]): Promise<boolean> {
+  if (!rows.length) return true;
+  try {
+    await upsertRows(servicios, servicios.id, rows.map(servicioToRow));
+    return true;
+  } catch (error) {
+    console.error("Error guardando servicios", error);
+    return false;
+  }
+}
+
+export async function deleteServicios(ids: string[]): Promise<boolean> {
+  if (!ids.length) return true;
+  try {
+    await getDb().delete(servicios).where(inArray(servicios.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error eliminando servicios", error);
+    return false;
+  }
+}
+
+// El horario semanal se maneja como reemplazo completo vía diff (igual que
+// clientes/empresas, ver diffPorId en AppContext.tsx): el formulario arma la
+// lista deseada completa y acá solo se hace upsert/delete de lo que cambió.
+export async function upsertHorariosAgenda(rows: HorarioAgenda[]): Promise<boolean> {
+  if (!rows.length) return true;
+  try {
+    await upsertRows(horariosAgenda, horariosAgenda.id, rows.map(horarioAgendaToRow));
+    return true;
+  } catch (error) {
+    console.error("Error guardando horarios de agenda", error);
+    return false;
+  }
+}
+
+export async function deleteHorariosAgenda(ids: string[]): Promise<boolean> {
+  if (!ids.length) return true;
+  try {
+    await getDb().delete(horariosAgenda).where(inArray(horariosAgenda.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error eliminando horarios de agenda", error);
+    return false;
+  }
+}
+
+export async function upsertBloqueosAgenda(rows: BloqueoAgenda[]): Promise<boolean> {
+  if (!rows.length) return true;
+  try {
+    await upsertRows(bloqueosAgenda, bloqueosAgenda.id, rows.map(bloqueoAgendaToRow));
+    return true;
+  } catch (error) {
+    console.error("Error guardando bloqueos de agenda", error);
+    return false;
+  }
+}
+
+export async function deleteBloqueosAgenda(ids: string[]): Promise<boolean> {
+  if (!ids.length) return true;
+  try {
+    await getDb().delete(bloqueosAgenda).where(inArray(bloqueosAgenda.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error eliminando bloqueos de agenda", error);
+    return false;
+  }
+}
+
+// A diferencia del resto de upsert*, una cita también reemplaza su set de
+// servicios ligados (cita_servicios, equivalente a cita_procedimientos en
+// ConsultaPro): se borran los vínculos existentes de cada cita tocada y se
+// insertan los servicioIds actuales. citaServicios.id es determinístico
+// ("citaId:servicioId") para que reintentar el mismo upsert sea idempotente.
+export async function upsertCitas(rows: Cita[]): Promise<boolean> {
+  if (!rows.length) return true;
+  try {
+    const db = getDb();
+    await upsertRows(citas, citas.id, rows.map(citaToRow));
+    const citaIds = rows.map((c) => c.id);
+    await db.delete(citaServicios).where(inArray(citaServicios.citaId, citaIds));
+    const nuevosVinculos = rows.flatMap((c) =>
+      c.servicioIds.map((servicioId) => ({ id: `${c.id}:${servicioId}`, citaId: c.id, servicioId }))
+    );
+    if (nuevosVinculos.length) await db.insert(citaServicios).values(nuevosVinculos);
+    return true;
+  } catch (error) {
+    console.error("Error guardando citas", error);
+    return false;
+  }
+}
+
+export async function deleteCitas(ids: string[]): Promise<boolean> {
+  if (!ids.length) return true;
+  try {
+    await getDb().delete(citas).where(inArray(citas.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error eliminando citas", error);
+    return false;
+  }
+}
+
 // Log de auditoría: de solo escritura (append-only), nunca se actualiza ni
 // se borra desde la app. Falla en silencio (solo loguea a consola) para que
 // un problema con la auditoría nunca bloquee ni revierta la escritura de
@@ -633,4 +937,47 @@ export async function subirComprobanteGasto(id: string, file: File): Promise<str
   }
   const { data } = supabase.storage.from(COMPROBANTES_BUCKET).getPublicUrl(path);
   return data.publicUrl;
+}
+
+export interface SuscripcionOneclickInfo {
+  id: string;
+  estado: string;
+  proximoCobro: string | null;
+  cardTipo: string | null;
+  cardUltimosDigitos: string | null;
+  ultimoCobro: { estado: string; fecha: string } | null;
+}
+
+/** Estado de la suscripción Oneclick de un cliente para mostrar en
+ * ClienteInfoModal, o null si nunca inscribió una tarjeta. */
+export async function obtenerSuscripcionOneclick(patente: string): Promise<SuscripcionOneclickInfo | null> {
+  const db = getDb();
+  const [suscripcion] = await db
+    .select()
+    .from(suscripcionesOneclick)
+    .where(eq(suscripcionesOneclick.patente, patente))
+    .limit(1);
+  if (!suscripcion) return null;
+
+  const [ultimoCobro] = await db
+    .select({ estado: cobrosOneclick.estado, fecha: cobrosOneclick.creadoEn })
+    .from(cobrosOneclick)
+    .where(eq(cobrosOneclick.suscripcionId, suscripcion.id))
+    .orderBy(desc(cobrosOneclick.creadoEn))
+    .limit(1);
+
+  return {
+    id: suscripcion.id,
+    estado: suscripcion.estado,
+    proximoCobro: suscripcion.proximoCobro,
+    cardTipo: suscripcion.cardTipo,
+    cardUltimosDigitos: suscripcion.cardUltimosDigitos,
+    ultimoCobro: ultimoCobro ? { estado: ultimoCobro.estado, fecha: ultimoCobro.fecha } : null,
+  };
+}
+
+/** Fila cruda de la suscripción, para pasarle a cobrarSuscripcion() desde el Server Action de reintento manual. */
+export async function obtenerSuscripcionOneclickPorId(id: string) {
+  const [suscripcion] = await getDb().select().from(suscripcionesOneclick).where(eq(suscripcionesOneclick.id, id)).limit(1);
+  return suscripcion || null;
 }

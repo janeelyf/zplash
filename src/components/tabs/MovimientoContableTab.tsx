@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import PriceInput from "@/components/PriceInput";
 import { useApp } from "@/context/AppContext";
 import { subirComprobanteGasto } from "@/lib/db";
 import { RUT_FORMATO_MSG, fmtCLP, formatRut, isValidRut, todayYMD } from "@/lib/helpers";
@@ -82,18 +83,6 @@ function BuscadorGlosa({
         </div>
       )}
     </div>
-  );
-}
-
-function MontoInput({ value, onChange }: { value: string; onChange: (digitos: string) => void }) {
-  const formateado = value ? "$" + Number(value).toLocaleString("es-CL") : "";
-  return (
-    <input
-      inputMode="numeric"
-      value={formateado}
-      onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
-      placeholder="$0"
-    />
   );
 }
 
@@ -396,7 +385,7 @@ export default function MovimientoContableTab({
         )}
         <div className="field">
           <label>{tipo === "egreso" ? "Monto Total (IVA Incl.)" : "Monto"}</label>
-          <MontoInput value={montoTexto} onChange={setMontoTexto} />
+          <PriceInput value={montoTexto} onChange={setMontoTexto} />
         </div>
         {tipo === "egreso" && (
           <div className="field">

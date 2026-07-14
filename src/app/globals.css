@@ -6,11 +6,14 @@
   --silver: #c9c6ba; /* versión escala de grises del logo */
   --gray: #8a8780;
 
-  /* Fondos derivados del negro de marca (mismo matiz, distinta luminosidad) */
-  --bg: #0d0b09;
-  --bg-panel: #17140f;
-  --bg-card: #201c17;
-  --border: #2f2b24;
+  /* Fondos derivados del negro de marca (--black), mismo matiz, distinta
+     luminosidad; bg-panel/bg-card/border quedan desplazados el mismo delta
+     para mantener los mismos saltos de contraste. El logo es transparente,
+     así que no necesita calzar con ningún fondo en particular. */
+  --bg: #2d2926;
+  --bg-panel: #37322c;
+  --bg-card: #403a34;
+  --border: #4f4941;
 
   /* Estados funcionales (no son colores de marca, son semántica de UI: éxito/alerta/error) */
   --red: #e5484d;
@@ -819,4 +822,158 @@ tr:hover td {
   .content {
     padding: 16px;
   }
+}
+
+/* ---------- PORTAL CLIENTE (público) ---------- */
+.cliente-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.cliente-header .title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cliente-hero {
+  text-align: center;
+  padding: 40px 24px 24px;
+}
+.cliente-hero h1 {
+  font-size: 30px;
+  margin-bottom: 8px;
+}
+.cliente-hero p {
+  color: var(--gray);
+  font-size: 14.5px;
+  max-width: 520px;
+  margin: 0 auto;
+}
+.cliente-tabs {
+  justify-content: center;
+}
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 26px;
+}
+.card h3 {
+  font-size: 19px;
+  margin-bottom: 10px;
+}
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+}
+.hours-table {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+}
+.hours-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13.5px;
+}
+.hours-row .dia {
+  color: var(--gray);
+}
+.hours-row .franja {
+  font-weight: 700;
+}
+.map-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+.map-actions a {
+  text-decoration: none;
+}
+.faq-item {
+  border-bottom: 1px solid var(--border);
+}
+.faq-item:last-child {
+  border-bottom: none;
+}
+.faq-question {
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--white);
+  text-align: left;
+  padding: 18px 4px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.faq-question .chev {
+  color: var(--gold);
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+.faq-question.open .chev {
+  transform: rotate(180deg);
+}
+.faq-answer {
+  color: var(--gray);
+  font-size: 13.5px;
+  line-height: 1.6;
+  padding: 0 4px 18px;
+}
+.google-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #fff;
+  color: #1f1f1f;
+  border: 1px solid var(--border);
+  padding: 12px 22px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14.5px;
+  cursor: pointer;
+  margin-top: 4px;
+}
+.google-btn:hover {
+  filter: brightness(0.97);
+}
+.demo-badge {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--black);
+  background: var(--gold);
+  padding: 3px 9px;
+  border-radius: 100px;
+}
+.vehicle-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+}
+.vehicle-card .plate-tag {
+  font-size: 18px;
+}
+.vehicle-card .plan-nombre {
+  margin: 8px 0 4px;
+  font-weight: 700;
 }

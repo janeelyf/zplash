@@ -1,10 +1,15 @@
-import type { Cliente, Cupon, Ingreso, Modulo, PerfilPublico, PlanStatus, Precios } from "@/types";
+import type { Cliente, ConfigGlobal, Cupon, Ingreso, Modulo, PerfilPublico, PlanStatus, Precios, Servicio } from "@/types";
 
 export const PLANES = ["Plan Ilimitado Mensual"];
 export const DIAS_AVISO_VENCIMIENTO = 7;
 
 export const PRECIOS_DEFAULT: Precios = {
   "Plan Ilimitado Mensual": { normal: 21990, promo: 19990 },
+  tapiz: { normal: 39990, promo: 0 },
+  alfombra: { normal: 19990, promo: 0 },
+  techo: { normal: 19990, promo: 0 },
+  motor: { normal: 29990, promo: 0 },
+  "chasis-grafitado": { normal: 59990, promo: 0 },
 };
 
 /** Precio de un lavado único para clientes sin plan vigente (vencido o sin plan). */
@@ -12,6 +17,22 @@ export const PRECIO_LAVADO_UNICO = 9990;
 
 /** Clave usada dentro de Precios para guardar el valor editable del lavado único. */
 export const LAVADO_UNICO_KEY = "Lavado único";
+
+/**
+ * Precio del plan para quien contrata con renovación automática (Oneclick
+ * Mall) desde /pagar — más barato que pagar un período a la vez con Webpay
+ * Plus, para incentivar la renovación automática. Es un canal de venta
+ * digital aparte y NO tiene relación con `precioPreferencial`/`promo`, que es
+ * el descuento de renovación para un cliente físico atendido en el local.
+ */
+export const PRECIO_PLAN_ONECLICK_DEFAULT = 19990;
+
+/** Clave usada dentro de Precios para guardar el valor editable del plan con renovación automática. */
+export const PLAN_ONECLICK_KEY = "Plan Ilimitado Mensual (Renovación Automática)";
+
+export function precioPlanOneclick(precios: Precios): number {
+  return (precios[PLAN_ONECLICK_KEY] && precios[PLAN_ONECLICK_KEY].normal) || PRECIO_PLAN_ONECLICK_DEFAULT;
+}
 
 /** Datos de la cuenta bancaria de la empresa, mostrados al cliente cuando el operador elige "Transferencia bancaria" como forma de pago. */
 export const DATOS_TRANSFERENCIA = [
@@ -21,24 +42,45 @@ export const DATOS_TRANSFERENCIA = [
   { label: "Mail", valor: "TB@ZPLASH.CL" },
 ];
 
-export interface ServicioAdicional {
-  id: string;
-  categoria: string;
-  nombre: string;
-  precio: number;
-}
-
-export const SERVICIOS_ADICIONALES: ServicioAdicional[] = [
-  { id: "detailing-pequeno", categoria: "Lavado Completo Detailing", nombre: "Auto Pequeño", precio: 24990 },
-  { id: "detailing-mediano", categoria: "Lavado Completo Detailing", nombre: "Mediano / SUV / Pick-up", precio: 29990 },
-  { id: "detailing-xl", categoria: "Lavado Completo Detailing", nombre: "Auto XL", precio: 34990 },
-  { id: "tapiz", categoria: "Servicios Adicionales", nombre: "Limpieza de Tapiz (2 Corridas de Asientos)", precio: 39990 },
-  { id: "alfombra", categoria: "Servicios Adicionales", nombre: "Limpieza de Alfombra", precio: 19990 },
-  { id: "techo", categoria: "Servicios Adicionales", nombre: "Limpieza de Techo", precio: 19990 },
-  { id: "motor", categoria: "Servicios Adicionales", nombre: "Lavado de Motor", precio: 29990 },
-  { id: "chasis", categoria: "Servicios Adicionales", nombre: "Lavado de Chasis", precio: 39990 },
-  { id: "chasis-grafitado", categoria: "Servicios Adicionales", nombre: "Lavado de Chasis + Grafitado", precio: 59990 },
+/** Semilla/fallback de catálogo para cuando la tabla `servicios` está vacía o
+ * la migración todavía no corrió — mismo patrón que PERFILES_DEFAULT. Mismos
+ * ids/nombres/categorías que el antiguo SERVICIOS_ADICIONALES hardcodeado;
+ * duracionMinutos queda en 30 como placeholder editable de inmediato desde
+ * la pestaña Agenda (no hay dato real de duración por servicio todavía). */
+export const SERVICIOS_DEFAULT: Servicio[] = [
+  { id: "detailing-pequeno", categoria: "Lavado Completo Detailing", nombre: "Auto Pequeño", duracionMinutos: 30, activo: true },
+  { id: "detailing-mediano", categoria: "Lavado Completo Detailing", nombre: "Mediano / SUV / Pick-up", duracionMinutos: 30, activo: true },
+  { id: "detailing-xl", categoria: "Lavado Completo Detailing", nombre: "Auto XL", duracionMinutos: 30, activo: true },
+  { id: "tapiz", categoria: "Servicios Adicionales", nombre: "Limpieza de Tapiz (2 Corridas de Asientos)", duracionMinutos: 30, activo: true },
+  { id: "alfombra", categoria: "Servicios Adicionales", nombre: "Limpieza de Alfombra", duracionMinutos: 30, activo: true },
+  { id: "techo", categoria: "Servicios Adicionales", nombre: "Limpieza de Techo", duracionMinutos: 30, activo: true },
+  { id: "motor", categoria: "Servicios Adicionales", nombre: "Lavado de Motor", duracionMinutos: 30, activo: true },
+  { id: "chasis", categoria: "Servicios Adicionales", nombre: "Lavado de Chasis", duracionMinutos: 30, activo: true },
+  { id: "chasis-grafitado", categoria: "Servicios Adicionales", nombre: "Lavado de Chasis + Grafitado", duracionMinutos: 30, activo: true },
 ];
+
+/** Categoría del catálogo que implica que el vehículo pasa por el túnel.
+ * Compartida entre ServiciosAdicionalesView (venta) y OperadorResult
+ * (registro físico del ingreso al túnel, ver GLOSA_LIMPIEZA_COMPLETA). */
+export const CATEGORIA_DETAILING = "Lavado Completo Detailing";
+
+/** Glosa de Ingreso para un lavado completo/detailing: la venta se hace en
+ * Servicios Adicionales, pero el Ingreso (historial de túnel) recién se crea
+ * cuando el operador registra la patente en el módulo Operador al llegar el
+ * vehículo — no constituye una venta nueva, solo deja constancia del paso
+ * físico por el túnel (ver registrarIngresoDetailing en lib/actions.ts). */
+export const GLOSA_LIMPIEZA_COMPLETA = "Limpieza Completa";
+
+/** Semilla/fallback de horario del módulo Operador (ver ConfigGlobal) para
+ * cuando la tabla `config` todavía no tiene los nuevos campos guardados —
+ * mismo patrón que PRECIOS_DEFAULT/SERVICIOS_DEFAULT. */
+export const CONFIG_DEFAULT: ConfigGlobal = {
+  horarioOperadorSemanaInicio: "08:25",
+  horarioOperadorSemanaFin: "20:15",
+  horarioOperadorFindeInicio: "09:55",
+  horarioOperadorFindeFin: "19:15",
+  festivos: [],
+};
 
 export const MODULOS_ADMIN: Modulo[] = [
   "clientes",
@@ -49,6 +91,7 @@ export const MODULOS_ADMIN: Modulo[] = [
   "perfiles",
   "stats",
   "config",
+  "agenda",
 ];
 export const TODOS_LOS_MODULOS: Modulo[] = [
   "operador",
@@ -71,6 +114,7 @@ export const MODULO_LABELS: Record<Modulo, string> = {
   config: "Configuración",
   contabilidad: "Contabilidad",
   permisos: "Permisos (asignar módulos)",
+  agenda: "Agenda",
 };
 
 /** Identidades por defecto para un entorno nuevo sin filas en `perfiles`
@@ -86,6 +130,14 @@ export const PERFILES_DEFAULT: PerfilPublico[] = [
   { id: "p6", nombre: "Jota", modulos: ["operador", "servicios"] },
   { id: "p7", nombre: "Gerencia", modulos: TODOS_LOS_MODULOS },
 ];
+
+/** Un perfil queda exento del bloqueo horario del módulo Operador (ver
+ * dentroDeHorarioOperador) si tiene acceso a Configuración — hoy eso equivale
+ * a Administración y Gerencia (ver PERFILES_DEFAULT), sin necesidad de un
+ * campo de "rol" aparte. */
+export function esExentoHorarioOperador(modulos: Modulo[]): boolean {
+  return modulos.includes("config");
+}
 
 /**
  * Estructura del Estado de Resultados (EERR): los 5 grupos de gasto y a qué
@@ -186,9 +238,9 @@ export function precioLavadoUnico(precios: Precios): number {
   return (precios[LAVADO_UNICO_KEY] && precios[LAVADO_UNICO_KEY].normal) || PRECIO_LAVADO_UNICO;
 }
 
-/** Precio vigente de un servicio adicional, editable por el administrador; si no se ha guardado uno, usa el precio de catálogo. */
-export function precioServicioAdicional(precios: Precios, servicio: ServicioAdicional): number {
-  return (precios[servicio.id] && precios[servicio.id].normal) || servicio.precio;
+/** Precio vigente de un servicio del catálogo, editable por el administrador desde Configuración; si no se ha guardado uno, es 0. */
+export function precioServicio(precios: Precios, servicioId: string): number {
+  return (precios[servicioId] && precios[servicioId].normal) || 0;
 }
 
 export function todayYMD(): string {
@@ -206,8 +258,32 @@ export function todayStr(): string {
   return new Date().toDateString();
 }
 
-function ymd(d: Date): string {
+export function sumarDias(fecha: string, delta: number): string {
+  const d = new Date(`${fecha}T00:00:00`);
+  d.setDate(d.getDate() + delta);
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+export function ymd(d: Date): string {
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+/** true si `fecha` cae sábado, domingo, o en la lista de festivos configurada (YYYY-MM-DD). */
+export function esFinDeSemanaOFestivo(fecha: Date, festivos: string[]): boolean {
+  const dia = fecha.getDay(); // 0 = domingo, 6 = sábado
+  if (dia === 0 || dia === 6) return true;
+  return festivos.includes(ymd(fecha));
+}
+
+/** true si `ahora` cae dentro del horario configurado para registrar ingresos en el
+ * módulo Operador: Lunes a Viernes usa el rango "semana", Sábado/Domingo/festivos usa
+ * el rango "finde" (ver ConfigGlobal, configurable en Administrador de Ingresos → Config). */
+export function dentroDeHorarioOperador(config: ConfigGlobal, ahora: Date): boolean {
+  const finde = esFinDeSemanaOFestivo(ahora, config.festivos);
+  const inicio = finde ? config.horarioOperadorFindeInicio : config.horarioOperadorSemanaInicio;
+  const fin = finde ? config.horarioOperadorFindeFin : config.horarioOperadorSemanaFin;
+  const horaActual = String(ahora.getHours()).padStart(2, "0") + ":" + String(ahora.getMinutes()).padStart(2, "0");
+  return horaActual >= inicio && horaActual <= fin;
 }
 
 /** Primer día del mes actual, en formato YYYY-MM-DD. */
@@ -316,6 +392,12 @@ export function isValidTelefono(tel: string | null | undefined): boolean {
 export const TELEFONO_FORMATO_MSG =
   "Teléfono inválido. Debe ser un celular chileno: +569 seguido de 8 dígitos (ej. +56912345678).";
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function isValidEmail(email: string | null | undefined): boolean {
+  return EMAIL_REGEX.test((email || "").trim());
+}
+
 // Orden de la pantalla de login y de la pestaña Perfiles: los operadores van
 // primero (alfabético), y los perfiles de gestión quedan fijos al final en
 // este orden — "Administración" y luego "Gerencia" — sin importar dónde caigan
@@ -342,6 +424,46 @@ export function findClient(clientes: Cliente[], plate: string): Cliente | undefi
 export function yaIngresoHoy(ingresos: Ingreso[], clienteId: string): boolean {
   const hoy = todayStr();
   return ingresos.some((i) => i.clienteId === clienteId && new Date(i.fecha).toDateString() === hoy);
+}
+
+export function ultimoIngresoCliente(ingresos: Ingreso[], clienteId: string): Ingreso | undefined {
+  return ingresos
+    .filter((i) => i.clienteId === clienteId)
+    .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
+}
+
+const HORAS_MIN_ENTRE_INGRESOS_PLAN = 24.5;
+const HORAS_VENTANA_GARANTIA = 1;
+
+export type EstadoReingresoPlan = "libre" | "garantia" | "bloqueado";
+
+/**
+ * Un vehículo con plan solo puede pasar 1 vez cada 24:30 horas. La garantía (repasar
+ * el mismo lavado sin cobrar de nuevo) solo se puede hacer efectiva hasta 1 hora
+ * después del ingreso anterior; pasada esa hora y hasta que se cumplan las 24:30
+ * horas, el reingreso queda bloqueado (ni garantía ni pasada nueva, salvo pagando
+ * un lavado único — ver `precioLavadoUnico`).
+ */
+export function estadoReingresoPlan(ingresos: Ingreso[], clienteId: string, ahora: Date = new Date()): EstadoReingresoPlan {
+  const ultimo = ultimoIngresoCliente(ingresos, clienteId);
+  if (!ultimo) return "libre";
+  const msDesdeUltimo = ahora.getTime() - new Date(ultimo.fecha).getTime();
+  if (msDesdeUltimo >= HORAS_MIN_ENTRE_INGRESOS_PLAN * 3600 * 1000) return "libre";
+  if (msDesdeUltimo <= HORAS_VENTANA_GARANTIA * 3600 * 1000) return "garantia";
+  return "bloqueado";
+}
+
+/** Hora a partir de la cual el vehículo vuelve a poder pasar (último ingreso + 24:30). */
+export function proximoIngresoPermitido(ingresos: Ingreso[], clienteId: string): Date | undefined {
+  const ultimo = ultimoIngresoCliente(ingresos, clienteId);
+  if (!ultimo) return undefined;
+  return new Date(new Date(ultimo.fecha).getTime() + HORAS_MIN_ENTRE_INGRESOS_PLAN * 3600 * 1000);
+}
+
+export function mensajeBloqueoReingreso(ingresos: Ingreso[], clienteId: string): string {
+  const proximo = proximoIngresoPermitido(ingresos, clienteId);
+  const hora = proximo ? fmtHora(proximo.toISOString()) : "";
+  return `VEHICULO HIZO USO DEL SERVICIO TUNEL HACE MENOS DE 24 HORAS. PUEDE REINGRESAR A PARTIR DE LAS ${hora} HRS.`;
 }
 
 /** La carga masiva por Excel deja "Sin nombre" quemado cuando la fila no trae nombre. */

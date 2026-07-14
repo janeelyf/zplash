@@ -4,35 +4,50 @@ import { createContext, useContext, useEffect, useState } from "react";
 import type {
   AppData,
   AuditoriaEntrada,
+  BloqueoAgenda,
   CategoriaGasto,
+  Cita,
   Cliente,
   Cupon,
   Empresa,
+  HorarioAgenda,
   Ingreso,
   MovimientoContable,
   PerfilPublico,
+  Servicio,
   TablaAuditada,
   UIState,
   Venta,
 } from "@/types";
-import { CATEGORIAS_GASTO_DEFAULT, PERFILES_DEFAULT, PRECIOS_DEFAULT } from "@/lib/helpers";
+import { CATEGORIAS_GASTO_DEFAULT, CONFIG_DEFAULT, PERFILES_DEFAULT, PRECIOS_DEFAULT, SERVICIOS_DEFAULT } from "@/lib/helpers";
 import {
+  deleteBloqueosAgenda,
+  deleteCitas,
   deleteClientes,
   deleteCupones,
   deleteEmpresas,
+  deleteHorariosAgenda,
   deleteMovimientosContables,
   deletePerfiles,
+  deleteServicios,
+  deleteVentas,
   insertAuditoria,
   insertIngresos,
   insertVentas,
   loadAll,
+  upsertBloqueosAgenda,
   upsertCategoriasGasto,
+  upsertCitas,
   upsertClientes,
+  upsertConfig,
   upsertCupones,
   upsertEmpresas,
+  upsertHorariosAgenda,
   upsertMovimientosContables,
   upsertPerfiles,
   upsertPrecios,
+  upsertServicios,
+  upsertVentas,
   waitForStorage,
 } from "@/lib/db";
 
@@ -46,6 +61,11 @@ const initialData: AppData = {
   movimientosContables: [],
   categoriasGasto: JSON.parse(JSON.stringify(CATEGORIAS_GASTO_DEFAULT)),
   empresas: [],
+  servicios: JSON.parse(JSON.stringify(SERVICIOS_DEFAULT)),
+  horariosAgenda: [],
+  bloqueosAgenda: [],
+  citas: [],
+  config: JSON.parse(JSON.stringify(CONFIG_DEFAULT)),
 };
 
 const initialUI: UIState = {
@@ -180,11 +200,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (nuevos.length) ops.push(insertIngresos(nuevos));
       auditoria.push(...auditEntries<Ingreso>("ingresos", previous.ingresos, nuevos, [], usuario));
     }
+    // citas se resuelve ANTES de tocar ventas (ver más abajo, awaited aparte
+    // del resto de `ops`): ventas.citaId tiene FK a citas.id y ambas suelen
+    // llegar juntas en el mismo commit (ver registrar() en
+    // ServiciosAdicionalesView) — si corrieran en paralelo vía Promise.all,
+    // el insert de ventas podía llegar a la base antes que el de citas y
+    // violar la FK.
+    let citasOk = true;
+    if (patch.citas) {
+      const { cambiados, eliminados } = diffPorId<Cita>(previous.citas, patch.citas);
+      const citaResults = await Promise.all([
+        cambiados.length ? upsertCitas(cambiados) : true,
+        eliminados.length ? deleteCitas(eliminados) : true,
+      ]);
+      citasOk = citaResults.every(Boolean);
+      auditoria.push(...auditEntries("citas", previous.citas, cambiados, eliminados, usuario));
+    }
+
     if (patch.ventas) {
       const prevIds = new Set(previous.ventas.map((v) => v.id));
-      const nuevas = patch.ventas.filter((v) => !prevIds.has(v.id));
+      const { cambiados, eliminados } = diffPorId<Venta>(previous.ventas, patch.ventas);
+      const nuevas = cambiados.filter((v) => !prevIds.has(v.id));
+      const editadas = cambiados.filter((v) => prevIds.has(v.id));
       if (nuevas.length) ops.push(insertVentas(nuevas));
-      auditoria.push(...auditEntries<Venta>("ventas", previous.ventas, nuevas, [], usuario));
+      if (editadas.length) ops.push(upsertVentas(editadas));
+      if (eliminados.length) ops.push(deleteVentas(eliminados));
+      auditoria.push(...auditEntries<Venta>("ventas", previous.ventas, cambiados, eliminados, usuario));
     }
     if (patch.perfiles) {
       const { cambiados, eliminados } = diffPorId<PerfilPublico>(previous.perfiles, patch.perfiles);
@@ -220,9 +261,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (patch.precios) {
       ops.push(upsertPrecios(patch.precios));
     }
-
+    if (patch.servicios) {
+      const { cambiados, eliminados } = diffPorId<Servicio>(previous.servicios, patch.servicios);
+      if (cambiados.length) ops.push(upsertServicios(cambiados));
+      if (eliminados.length) ops.push(deleteServicios(eliminados));
+    }
+    if (patch.horariosAgenda) {
+      const { cambiados, eliminados } = diffPorId<HorarioAgenda>(previous.horariosAgenda, patch.horariosAgenda);
+      if (cambiados.length) ops.push(upsertHorariosAgenda(cambiados));
+      if (eliminados.length) ops.push(deleteHorariosAgenda(eliminados));
+    }
+    if (patch.bloqueosAgenda) {
+      const { cambiados, eliminados } = diffPorId<BloqueoAgenda>(previous.bloqueosAgenda, patch.bloqueosAgenda);
+      if (cambiados.length) ops.push(upsertBloqueosAgenda(cambiados));
+      if (eliminados.length) ops.push(deleteBloqueosAgenda(eliminados));
+    }
+    if (patch.config) {
+      ops.push(upsertConfig(patch.config));
+    }
     const results = await Promise.all(ops);
-    const ok = results.every(Boolean);
+    const ok = citasOk && results.every(Boolean);
     setStorageReady(ok);
     if (!ok) {
       console.error("No se pudo guardar toda la información en el almacenamiento persistente");

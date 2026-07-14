@@ -7,6 +7,7 @@ import GastoEstadoTab from "@/components/tabs/GastoEstadoTab";
 import CuentasPorPagarTab from "@/components/tabs/CuentasPorPagarTab";
 import CuentasPorCobrarTab from "@/components/tabs/CuentasPorCobrarTab";
 import EERRTab from "@/components/tabs/EERRTab";
+import ContabilidadConfigTab from "@/components/tabs/ContabilidadConfigTab";
 
 const TABS = [
   { id: "egreso", label: "Egresos / Gastos" },
@@ -15,6 +16,7 @@ const TABS = [
   { id: "cuenta_por_cobrar", label: "Cuentas por Cobrar" },
   { id: "cuenta_por_pagar", label: "Cuentas por Pagar" },
   { id: "eerr", label: "EERR" },
+  { id: "config", label: "Configuración" },
 ] as const;
 
 export default function ContabilidadView() {
@@ -42,7 +44,9 @@ export default function ContabilidadView() {
             ))}
           </div>
           <div className="sidebar-content">
-            {tabActual.id === "eerr" ? (
+            {tabActual.id === "config" ? (
+              <ContabilidadConfigTab />
+            ) : tabActual.id === "eerr" ? (
               <EERRTab />
             ) : tabActual.id === "rendiciones" ? (
               <GastoEstadoTab estado="x_rendir" titulo="Rendiciones" />

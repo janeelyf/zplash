@@ -1,5 +1,6 @@
-import type { AppData, Cliente, Ingreso, PagoInfo, Venta } from "@/types";
+import type { AppData, Cita, Cliente, Ingreso, PagoInfo, Venta } from "@/types";
 import {
+  GLOSA_LIMPIEZA_COMPLETA,
   PLANES,
   formatRut,
   formatTelefono,
@@ -37,6 +38,42 @@ export function registrarIngreso(
   return {
     ingresos: [ingreso, ...data.ingresos],
     clientes: data.clientes.map((c) => (c.id === cliente.id ? clienteActualizado : c)),
+  };
+}
+
+// Registra el paso físico por el túnel de un lavado completo/detailing ya
+// vendido en Servicios Adicionales (Venta + Cita creadas ahí, ver registrar()
+// en ServiciosAdicionalesView.tsx): a diferencia de registrarIngreso(), esto
+// NO genera una Venta nueva — la venta ya existe — solo deja constancia en
+// Historial de Ingresos (glosa "Limpieza Completa") y avanza el circuito de
+// la cita a "en_limpieza".
+export function registrarIngresoDetailing(
+  data: AppData,
+  cliente: Cliente,
+  cita: Cita,
+  operadorActual: string | null | undefined
+): Partial<AppData> {
+  const ahora = new Date().toISOString();
+  const ingreso: Ingreso = {
+    id: "i" + Date.now(),
+    clienteId: cliente.id,
+    patente: cliente.patente,
+    nombre: cliente.nombre,
+    fecha: ahora,
+    planEstadoAlIngreso: planStatus(cliente).cls,
+    creadoPor: operadorActual || "",
+    glosa: GLOSA_LIMPIEZA_COMPLETA,
+    citaId: cita.id,
+  };
+  const clienteActualizado: Cliente = {
+    ...cliente,
+    visitas: (cliente.visitas || 0) + 1,
+    ultimaVisita: ahora,
+  };
+  return {
+    ingresos: [ingreso, ...data.ingresos],
+    clientes: data.clientes.map((c) => (c.id === cliente.id ? clienteActualizado : c)),
+    citas: data.citas.map((ct) => (ct.id === cita.id ? { ...ct, estado: "en_limpieza" } : ct)),
   };
 }
 

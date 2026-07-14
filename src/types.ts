@@ -42,6 +42,12 @@ export interface Ingreso {
   viaCupon?: boolean;
   cuponCodigo?: string;
   glosa?: string;
+  // Liga este ingreso a la Cita de la venta que lo originó (ver
+  // registrarIngresoDetailing en lib/actions.ts): un lavado completo/
+  // detailing se vende en Servicios Adicionales, pero el Ingreso recién se
+  // crea al registrar la patente en el módulo Operador, sin generar una
+  // venta nueva.
+  citaId?: string;
 }
 
 export interface Venta extends DatosFacturacion {
@@ -57,6 +63,19 @@ export interface Venta extends DatosFacturacion {
   metodoPago?: "efectivo" | "tarjeta" | "transferencia";
   voucher?: string;
   horaEntrega?: string;
+  fechaEntrega?: string;
+  // Liga esta venta a la Cita creada en el mismo registro (ver registrar()
+  // en ServiciosAdicionalesView), para poder mostrar y editar su Status en
+  // el log "Servicios registrados" sin tener que adivinar la cita por
+  // patente/fecha.
+  citaId?: string;
+  // Cuántos servicios del catálogo/personalizados se combinaron en este
+  // registro (ver registrar() en ServiciosAdicionalesView: un vehículo con
+  // varios servicios elegidos genera UNA sola Venta con el precio total,
+  // no una fila por servicio). Usado para no perder la métrica "cantidad de
+  // servicios vendidos" en Cierre de Caja cuando ahora "cantidad de filas"
+  // ya no equivale a eso.
+  cantidadItems?: number;
   notas?: string;
   // "Cuánto se pagó en el momento de la venta" — vocabulario propio de POS,
   // distinto a propósito de MovimientoContable.estado (ver más abajo): no
@@ -131,7 +150,8 @@ export type Modulo =
   | "stats"
   | "config"
   | "contabilidad"
-  | "permisos";
+  | "permisos"
+  | "agenda";
 
 // Lo que el cliente sí puede cargar: nombre y módulos permitidos, nunca la
 // contraseña. La clave solo se consulta/valida server-side, dentro de las
@@ -191,10 +211,70 @@ export interface CategoriaGasto {
 
 export type Precios = Record<string, { normal: number; promo: number }>;
 
+// Catálogo de servicios (fusiona el antiguo listado hardcodeado
+// SERVICIOS_ADICIONALES): lo usan tanto ServiciosAdicionalesView (venta
+// rápida en el POS) como la Agenda — equivalente a "procedimientos" en
+// ConsultaPro. El precio no vive acá, sigue en Precios (keyed por Servicio.id).
+export interface Servicio {
+  id: string;
+  nombre: string;
+  categoria?: string;
+  duracionMinutos: number;
+  activo: boolean;
+}
+
+// Horario semanal recurrente único para todo el negocio (no por profesional
+// ni por box, a diferencia de ConsultaPro: un lavadero atiende con capacidad
+// de 1 cupo por horario). diaSemana: 0=domingo … 6=sábado.
+export interface HorarioAgenda {
+  id: string;
+  diaSemana: number;
+  horaInicio: string;
+  horaFin: string;
+}
+
+// Excepción puntual al horario habitual: un día completo bloqueado o un
+// rango de horas específico dentro de un día.
+export interface BloqueoAgenda {
+  id: string;
+  fecha: string;
+  todoElDia: boolean;
+  horaInicio?: string;
+  horaFin?: string;
+  motivo?: string;
+  creadoEn: string;
+  creadoPor?: string;
+}
+
+// Cita agendada desde el Registro de Servicio Adicional. servicioIds son los
+// servicios del catálogo ligados a esta visita (equivalente a
+// cita_procedimientos en ConsultaPro: una cita puede incluir varios
+// servicios, no uno solo) — la app los carga ya resueltos acá para no tener
+// que hacer un join aparte en cada pantalla que lista citas.
+export interface Cita {
+  id: string;
+  clienteId?: string;
+  servicioIds: string[];
+  patente: string;
+  nombre: string;
+  telefono?: string;
+  fechaHora: string;
+  duracionMinutos: number;
+  // Circuito interno del vehículo: agendado → recibido → en_limpieza →
+  // listo_entrega → retirado, con "cancelada"/"no_asistio" como salidas
+  // fuera de ese camino feliz (ver validarDisponibilidad en lib/agenda.ts,
+  // que solo excluye "cancelada" al chequear choques de horario).
+  estado: "agendado" | "recibido" | "en_limpieza" | "listo_entrega" | "retirado" | "cancelada" | "no_asistio";
+  notas?: string;
+  origen: "interno" | "publico";
+  creadoPor?: string;
+  creadoEn: string;
+}
+
 // Tablas cubiertas por el log de auditoría (las que mueven dinero o datos de
 // clientes). Perfiles/precios/categoriasGasto/config quedan fuera a
 // propósito: bajo riesgo/volumen, ver evaluación en supabase/add-auditoria.sql.
-export type TablaAuditada = "clientes" | "ingresos" | "ventas" | "empresas" | "cupones" | "movimientos_contables";
+export type TablaAuditada = "clientes" | "ingresos" | "ventas" | "empresas" | "cupones" | "movimientos_contables" | "citas";
 
 // Una entrada del log de auditoría. Es de solo escritura desde la app (no
 // se carga a AppData/memoria, se revisa directo en Supabase); se genera y
@@ -210,6 +290,19 @@ export interface AuditoriaEntrada {
   usuario: string | null;
 }
 
+// Bloqueo horario del módulo Operador (registro de ingresos): fuera de estos
+// rangos, solo perfiles exentos (ver esExentoHorarioOperador en helpers.ts —
+// hoy equivale a "tiene acceso a Configuración", es decir Administración y
+// Gerencia) pueden registrar el ingreso de un vehículo. festivos es una lista
+// de fechas YYYY-MM-DD que se tratan con el horario de fin de semana.
+export interface ConfigGlobal {
+  horarioOperadorSemanaInicio: string;
+  horarioOperadorSemanaFin: string;
+  horarioOperadorFindeInicio: string;
+  horarioOperadorFindeFin: string;
+  festivos: string[];
+}
+
 export interface AppData {
   clientes: Cliente[];
   ingresos: Ingreso[];
@@ -220,6 +313,11 @@ export interface AppData {
   movimientosContables: MovimientoContable[];
   categoriasGasto: CategoriaGasto[];
   empresas: Empresa[];
+  servicios: Servicio[];
+  horariosAgenda: HorarioAgenda[];
+  bloqueosAgenda: BloqueoAgenda[];
+  citas: Cita[];
+  config: ConfigGlobal;
 }
 
 export type PlanStatusCls = "ok" | "warn" | "bad";

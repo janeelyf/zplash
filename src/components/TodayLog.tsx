@@ -6,7 +6,10 @@ import { todayStr } from "@/lib/helpers";
 export default function TodayLog() {
   const { data } = useApp();
   const hoy = todayStr();
-  const list = data.ingresos.filter((i) => new Date(i.fecha).toDateString() === hoy);
+  const list = data.ingresos
+    .filter((i) => new Date(i.fecha).toDateString() === hoy)
+    .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+    .slice(0, 10);
 
   if (list.length === 0) {
     return <div className="empty">Aún no hay ingresos registrados hoy</div>;

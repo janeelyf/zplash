@@ -52,6 +52,32 @@ export default function StatsTab() {
   const pct9990 = pct(por9990.length);
   const pctLimpiezas = pct(limpiezasCompletas.length);
 
+  // Monto vendido por categoría en el período. "Planes" no se calcula desde
+  // conPlan (esos lavados van incluidos en un plan ya pagado antes, sin venta
+  // asociada): se calcula desde data.ventas, sumando las ventas de
+  // contratación/renovación de plan del período. $9.990 usa el precio fijo de
+  // lavado único. Ticket gratis siempre aporta $0 (por eso no se suma aparte).
+  // Limpiezas completas se vende en Servicios Adicionales, así que su monto
+  // se busca en la Venta ligada por citaId, no en el Ingreso.
+  const TIPOS_VENTA_PLAN = new Set([
+    "Plan nuevo",
+    "Renovación preferencial",
+    "Plan nuevo (Web)",
+    "Renovación (Web)",
+    "Renovación Web (manual)",
+  ]);
+  const montoPlanes = data.ventas
+    .filter((v) => TIPOS_VENTA_PLAN.has(v.tipo) && inRange(v.fecha, desde, hasta))
+    .reduce((s, v) => s + (v.precio || 0), 0);
+  const montoPor9990 = por9990.length * 9990;
+  const montoTickets = ticketPagado.reduce((s, i) => s + cuponValor(i.cuponCodigo), 0);
+  const ventaPorCitaId = new Map(data.ventas.filter((v) => v.citaId).map((v) => [v.citaId, v]));
+  const montoLimpiezas = limpiezasCompletas.reduce(
+    (s, i) => s + (i.citaId ? ventaPorCitaId.get(i.citaId)?.precio || 0 : 0),
+    0
+  );
+  const montoTotalPeriodo = montoPlanes + montoPor9990 + montoTickets + montoLimpiezas;
+
   // --- Uso de planes y ranking de clientes, según el período seleccionado arriba ---
   const clientesPorId = new Map(data.clientes.map((c) => [c.id, c]));
   const ingresosVisitasPeriodo = data.ingresos.filter((i) => inRange(i.fecha, desde, hasta));
@@ -81,6 +107,22 @@ export default function StatsTab() {
 
   const top10 = [...conVisitas].sort((a, b) => b.cantidad - a.cantidad || ordenNombre(a, b)).slice(0, 10);
   const bottom10 = [...conVisitas].sort((a, b) => a.cantidad - b.cantidad || ordenNombre(a, b)).slice(0, 10);
+
+  // Distribución de pasadas: cuántos clientes con plan pasaron exactamente N veces en el período,
+  // y qué porcentaje representan sobre el total de clientes con plan.
+  const distribucionVisitas = new Map<number, number>();
+  clientesConPlan.forEach((c) => {
+    const cantidad = visitasPorCliente.get(c.id) || 0;
+    distribucionVisitas.set(cantidad, (distribucionVisitas.get(cantidad) || 0) + 1);
+  });
+  const filasDistribucion = Array.from(distribucionVisitas.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([cantidad, clientes]) => ({
+      cantidad,
+      clientes,
+      pct: clientesConPlan.length ? ((clientes / clientesConPlan.length) * 100).toFixed(1) + "%" : "0.0%",
+      pctPasadas: totalVisitasPlan ? (((cantidad * clientes) / totalVisitasPlan) * 100).toFixed(1) + "%" : "0.0%",
+    }));
 
   return (
     <div>
@@ -156,6 +198,14 @@ export default function StatsTab() {
         </button>
       </div>
       <div className="stat-grid">
+        <div className="stat-card ok">
+          <div className="num">{fmtCLP(montoTotalPeriodo)}</div>
+          <div className="lbl">Monto total de venta del período</div>
+        </div>
+        <div className="stat-card ok">
+          <div className="num">{fmtCLP(montoTotalPeriodo / 1.19)}</div>
+          <div className="lbl">Monto total neto del período</div>
+        </div>
         <div className="stat-card">
           <div className="num">{conPlan.length}</div>
           <div className="lbl">Autos con plan</div>
@@ -185,24 +235,36 @@ export default function StatsTab() {
             {conPlan.length} · {pctPlanes}
           </div>
           <div className="lbl">Planes</div>
+          <div className="lbl" style={{ marginTop: 4 }}>
+            {fmtCLP(montoPlanes)}
+          </div>
         </div>
         <div className="stat-card">
           <div className="num">
             {por9990.length} · {pct9990}
           </div>
           <div className="lbl">{fmtCLP(9990)}</div>
+          <div className="lbl" style={{ marginTop: 4 }}>
+            {fmtCLP(montoPor9990)}
+          </div>
         </div>
         <div className="stat-card">
           <div className="num">
             {ticketGratis.length + ticketPagado.length} · {pctTickets}
           </div>
           <div className="lbl">Tickets</div>
+          <div className="lbl" style={{ marginTop: 4 }}>
+            {fmtCLP(montoTickets)}
+          </div>
         </div>
         <div className="stat-card">
           <div className="num">
             {limpiezasCompletas.length} · {pctLimpiezas}
           </div>
           <div className="lbl">Limpiezas completas</div>
+          <div className="lbl" style={{ marginTop: 4 }}>
+            {fmtCLP(montoLimpiezas)}
+          </div>
         </div>
       </div>
 
@@ -213,6 +275,38 @@ export default function StatsTab() {
           <div className="lbl">Promedio de pasadas por cliente con plan ({clientesConPlan.length} clientes)</div>
         </div>
       </div>
+
+      <h3 style={{ fontSize: 16, color: "var(--gold)", margin: "24px 0 10px" }}>
+        Distribución de pasadas · clientes con plan
+      </h3>
+      <table style={{ marginBottom: 24 }}>
+        <thead>
+          <tr>
+            <th>Cantidad de pasadas</th>
+            <th>Clientes</th>
+            <th>% sobre clientes con plan</th>
+            <th>% sobre pasadas totales</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filasDistribucion.length === 0 ? (
+            <tr>
+              <td colSpan={4}>
+                <div className="empty">Sin clientes con plan</div>
+              </td>
+            </tr>
+          ) : (
+            filasDistribucion.map(({ cantidad, clientes, pct, pctPasadas }) => (
+              <tr key={cantidad}>
+                <td>{cantidad}</td>
+                <td>{clientes}</td>
+                <td>{pct}</td>
+                <td>{pctPasadas}</td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
 
       <h3 style={{ fontSize: 16, color: "var(--gold)", margin: "24px 0 10px" }}>
         Top 10 clientes que más han pasado
