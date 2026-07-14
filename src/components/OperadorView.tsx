@@ -1,12 +1,24 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { PATENTE_FORMATO_MSG, findClient, isValidPatente, normPlate, todayStr } from "@/lib/helpers";
+import {
+  PATENTE_FORMATO_MSG,
+  dentroDeHorarioOperador,
+  esExentoHorarioOperador,
+  findClient,
+  isValidPatente,
+  normPlate,
+  todayStr,
+} from "@/lib/helpers";
 import Topbar from "@/components/Topbar";
 import OperadorResult from "@/components/OperadorResult";
 import TodayLog from "@/components/TodayLog";
 import type { Ingreso } from "@/types";
+
+/** Refresco del reloj del bloqueo horario: no necesita mayor precisión que
+ * "dentro del minuto", así que 30s alcanza sin recalcular en cada render. */
+const INTERVALO_RELOJ_MS = 30_000;
 
 // Las fotos de la cámara del celular en resolución completa suelen pesar
 // 5-12 MB, y Plate Recognizer (Snapshot Cloud) rechaza cualquier imagen de
@@ -44,6 +56,21 @@ export default function OperadorView() {
   const [plateErr, setPlateErr] = useState("");
   const [escaneando, setEscaneando] = useState(false);
 
+  // Bloqueo horario del registro de vehículos (ver ConfigTab → "Horario de
+  // registro"). El backstop real vive en insertIngresos (@/lib/db) — esto es
+  // solo para no ofrecerle al operador un flujo que el servidor va a
+  // rechazar. `ahora` se refresca solo (no en cada render) para que el
+  // bloqueo se levante/active solo al cruzar la hora configurada, sin que el
+  // operador tenga que recargar la página.
+  const [ahora, setAhora] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setAhora(new Date()), INTERVALO_RELOJ_MS);
+    return () => clearInterval(id);
+  }, []);
+  const exento = esExentoHorarioOperador(ui.perfilActual?.modulos || []);
+  const bloqueado = !exento && !dentroDeHorarioOperador(data.config, ahora);
+  const cfg = data.config;
+
   const clearPlate = () => {
     if (plateInputRef.current) plateInputRef.current.value = "";
   };
@@ -55,8 +82,8 @@ export default function OperadorView() {
       setPlateErr(PATENTE_FORMATO_MSG);
       return;
     }
-    setPlateErr("");
     const c = findClient(data.clientes, plate);
+    setPlateErr("");
     patchUi({ operResult: c ? { found: true, cliente: c } : { found: false, plate } });
   };
 
@@ -195,88 +222,101 @@ export default function OperadorView() {
           <div className="num">{ingresosHoy}</div>
           <div className="lbl">Autos ingresados hoy</div>
         </div>
-        <div className="scan-panel">
-          <h2>Validar patente</h2>
-          <div className="hint">Ingresa la patente del vehículo para registrar el ingreso</div>
-          <input
-            ref={plateInputRef}
-            className="plate-input"
-            placeholder="AB1234"
-            maxLength={8}
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === "Enter") doValidate();
-            }}
-          />
-          <br />
-          <input
-            ref={fotoPatenteRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            style={{ display: "none" }}
-            onChange={escanearPatente}
-          />
-          <button
-            className="btn ghost"
-            style={{ marginTop: 10 }}
-            disabled={escaneando}
-            onClick={() => fotoPatenteRef.current?.click()}
-          >
-            {escaneando ? "Leyendo patente..." : "📷 Escanear patente"}
-          </button>
-          <div className="hint" style={{ marginTop: 4 }}>
-            Acércate para que la patente ocupe gran parte de la foto
-          </div>
-          <br />
-          {plateErr && <div className="err">{plateErr}</div>}
-          <button className="btn" onClick={doValidate}>
-            Validar
-          </button>
-          <br />
-          <button
-            className="btn ghost"
-            style={{ marginTop: 10 }}
-            onClick={() => patchUi({ modal: { type: "client", data: null, contexto: "operador" } })}
-          >
-            + Agregar vehículo nuevo
-          </button>
-        </div>
-        <OperadorResult clearPlate={clearPlate} />
-        <div className="scan-panel" style={{ marginTop: 24 }}>
-          <h2>Canjear cupón</h2>
-          <div className="hint">Ingresa el código del cupón (Venta Empresa) y la patente del vehículo que lo usa</div>
-          <div className="field" style={{ maxWidth: 340, margin: "0 auto 10px" }}>
-            <input
-              ref={codigoCuponRef}
-              className="plate-input"
-              style={{ fontSize: 20, letterSpacing: "0.1em" }}
-              placeholder="CÓDIGO"
-              maxLength={8}
-            />
-          </div>
-          <div className="field" style={{ maxWidth: 340, margin: "0 auto 10px" }}>
-            <input
-              ref={patenteCuponRef}
-              className="plate-input"
-              placeholder="Patente AB1234"
-              maxLength={8}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") canjearCupon();
-              }}
-            />
-          </div>
-          {cuponErr && (
-            <div className="err" style={{ color: cuponErr.ok ? "var(--green)" : undefined }}>
-              {cuponErr.msg}
+        {bloqueado ? (
+          <div className="scan-panel">
+            <h2>Registro fuera de horario</h2>
+            <div className="hint">
+              El registro de vehículos está habilitado de {cfg.horarioOperadorSemanaInicio} a {cfg.horarioOperadorSemanaFin} hrs
+              (lunes a viernes) y de {cfg.horarioOperadorFindeInicio} a {cfg.horarioOperadorFindeFin} hrs (sábado, domingo y
+              festivos). Contacta a Administración o Gerencia si necesitas registrar un ingreso fuera de este horario.
             </div>
-          )}
-          <button className="btn" onClick={canjearCupon}>
-            Canjear cupón
-          </button>
-        </div>
+          </div>
+        ) : (
+          <>
+            <div className="scan-panel">
+              <h2>Validar patente</h2>
+              <div className="hint">Ingresa la patente del vehículo para registrar el ingreso</div>
+              <input
+                ref={plateInputRef}
+                className="plate-input"
+                placeholder="AB1234"
+                maxLength={8}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") doValidate();
+                }}
+              />
+              <br />
+              <input
+                ref={fotoPatenteRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                style={{ display: "none" }}
+                onChange={escanearPatente}
+              />
+              <button
+                className="btn ghost"
+                style={{ marginTop: 10 }}
+                disabled={escaneando}
+                onClick={() => fotoPatenteRef.current?.click()}
+              >
+                {escaneando ? "Leyendo patente..." : "📷 Escanear patente"}
+              </button>
+              <div className="hint" style={{ marginTop: 4 }}>
+                Acércate para que la patente ocupe gran parte de la foto
+              </div>
+              <br />
+              {plateErr && <div className="err">{plateErr}</div>}
+              <button className="btn" onClick={doValidate}>
+                Validar
+              </button>
+              <br />
+              <button
+                className="btn ghost"
+                style={{ marginTop: 10 }}
+                onClick={() => patchUi({ modal: { type: "client", data: null, contexto: "operador" } })}
+              >
+                + Agregar vehículo nuevo
+              </button>
+            </div>
+            <OperadorResult clearPlate={clearPlate} />
+            <div className="scan-panel" style={{ marginTop: 24 }}>
+              <h2>Canjear cupón</h2>
+              <div className="hint">Ingresa el código del cupón (Venta Empresa) y la patente del vehículo que lo usa</div>
+              <div className="field" style={{ maxWidth: 340, margin: "0 auto 10px" }}>
+                <input
+                  ref={codigoCuponRef}
+                  className="plate-input"
+                  style={{ fontSize: 20, letterSpacing: "0.1em" }}
+                  placeholder="CÓDIGO"
+                  maxLength={8}
+                />
+              </div>
+              <div className="field" style={{ maxWidth: 340, margin: "0 auto 10px" }}>
+                <input
+                  ref={patenteCuponRef}
+                  className="plate-input"
+                  placeholder="Patente AB1234"
+                  maxLength={8}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") canjearCupon();
+                  }}
+                />
+              </div>
+              {cuponErr && (
+                <div className="err" style={{ color: cuponErr.ok ? "var(--green)" : undefined }}>
+                  {cuponErr.msg}
+                </div>
+              )}
+              <button className="btn" onClick={canjearCupon}>
+                Canjear cupón
+              </button>
+            </div>
+          </>
+        )}
         <div className="today-log">
-          <h3>Ingresos de hoy</h3>
+          <h3>ÚLTIMOS 10 INGRESOS</h3>
           <TodayLog />
         </div>
       </div>

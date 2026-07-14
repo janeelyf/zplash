@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { importarClientes, registrarIngreso, renovarPlan } from "./actions";
-import { PRECIOS_DEFAULT } from "./helpers";
-import type { AppData, Cliente } from "@/types";
+import { importarClientes, registrarIngreso, registrarIngresoDetailing, renovarPlan } from "./actions";
+import { CONFIG_DEFAULT, PRECIOS_DEFAULT } from "./helpers";
+import type { AppData, Cita, Cliente } from "@/types";
 
 function appDataVacia(): AppData {
   return {
@@ -18,6 +18,7 @@ function appDataVacia(): AppData {
     horariosAgenda: [],
     bloqueosAgenda: [],
     citas: [],
+    config: CONFIG_DEFAULT,
   };
 }
 
@@ -57,6 +58,43 @@ describe("registrarIngreso", () => {
 
     expect(patch.ingresos![0].esGarantia).toBe(true);
     expect(patch.ingresos![0].glosa).toBe("Reclamo");
+  });
+});
+
+function citaDetailingBase(overrides: Partial<Cita> = {}): Cita {
+  return {
+    id: "cita1",
+    clienteId: "c1",
+    servicioIds: ["detailing-pequeno"],
+    patente: "AB1234",
+    nombre: "JUAN PEREZ",
+    fechaHora: new Date().toISOString(),
+    duracionMinutos: 30,
+    estado: "recibido",
+    origen: "interno",
+    creadoEn: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+describe("registrarIngresoDetailing", () => {
+  it("deja el ingreso con glosa 'Limpieza Completa' ligado a la cita, sin crear una venta nueva", () => {
+    const data = appDataVacia();
+    const cliente = clienteBase({ visitas: 1 });
+    const cita = citaDetailingBase();
+    data.clientes = [cliente];
+    data.citas = [cita];
+
+    const patch = registrarIngresoDetailing(data, cliente, cita, "Operador X");
+
+    expect(patch.ingresos).toHaveLength(1);
+    expect(patch.ingresos![0].glosa).toBe("Limpieza Completa");
+    expect(patch.ingresos![0].citaId).toBe(cita.id);
+    expect(patch.ventas).toBeUndefined();
+    const clienteActualizado = patch.clientes!.find((c) => c.id === cliente.id)!;
+    expect(clienteActualizado.visitas).toBe(2);
+    const citaActualizada = patch.citas!.find((c) => c.id === cita.id)!;
+    expect(citaActualizada.estado).toBe("en_limpieza");
   });
 });
 

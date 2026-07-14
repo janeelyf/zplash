@@ -5,8 +5,9 @@ import { useApp } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
 import DatosTransferencia from "@/components/DatosTransferencia";
 import PriceInput from "@/components/PriceInput";
-import { ESTADOS_CITA, validarDisponibilidad } from "@/lib/agenda";
+import { ESTADOS_CITA, esEstadoFinal, validarDisponibilidad } from "@/lib/agenda";
 import {
+  CATEGORIA_DETAILING,
   PATENTE_FORMATO_MSG,
   RUT_FORMATO_MSG,
   findClient,
@@ -15,20 +16,15 @@ import {
   isValidPatente,
   isValidRut,
   normPlate,
-  planStatus,
   precioServicio,
   sumarDias,
   todayYMD,
   uid,
-  uidIngreso,
   ymd,
 } from "@/lib/helpers";
-import type { Cita, Cliente, Empresa, Ingreso, Venta } from "@/types";
-
-const GLOSA_LIMPIEZA_COMPLETA = "Limpieza Completa";
+import type { Cita, Cliente, Empresa, Venta } from "@/types";
 
 const ERROR_GUARDADO = "No se pudo guardar el servicio (sin conexión con el almacenamiento). Verifica tu conexión e inténtalo de nuevo.";
-const CATEGORIA_DETAILING = "Lavado Completo Detailing";
 const CATEGORIA_ADICIONALES = "Servicios Adicionales";
 const AJUSTES = [5000, 10000] as const;
 // Duración a usar en la agenda cuando lo vendido no incluye ningún servicio
@@ -101,10 +97,18 @@ export default function ServiciosAdicionalesView() {
   const horarioConfigurado = data.horariosAgenda.length > 0;
   const citasDelDiaCita = data.citas.filter((c) => c.fechaHora.slice(0, 10) === fechaCita);
 
+  // Dentro de "Lavado Completo Detailing" solo se puede tener 1 tamaño
+  // seleccionado a la vez (radio): elegir otro reemplaza al anterior. Las
+  // demás categorías (Adicionales) siguen siendo multi-selección normal.
   const toggleServicio = (id: string, categoria: string) => {
-    setServiciosSeleccionados((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    setServiciosSeleccionados((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (categoria === CATEGORIA_DETAILING) {
+        return [...prev.filter((x) => catalogo.find((s) => s.id === x)?.categoria !== CATEGORIA_DETAILING), id];
+      }
+      return [...prev, id];
+    });
     setErr("");
-    if (categoria !== CATEGORIA_DETAILING) return;
   };
 
   const agregarPersonalizado = () => {
@@ -329,26 +333,12 @@ export default function ServiciosAdicionalesView() {
 
     const ahora = new Date().toISOString();
 
-    // Un lavado completo/detailing implica que el vehículo pasó por el túnel,
-    // así que además de las ventas se deja registro en Historial de Ingresos.
-    let ingresosNuevos = data.ingresos;
-    if (hayDetailingSeleccionado) {
-      const clienteParaIngreso = clientes.find((c) => c.id === clienteId)!;
-      const ingreso: Ingreso = {
-        id: uidIngreso(),
-        clienteId,
-        patente,
-        nombre,
-        fecha: ahora,
-        planEstadoAlIngreso: planStatus(clienteParaIngreso).cls,
-        creadoPor: ui.perfilActual?.nombre || "",
-        glosa: GLOSA_LIMPIEZA_COMPLETA,
-      };
-      clientes = clientes.map((c) =>
-        c.id === clienteId ? { ...c, visitas: (c.visitas || 0) + 1, ultimaVisita: ahora } : c
-      );
-      ingresosNuevos = [ingreso, ...data.ingresos];
-    }
+    // Un lavado completo/detailing implica que el vehículo va a pasar por el
+    // túnel, pero el registro en Historial de Ingresos (glosa "Limpieza
+    // Completa") NO se crea acá: recién se genera cuando el operador registra
+    // la patente en el módulo Operador al llegar el vehículo (ver
+    // registrarIngresoDetailing en lib/actions.ts) — este alta solo deja la
+    // Venta y la Cita agendadas.
 
     // La Agenda queda fusionada con la venta: el registro deja reservada su
     // hora en `citas`, con los servicios del catálogo elegidos ligados vía
@@ -406,7 +396,6 @@ export default function ServiciosAdicionalesView() {
     const ok = await commit({
       clientes,
       ventas: [ventaNueva, ...data.ventas],
-      ingresos: ingresosNuevos,
       ...(nuevaEmpresa ? { empresas: [...data.empresas, nuevaEmpresa] } : {}),
       citas: [citaNueva, ...data.citas],
     });
@@ -933,6 +922,7 @@ function StatusCell({
   onCambiar: (estado: Cita["estado"]) => void;
 }) {
   const [seleccion, setSeleccion] = useState<Cita["estado"]>(estadoActual);
+  const bloqueado = esEstadoFinal(estadoActual);
 
   useEffect(() => {
     setSeleccion(estadoActual);
@@ -940,22 +930,29 @@ function StatusCell({
 
   return (
     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-      <select value={seleccion} onChange={(e) => setSeleccion(e.target.value as Cita["estado"])} style={{ fontSize: 13 }}>
+      <select
+        value={seleccion}
+        onChange={(e) => setSeleccion(e.target.value as Cita["estado"])}
+        disabled={bloqueado}
+        style={{ fontSize: 13 }}
+      >
         {ESTADOS_CITA.map((e) => (
           <option key={e.valor} value={e.valor}>
             {e.label}
           </option>
         ))}
       </select>
-      <button
-        type="button"
-        className="btn ghost"
-        style={{ marginTop: 0, padding: "4px 10px", fontSize: 12 }}
-        disabled={seleccion === estadoActual}
-        onClick={() => onCambiar(seleccion)}
-      >
-        Cambiar
-      </button>
+      {!bloqueado && (
+        <button
+          type="button"
+          className="btn ghost"
+          style={{ marginTop: 0, padding: "4px 10px", fontSize: 12 }}
+          disabled={seleccion === estadoActual}
+          onClick={() => onCambiar(seleccion)}
+        >
+          Cambiar
+        </button>
+      )}
     </div>
   );
 }

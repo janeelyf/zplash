@@ -14,6 +14,26 @@ export const ESTADOS_CITA: { valor: Cita["estado"]; label: string }[] = [
   { valor: "cancelada", label: "Cancelada" },
 ];
 
+// Estados que cierran el circuito de un vehículo (ya se fue, o la cita no
+// llegó a completarse): una vez ahí, el status queda bloqueado — corregir un
+// error implica crear una cita nueva, no reabrir esta.
+const ESTADOS_FINALES: Cita["estado"][] = ["retirado", "no_asistio", "cancelada"];
+
+export function esEstadoFinal(estado: Cita["estado"]): boolean {
+  return ESTADOS_FINALES.includes(estado);
+}
+
+// Estados en los que el vehículo ya está físicamente en el local: antes de
+// "recibido" (o sea "agendado") todavía no ha llegado, así que no se le
+// puede dar ingreso al túnel por un Lavado Completo Detailing vendido de
+// antemano (ver registrarIngresoDetailing en lib/actions.ts, único llamador
+// que depende de este chequeo vía citaDetailingPendiente en OperadorResult.tsx).
+const ESTADOS_INGRESO_TUNEL_DETAILING: Cita["estado"][] = ["recibido", "en_limpieza", "listo_entrega"];
+
+export function puedeIngresarTunelDetailing(estado: Cita["estado"]): boolean {
+  return ESTADOS_INGRESO_TUNEL_DETAILING.includes(estado);
+}
+
 function minutosDesdeMedianoche(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);
   return h * 60 + m;

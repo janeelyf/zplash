@@ -49,7 +49,7 @@ export const empresas = pgTable("empresas", {
 
 export const ingresos = pgTable("ingresos", {
   id: text("id").primaryKey(),
-  clienteId: text("cliente_id").references(() => clientes.id, { onDelete: "set null" }),
+  clienteId: text("cliente_id").references(() => clientes.id, { onDelete: "cascade" }),
   patente: text("patente").notNull(),
   nombre: text("nombre").notNull(),
   fecha: timestamptz("fecha").notNull().defaultNow(),
@@ -59,11 +59,12 @@ export const ingresos = pgTable("ingresos", {
   viaCupon: boolean("via_cupon").notNull().default(false),
   cuponCodigo: text("cupon_codigo").references(() => cupones.codigo, { onDelete: "set null" }),
   glosa: text("glosa"),
+  citaId: text("cita_id").references(() => citas.id, { onDelete: "set null" }),
 });
 
 export const ventas = pgTable("ventas", {
   id: text("id").primaryKey(),
-  clienteId: text("cliente_id").references(() => clientes.id, { onDelete: "set null" }),
+  clienteId: text("cliente_id").references(() => clientes.id, { onDelete: "cascade" }),
   patente: text("patente").notNull(),
   nombre: text("nombre").notNull(),
   plan: text("plan").notNull().default(""),
@@ -168,9 +169,18 @@ export const categoriasGasto = pgTable("categorias_gasto", {
 });
 
 // Tabla "singleton" (una sola fila, id siempre true) para configuración global.
+// horario_operador_*: bloqueo horario del módulo Operador (ver
+// ConfigGlobal/dentroDeHorarioOperador) — fuera de este rango, un perfil sin
+// acceso a Configuración no puede registrar el ingreso de un vehículo.
+// festivos: fechas YYYY-MM-DD que usan el horario de fin de semana.
 export const config = pgTable("config", {
   id: boolean("id").primaryKey().default(true),
   pinAdmin: text("pin_admin").notNull().default("1234"),
+  horarioOperadorSemanaInicio: text("horario_operador_semana_inicio").notNull().default("08:25"),
+  horarioOperadorSemanaFin: text("horario_operador_semana_fin").notNull().default("20:15"),
+  horarioOperadorFindeInicio: text("horario_operador_finde_inicio").notNull().default("09:55"),
+  horarioOperadorFindeFin: text("horario_operador_finde_fin").notNull().default("19:15"),
+  festivos: jsonb("festivos").$type<string[]>().notNull().default([]),
 });
 
 // Catálogo de servicios (fusiona el antiguo listado hardcodeado
@@ -220,7 +230,7 @@ export const bloqueosAgenda = pgTable("bloqueos_agenda", {
 // ya hace ServiciosAdicionalesView al guardar.
 export const citas = pgTable("citas", {
   id: text("id").primaryKey(),
-  clienteId: text("cliente_id").references(() => clientes.id, { onDelete: "set null" }),
+  clienteId: text("cliente_id").references(() => clientes.id, { onDelete: "cascade" }),
   patente: text("patente").notNull(),
   nombre: text("nombre").notNull(),
   telefono: text("telefono"),

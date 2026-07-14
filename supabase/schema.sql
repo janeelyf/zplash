@@ -232,9 +232,18 @@ insert into categorias_gasto (id, nombre, grupo) values
 on conflict (id) do nothing;
 
 -- Tabla "singleton" (una sola fila) para configuración global.
+-- horario_operador_*: bloqueo horario del módulo Operador — fuera de este
+-- rango, un perfil sin acceso a Configuración no puede registrar el ingreso
+-- de un vehículo (ver ConfigGlobal/dentroDeHorarioOperador en @/lib/helpers).
+-- festivos: fechas YYYY-MM-DD que usan el horario de fin de semana.
 create table if not exists config (
   id boolean primary key default true check (id),
-  pin_admin text not null default '1234'
+  pin_admin text not null default '1234',
+  horario_operador_semana_inicio text not null default '08:25',
+  horario_operador_semana_fin text not null default '20:15',
+  horario_operador_finde_inicio text not null default '09:55',
+  horario_operador_finde_fin text not null default '19:15',
+  festivos jsonb not null default '[]'::jsonb
 );
 insert into config (id, pin_admin) values (true, '1234') on conflict (id) do nothing;
 
@@ -284,7 +293,7 @@ create table if not exists bloqueos_agenda (
 -- ya hace ServiciosAdicionalesView al guardar.
 create table if not exists citas (
   id text primary key,
-  cliente_id text references clientes(id) on delete set null,
+  cliente_id text references clientes(id) on delete cascade,
   patente text not null,
   nombre text not null,
   telefono text,
@@ -310,16 +319,19 @@ create table if not exists cita_servicios (
 
 -- Foreign keys: solo en las relaciones donde se verificó que no hay filas
 -- huérfanas irreconciliables (ver evaluación en supabase/add-foreign-keys.sql
--- para bases ya existentes). ON DELETE SET NULL preserva el historial si se
--- borra el cliente/cupón referenciado, en vez de bloquear el borrado o
--- arrastrar el borrado en cascada. Quedan pendientes (no se fuerzan) las
+-- para bases ya existentes). ingresos/ventas/citas.cliente_id usan ON DELETE
+-- CASCADE (ver supabase/cascade-delete-cliente.sql): borrar un Cliente borra
+-- en cadena su historial de ingresos, ventas y citas, para que no queden
+-- registros huérfanos contabilizándose en Estadísticas. empresas.contacto_
+-- cliente_id sigue en SET NULL a propósito: la empresa no depende del
+-- contacto, solo pierde el vínculo. Quedan pendientes (no se fuerzan) las
 -- relaciones de creado_por→perfiles.nombre, categoria→categorias_gasto.nombre
 -- y plan→precios.plan: tienen valores sintéticos o históricos que no calzan
 -- con una FK (ver MovimientoContable/Venta en src/types.ts).
 alter table ingresos add constraint ingresos_cliente_id_fkey
-  foreign key (cliente_id) references clientes(id) on delete set null;
+  foreign key (cliente_id) references clientes(id) on delete cascade;
 alter table ventas add constraint ventas_cliente_id_fkey
-  foreign key (cliente_id) references clientes(id) on delete set null;
+  foreign key (cliente_id) references clientes(id) on delete cascade;
 alter table empresas add constraint empresas_contacto_cliente_id_fkey
   foreign key (contacto_cliente_id) references clientes(id) on delete set null;
 alter table ingresos add constraint ingresos_cupon_codigo_fkey

@@ -43,6 +43,13 @@
       "when": 1784058229879,
       "tag": "0005_clear_wonder_man",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784070329746,
+      "tag": "0006_last_loki",
+      "breakpoints": true
     }
   ]
 }

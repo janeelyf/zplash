@@ -42,6 +42,12 @@ export interface Ingreso {
   viaCupon?: boolean;
   cuponCodigo?: string;
   glosa?: string;
+  // Liga este ingreso a la Cita de la venta que lo originó (ver
+  // registrarIngresoDetailing en lib/actions.ts): un lavado completo/
+  // detailing se vende en Servicios Adicionales, pero el Ingreso recién se
+  // crea al registrar la patente en el módulo Operador, sin generar una
+  // venta nueva.
+  citaId?: string;
 }
 
 export interface Venta extends DatosFacturacion {
@@ -284,6 +290,19 @@ export interface AuditoriaEntrada {
   usuario: string | null;
 }
 
+// Bloqueo horario del módulo Operador (registro de ingresos): fuera de estos
+// rangos, solo perfiles exentos (ver esExentoHorarioOperador en helpers.ts —
+// hoy equivale a "tiene acceso a Configuración", es decir Administración y
+// Gerencia) pueden registrar el ingreso de un vehículo. festivos es una lista
+// de fechas YYYY-MM-DD que se tratan con el horario de fin de semana.
+export interface ConfigGlobal {
+  horarioOperadorSemanaInicio: string;
+  horarioOperadorSemanaFin: string;
+  horarioOperadorFindeInicio: string;
+  horarioOperadorFindeFin: string;
+  festivos: string[];
+}
+
 export interface AppData {
   clientes: Cliente[];
   ingresos: Ingreso[];
@@ -298,6 +317,7 @@ export interface AppData {
   horariosAgenda: HorarioAgenda[];
   bloqueosAgenda: BloqueoAgenda[];
   citas: Cita[];
+  config: ConfigGlobal;
 }
 
 export type PlanStatusCls = "ok" | "warn" | "bad";

@@ -1,20 +1,28 @@
 import { describe, expect, it } from "vitest";
 import {
+  CONFIG_DEFAULT,
+  dentroDeHorarioOperador,
+  esExentoHorarioOperador,
+  esFinDeSemanaOFestivo,
   fmtCLP,
   formatRut,
+  estadoReingresoPlan,
+  fmtHora,
   formatTelefono,
   isValidPatente,
   isValidRut,
   isValidTelefono,
+  mensajeBloqueoReingreso,
   mesKey,
   montoDescuento,
   normPlate,
   ordenarPerfiles,
   planStatus,
+  proximoIngresoPermitido,
   resolverDescuento,
   vencimientoAnclado,
 } from "./helpers";
-import type { Cupon, PerfilPublico } from "@/types";
+import type { ConfigGlobal, Cupon, Ingreso, PerfilPublico } from "@/types";
 
 describe("normPlate", () => {
   it("pasa a mayúsculas y saca todo lo que no sea letra/número", () => {
@@ -103,6 +111,71 @@ describe("planStatus", () => {
     const enUnMes = new Date();
     enUnMes.setDate(enUnMes.getDate() + 40);
     expect(planStatus({ vencimiento: enUnMes.toISOString() }).label).toBe("Vigente");
+  });
+});
+
+describe("estadoReingresoPlan", () => {
+  const ingreso = (clienteId: string, fecha: string): Ingreso => ({
+    id: "i1",
+    clienteId,
+    patente: "AB1234",
+    nombre: "Cliente",
+    fecha,
+    planEstadoAlIngreso: "ok",
+  });
+
+  const ahora = new Date("2026-01-02T10:00:00Z");
+
+  it("libre si el cliente no tiene ingresos previos", () => {
+    expect(estadoReingresoPlan([], "c1", ahora)).toBe("libre");
+  });
+
+  it("garantia si el último ingreso fue hace 1 hora o menos", () => {
+    const haceMediaHora = new Date("2026-01-02T09:30:00Z").toISOString();
+    expect(estadoReingresoPlan([ingreso("c1", haceMediaHora)], "c1", ahora)).toBe("garantia");
+  });
+
+  it("bloqueado si el último ingreso fue hace más de 1 hora y menos de 24:30", () => {
+    const haceVeinteHoras = new Date("2026-01-01T14:00:00Z").toISOString();
+    expect(estadoReingresoPlan([ingreso("c1", haceVeinteHoras)], "c1", ahora)).toBe("bloqueado");
+  });
+
+  it("libre si el último ingreso fue hace 24:30 horas o más", () => {
+    const hace25Horas = new Date("2026-01-01T09:00:00Z").toISOString();
+    expect(estadoReingresoPlan([ingreso("c1", hace25Horas)], "c1", ahora)).toBe("libre");
+  });
+
+  it("ignora ingresos de otros clientes", () => {
+    const haceUnaHora = new Date("2026-01-02T09:00:00Z").toISOString();
+    expect(estadoReingresoPlan([ingreso("otro", haceUnaHora)], "c1", ahora)).toBe("libre");
+  });
+});
+
+describe("proximoIngresoPermitido / mensajeBloqueoReingreso", () => {
+  const ingreso = (clienteId: string, fecha: string): Ingreso => ({
+    id: "i1",
+    clienteId,
+    patente: "AB1234",
+    nombre: "Cliente",
+    fecha,
+    planEstadoAlIngreso: "ok",
+  });
+
+  it("undefined si el cliente no tiene ingresos previos", () => {
+    expect(proximoIngresoPermitido([], "c1")).toBeUndefined();
+  });
+
+  it("es el último ingreso + 24:30 horas", () => {
+    const ultimo = ingreso("c1", "2026-01-01T10:00:00Z");
+    const proximo = proximoIngresoPermitido([ultimo], "c1");
+    expect(proximo?.toISOString()).toBe("2026-01-02T10:30:00.000Z");
+  });
+
+  it("el mensaje incluye la hora a partir de la cual puede reingresar", () => {
+    const ultimo = ingreso("c1", "2026-01-01T10:00:00-03:00");
+    const msg = mensajeBloqueoReingreso([ultimo], "c1");
+    expect(msg).toContain("VEHICULO HIZO USO DEL SERVICIO TUNEL HACE MENOS DE 24 HORAS");
+    expect(msg).toContain(fmtHora("2026-01-02T10:30:00-03:00"));
   });
 });
 
@@ -200,6 +273,58 @@ describe("montoDescuento", () => {
 
   it("calcula el porcentaje sobre el precio base y redondea", () => {
     expect(montoDescuento({ ...cuponBase, esPorcentaje: true, valor: 10 }, 19990)).toBe(1999);
+  });
+});
+
+describe("esFinDeSemanaOFestivo", () => {
+  it("sábado y domingo cuentan como fin de semana", () => {
+    expect(esFinDeSemanaOFestivo(new Date("2026-07-18T12:00:00"), [])).toBe(true); // sábado
+    expect(esFinDeSemanaOFestivo(new Date("2026-07-19T12:00:00"), [])).toBe(true); // domingo
+  });
+
+  it("un día de semana en la lista de festivos también cuenta", () => {
+    expect(esFinDeSemanaOFestivo(new Date("2026-07-17T12:00:00"), ["2026-07-17"])).toBe(true); // viernes festivo
+  });
+
+  it("un día de semana normal no es fin de semana ni festivo", () => {
+    expect(esFinDeSemanaOFestivo(new Date("2026-07-17T12:00:00"), [])).toBe(false); // viernes
+  });
+});
+
+describe("dentroDeHorarioOperador", () => {
+  const config: ConfigGlobal = CONFIG_DEFAULT; // semana 08:25-20:15, finde 09:55-19:15
+
+  it("dentro del horario de semana en un día hábil", () => {
+    expect(dentroDeHorarioOperador(config, new Date("2026-07-17T12:00:00"))).toBe(true); // viernes
+  });
+
+  it("fuera del horario de semana (antes de abrir)", () => {
+    expect(dentroDeHorarioOperador(config, new Date("2026-07-17T08:00:00"))).toBe(false);
+  });
+
+  it("fuera del horario de semana (después de cerrar)", () => {
+    expect(dentroDeHorarioOperador(config, new Date("2026-07-17T20:30:00"))).toBe(false);
+  });
+
+  it("usa el horario de fin de semana un sábado", () => {
+    expect(dentroDeHorarioOperador(config, new Date("2026-07-18T10:00:00"))).toBe(true);
+    expect(dentroDeHorarioOperador(config, new Date("2026-07-18T08:00:00"))).toBe(false);
+  });
+
+  it("un festivo en día de semana usa el horario de fin de semana", () => {
+    const configConFestivo: ConfigGlobal = { ...config, festivos: ["2026-07-17"] };
+    expect(dentroDeHorarioOperador(configConFestivo, new Date("2026-07-17T08:30:00"))).toBe(false); // ya no aplica horario de semana
+    expect(dentroDeHorarioOperador(configConFestivo, new Date("2026-07-17T10:00:00"))).toBe(true); // dentro del horario de finde
+  });
+});
+
+describe("esExentoHorarioOperador", () => {
+  it("un perfil con acceso a Configuración está exento", () => {
+    expect(esExentoHorarioOperador(["operador", "config"])).toBe(true);
+  });
+
+  it("un operador estándar sin acceso a Configuración no está exento", () => {
+    expect(esExentoHorarioOperador(["operador", "servicios"])).toBe(false);
   });
 });
 

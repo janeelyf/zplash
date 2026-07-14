@@ -2,14 +2,18 @@
 
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { registrarIngreso, renovarPlan } from "@/lib/actions";
+import { registrarIngreso, registrarIngresoDetailing, renovarPlan } from "@/lib/actions";
+import { puedeIngresarTunelDetailing } from "@/lib/agenda";
 import {
+  CATEGORIA_DETAILING,
   PLANES,
   RUT_FORMATO_MSG,
   esNombreVacio,
+  estadoReingresoPlan,
   fmtCLP,
   formatRut,
   isValidRut,
+  mensajeBloqueoReingreso,
   montoDescuento,
   normPlate,
   planStatus,
@@ -47,12 +51,26 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
   const showOffer = st.cls === "warn" && pNormal > 0 && c.origen !== "WEB";
   const ahorro = pNormal - pPromo;
   const planVigente = st.cls !== "bad";
+  const estadoIngreso = estadoReingresoPlan(data.ingresos, c.id);
 
   const esWebVencido = c.origen === "WEB" && st.cls === "bad";
   const ventasCliente = data.ventas
     .filter((v) => v.clienteId === c.id)
     .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
   const precioOfertaWeb = ventasCliente.length ? ventasCliente[0].precio : pNormal;
+
+  // Lavado Completo Detailing vendido en Servicios Adicionales (Venta + Cita
+  // ya creadas ahí), a la espera de que el vehículo entre físicamente al
+  // túnel: se detecta por la Cita del día que incluya un servicio de esa
+  // categoría y ya esté físicamente en el local (Recibido, En Limpieza o
+  // Listo para Entrega) — si sigue "Agendado" todavía no ha llegado, y no se
+  // le puede dar ingreso al túnel (ver puedeIngresarTunelDetailing en lib/agenda.ts).
+  const citaDetailingPendiente = data.citas.find((cita) => {
+    if (cita.clienteId !== c.id) return false;
+    if (!puedeIngresarTunelDetailing(cita.estado)) return false;
+    if (new Date(cita.fechaHora).toDateString() !== new Date().toDateString()) return false;
+    return cita.servicioIds.some((id) => data.servicios.find((s) => s.id === id)?.categoria === CATEGORIA_DETAILING);
+  });
 
   const updateResult = (updated: Cliente) => patchUi({ operResult: { found: true, cliente: updated } });
 
@@ -71,12 +89,24 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
     patchUi({ operResult: null });
   };
 
+  const registrarDetailing = async () => {
+    if (!citaDetailingPendiente) return;
+    const patch = registrarIngresoDetailing(data, c, citaDetailingPendiente, ui.perfilActual?.nombre);
+    const ok = await commit(patch);
+    if (!ok) {
+      setGuardarErr(ERROR_GUARDADO);
+      return;
+    }
+    clearPlate();
+    patchUi({ operResult: null });
+  };
+
   const registrar = () => {
-    if (yaIngresoHoy(data.ingresos, c.id)) {
+    if (estadoIngreso === "garantia") {
       patchUi({
         modal: {
           type: "confirm",
-          mensaje: `Este cliente ya pasó una vez hoy. ¿Desea que pase nuevamente por garantía?`,
+          mensaje: `Vehiculo Ingreso hace menos de 24 horas. ¿Desea que pase nuevamente por garantía?`,
           confirmLabel: "Sí, ingresar por garantía",
           danger: false,
           onConfirm: () => hacerRegistro(true),
@@ -87,19 +117,10 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
     hacerRegistro(false);
   };
 
-  const registrarPagado = () => {
-    if (yaIngresoHoy(data.ingresos, c.id)) {
-      patchUi({
-        modal: {
-          type: "confirm",
-          mensaje: `Este cliente ya pasó una vez hoy. ¿Desea que pase nuevamente por garantía?`,
-          confirmLabel: "Sí, ingresar por garantía",
-          danger: false,
-          onConfirm: () => hacerRegistro(true),
-        },
-      });
-      return;
-    }
+  // Compra un lavado único y da ingreso sin condicionar a plan/garantía —
+  // usado tanto desde "Lavado Full Túnel" (plan no vigente) como desde el
+  // botón de "comprar de todas formas" cuando el reingreso está bloqueado.
+  const cobrarLavadoUnico = () => {
     pedirPago(precioLavadoUnico(data.precios), `Lavado único para ${c.nombre} (${c.patente})`, async (pago) => {
       const patch = registrarIngreso(data, c, ui.perfilActual?.nombre);
       const venta: Venta = {
@@ -123,6 +144,22 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
       clearPlate();
       patchUi({ operResult: null });
     });
+  };
+
+  const registrarPagado = () => {
+    if (yaIngresoHoy(data.ingresos, c.id)) {
+      patchUi({
+        modal: {
+          type: "confirm",
+          mensaje: `Este cliente ya pasó una vez hoy. ¿Desea que pase nuevamente por garantía?`,
+          confirmLabel: "Sí, ingresar por garantía",
+          danger: false,
+          onConfirm: () => hacerRegistro(true),
+        },
+      });
+      return;
+    }
+    cobrarLavadoUnico();
   };
 
   const guardarNombre = async () => {
@@ -228,6 +265,21 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
 
   return (
     <>
+      {citaDetailingPendiente && (
+        <div className="offer-card">
+          <div className="offer-head">
+            <span className="badge">Detailing</span>
+            <h4>Lavado Completo Detailing pendiente</h4>
+          </div>
+          <div className="msg">
+            {c.nombre} tiene un Lavado Completo Detailing vendido en Servicios Adicionales. Regístralo para dejarlo
+            entrar al túnel — esto no genera una venta nueva, la venta ya está hecha.
+          </div>
+          <button className="btn secondary" onClick={registrarDetailing}>
+            Registrar ingreso — Limpieza Completa
+          </button>
+        </div>
+      )}
       {showOffer && (
         <div className="offer-card">
           <div className="offer-head">
@@ -342,7 +394,16 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
             <div className="v">{c.telefono || "-"}</div>
           </div>
         </div>
-        {planVigente ? (
+        {planVigente && estadoIngreso === "bloqueado" ? (
+          <>
+            <div className="hint" style={{ textAlign: "left", color: "var(--gray)", marginTop: 16 }}>
+              {mensajeBloqueoReingreso(data.ingresos, c.id)}
+            </div>
+            <button className="btn secondary" style={{ marginTop: 8 }} onClick={cobrarLavadoUnico}>
+              Comprar lavado por {fmtCLP(precioLavadoUnico(data.precios))} e ingresar de todas formas
+            </button>
+          </>
+        ) : planVigente ? (
           <button className="btn" style={{ marginTop: 16 }} onClick={registrar}>
             Registrar ingreso
           </button>

@@ -9,6 +9,7 @@
 // tiene esta directiva y por lo tanto no es invocable desde el navegador.
 import * as dataAccess from "@/lib/dataAccess";
 import type { SuscripcionOneclickInfo } from "@/lib/dataAccess";
+import { dentroDeHorarioOperador } from "@/lib/helpers";
 import { cobrarSuscripcion } from "@/lib/pagos";
 import { tieneModulo, tieneSesionValida } from "@/lib/session";
 import type {
@@ -18,6 +19,7 @@ import type {
   CategoriaGasto,
   Cita,
   Cliente,
+  ConfigGlobal,
   Cupon,
   Empresa,
   HorarioAgenda,
@@ -50,8 +52,19 @@ export async function deleteClientes(ids: string[]): Promise<boolean> {
   return dataAccess.deleteClientes(ids);
 }
 
+// El bloqueo horario del módulo Operador (ver ConfigGlobal/ConfigTab) se
+// revisa acá, no solo en la UI: la UI ya oculta los botones de registro fuera
+// de horario, pero como todo Server Action queda invocable por POST directo
+// (ver comentario al inicio del archivo), este es el único lugar que de
+// verdad puede impedirlo. Se exime a quien tenga acceso a Configuración
+// (Administración/Gerencia, ver esExentoHorarioOperador) y se relee `config`
+// desde la base en vez de confiar en el horario que traiga el cliente.
 export async function insertIngresos(rows: Ingreso[]): Promise<boolean> {
   if (!(await tieneSesionValida())) return false;
+  if (!(await tieneModulo("config"))) {
+    const config = await dataAccess.getConfig();
+    if (!dentroDeHorarioOperador(config, new Date())) return false;
+  }
   return dataAccess.insertIngresos(rows);
 }
 
@@ -197,4 +210,12 @@ export async function cobrarSuscripcionManual(suscripcionId: string): Promise<{ 
   const suscripcion = await dataAccess.obtenerSuscripcionOneclickPorId(suscripcionId);
   if (!suscripcion) return null;
   return cobrarSuscripcion(suscripcion);
+}
+
+// Gateada con "config", igual que el resto de la pestaña Administrador de
+// Ingresos → Config: solo quien puede editar precios/horarios ahí puede
+// cambiar el horario del bloqueo del módulo Operador.
+export async function upsertConfig(cfg: ConfigGlobal): Promise<boolean> {
+  if (!(await tieneModulo("config"))) return false;
+  return dataAccess.upsertConfig(cfg);
 }

@@ -1,10 +1,15 @@
-import type { Cliente, Cupon, Ingreso, Modulo, PerfilPublico, PlanStatus, Precios, Servicio } from "@/types";
+import type { Cliente, ConfigGlobal, Cupon, Ingreso, Modulo, PerfilPublico, PlanStatus, Precios, Servicio } from "@/types";
 
 export const PLANES = ["Plan Ilimitado Mensual"];
 export const DIAS_AVISO_VENCIMIENTO = 7;
 
 export const PRECIOS_DEFAULT: Precios = {
   "Plan Ilimitado Mensual": { normal: 21990, promo: 19990 },
+  tapiz: { normal: 39990, promo: 0 },
+  alfombra: { normal: 19990, promo: 0 },
+  techo: { normal: 19990, promo: 0 },
+  motor: { normal: 29990, promo: 0 },
+  "chasis-grafitado": { normal: 59990, promo: 0 },
 };
 
 /** Precio de un lavado único para clientes sin plan vigente (vencido o sin plan). */
@@ -54,6 +59,29 @@ export const SERVICIOS_DEFAULT: Servicio[] = [
   { id: "chasis-grafitado", categoria: "Servicios Adicionales", nombre: "Lavado de Chasis + Grafitado", duracionMinutos: 30, activo: true },
 ];
 
+/** Categoría del catálogo que implica que el vehículo pasa por el túnel.
+ * Compartida entre ServiciosAdicionalesView (venta) y OperadorResult
+ * (registro físico del ingreso al túnel, ver GLOSA_LIMPIEZA_COMPLETA). */
+export const CATEGORIA_DETAILING = "Lavado Completo Detailing";
+
+/** Glosa de Ingreso para un lavado completo/detailing: la venta se hace en
+ * Servicios Adicionales, pero el Ingreso (historial de túnel) recién se crea
+ * cuando el operador registra la patente en el módulo Operador al llegar el
+ * vehículo — no constituye una venta nueva, solo deja constancia del paso
+ * físico por el túnel (ver registrarIngresoDetailing en lib/actions.ts). */
+export const GLOSA_LIMPIEZA_COMPLETA = "Limpieza Completa";
+
+/** Semilla/fallback de horario del módulo Operador (ver ConfigGlobal) para
+ * cuando la tabla `config` todavía no tiene los nuevos campos guardados —
+ * mismo patrón que PRECIOS_DEFAULT/SERVICIOS_DEFAULT. */
+export const CONFIG_DEFAULT: ConfigGlobal = {
+  horarioOperadorSemanaInicio: "08:25",
+  horarioOperadorSemanaFin: "20:15",
+  horarioOperadorFindeInicio: "09:55",
+  horarioOperadorFindeFin: "19:15",
+  festivos: [],
+};
+
 export const MODULOS_ADMIN: Modulo[] = [
   "clientes",
   "ingresos",
@@ -102,6 +130,14 @@ export const PERFILES_DEFAULT: PerfilPublico[] = [
   { id: "p6", nombre: "Jota", modulos: ["operador", "servicios"] },
   { id: "p7", nombre: "Gerencia", modulos: TODOS_LOS_MODULOS },
 ];
+
+/** Un perfil queda exento del bloqueo horario del módulo Operador (ver
+ * dentroDeHorarioOperador) si tiene acceso a Configuración — hoy eso equivale
+ * a Administración y Gerencia (ver PERFILES_DEFAULT), sin necesidad de un
+ * campo de "rol" aparte. */
+export function esExentoHorarioOperador(modulos: Modulo[]): boolean {
+  return modulos.includes("config");
+}
 
 /**
  * Estructura del Estado de Resultados (EERR): los 5 grupos de gasto y a qué
@@ -230,6 +266,24 @@ export function sumarDias(fecha: string, delta: number): string {
 
 export function ymd(d: Date): string {
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+/** true si `fecha` cae sábado, domingo, o en la lista de festivos configurada (YYYY-MM-DD). */
+export function esFinDeSemanaOFestivo(fecha: Date, festivos: string[]): boolean {
+  const dia = fecha.getDay(); // 0 = domingo, 6 = sábado
+  if (dia === 0 || dia === 6) return true;
+  return festivos.includes(ymd(fecha));
+}
+
+/** true si `ahora` cae dentro del horario configurado para registrar ingresos en el
+ * módulo Operador: Lunes a Viernes usa el rango "semana", Sábado/Domingo/festivos usa
+ * el rango "finde" (ver ConfigGlobal, configurable en Administrador de Ingresos → Config). */
+export function dentroDeHorarioOperador(config: ConfigGlobal, ahora: Date): boolean {
+  const finde = esFinDeSemanaOFestivo(ahora, config.festivos);
+  const inicio = finde ? config.horarioOperadorFindeInicio : config.horarioOperadorSemanaInicio;
+  const fin = finde ? config.horarioOperadorFindeFin : config.horarioOperadorSemanaFin;
+  const horaActual = String(ahora.getHours()).padStart(2, "0") + ":" + String(ahora.getMinutes()).padStart(2, "0");
+  return horaActual >= inicio && horaActual <= fin;
 }
 
 /** Primer día del mes actual, en formato YYYY-MM-DD. */
@@ -370,6 +424,46 @@ export function findClient(clientes: Cliente[], plate: string): Cliente | undefi
 export function yaIngresoHoy(ingresos: Ingreso[], clienteId: string): boolean {
   const hoy = todayStr();
   return ingresos.some((i) => i.clienteId === clienteId && new Date(i.fecha).toDateString() === hoy);
+}
+
+export function ultimoIngresoCliente(ingresos: Ingreso[], clienteId: string): Ingreso | undefined {
+  return ingresos
+    .filter((i) => i.clienteId === clienteId)
+    .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
+}
+
+const HORAS_MIN_ENTRE_INGRESOS_PLAN = 24.5;
+const HORAS_VENTANA_GARANTIA = 1;
+
+export type EstadoReingresoPlan = "libre" | "garantia" | "bloqueado";
+
+/**
+ * Un vehículo con plan solo puede pasar 1 vez cada 24:30 horas. La garantía (repasar
+ * el mismo lavado sin cobrar de nuevo) solo se puede hacer efectiva hasta 1 hora
+ * después del ingreso anterior; pasada esa hora y hasta que se cumplan las 24:30
+ * horas, el reingreso queda bloqueado (ni garantía ni pasada nueva, salvo pagando
+ * un lavado único — ver `precioLavadoUnico`).
+ */
+export function estadoReingresoPlan(ingresos: Ingreso[], clienteId: string, ahora: Date = new Date()): EstadoReingresoPlan {
+  const ultimo = ultimoIngresoCliente(ingresos, clienteId);
+  if (!ultimo) return "libre";
+  const msDesdeUltimo = ahora.getTime() - new Date(ultimo.fecha).getTime();
+  if (msDesdeUltimo >= HORAS_MIN_ENTRE_INGRESOS_PLAN * 3600 * 1000) return "libre";
+  if (msDesdeUltimo <= HORAS_VENTANA_GARANTIA * 3600 * 1000) return "garantia";
+  return "bloqueado";
+}
+
+/** Hora a partir de la cual el vehículo vuelve a poder pasar (último ingreso + 24:30). */
+export function proximoIngresoPermitido(ingresos: Ingreso[], clienteId: string): Date | undefined {
+  const ultimo = ultimoIngresoCliente(ingresos, clienteId);
+  if (!ultimo) return undefined;
+  return new Date(new Date(ultimo.fecha).getTime() + HORAS_MIN_ENTRE_INGRESOS_PLAN * 3600 * 1000);
+}
+
+export function mensajeBloqueoReingreso(ingresos: Ingreso[], clienteId: string): string {
+  const proximo = proximoIngresoPermitido(ingresos, clienteId);
+  const hora = proximo ? fmtHora(proximo.toISOString()) : "";
+  return `VEHICULO HIZO USO DEL SERVICIO TUNEL HACE MENOS DE 24 HORAS. PUEDE REINGRESAR A PARTIR DE LAS ${hora} HRS.`;
 }
 
 /** La carga masiva por Excel deja "Sin nombre" quemado cuando la fila no trae nombre. */

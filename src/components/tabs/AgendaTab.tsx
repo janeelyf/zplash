@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import PriceInput from "@/components/PriceInput";
 import { useApp } from "@/context/AppContext";
-import { ESTADOS_CITA } from "@/lib/agenda";
+import { ESTADOS_CITA, esEstadoFinal } from "@/lib/agenda";
 import { fmtCLP, precioServicio, sumarDias, todayYMD, uid } from "@/lib/helpers";
 import type { BloqueoAgenda, Cita, HorarioAgenda, Servicio } from "@/types";
 
@@ -84,7 +84,11 @@ function CitasDelDia() {
                     </span>
                   </td>
                   <td>
-                    <select value={c.estado} onChange={(e) => cambiarEstado(c, e.target.value as Cita["estado"])}>
+                    <select
+                      value={c.estado}
+                      onChange={(e) => cambiarEstado(c, e.target.value as Cita["estado"])}
+                      disabled={esEstadoFinal(c.estado)}
+                    >
                       {ESTADOS_CITA.map((e) => (
                         <option key={e.valor} value={e.valor}>
                           {e.label}

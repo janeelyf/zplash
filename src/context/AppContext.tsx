@@ -19,7 +19,7 @@ import type {
   UIState,
   Venta,
 } from "@/types";
-import { CATEGORIAS_GASTO_DEFAULT, PERFILES_DEFAULT, PRECIOS_DEFAULT, SERVICIOS_DEFAULT } from "@/lib/helpers";
+import { CATEGORIAS_GASTO_DEFAULT, CONFIG_DEFAULT, PERFILES_DEFAULT, PRECIOS_DEFAULT, SERVICIOS_DEFAULT } from "@/lib/helpers";
 import {
   deleteBloqueosAgenda,
   deleteCitas,
@@ -39,6 +39,7 @@ import {
   upsertCategoriasGasto,
   upsertCitas,
   upsertClientes,
+  upsertConfig,
   upsertCupones,
   upsertEmpresas,
   upsertHorariosAgenda,
@@ -64,6 +65,7 @@ const initialData: AppData = {
   horariosAgenda: [],
   bloqueosAgenda: [],
   citas: [],
+  config: JSON.parse(JSON.stringify(CONFIG_DEFAULT)),
 };
 
 const initialUI: UIState = {
@@ -273,6 +275,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const { cambiados, eliminados } = diffPorId<BloqueoAgenda>(previous.bloqueosAgenda, patch.bloqueosAgenda);
       if (cambiados.length) ops.push(upsertBloqueosAgenda(cambiados));
       if (eliminados.length) ops.push(deleteBloqueosAgenda(eliminados));
+    }
+    if (patch.config) {
+      ops.push(upsertConfig(patch.config));
     }
     const results = await Promise.all(ops);
     const ok = citasOk && results.every(Boolean);

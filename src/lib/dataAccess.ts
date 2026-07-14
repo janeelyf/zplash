@@ -37,7 +37,7 @@ import {
   ventas,
 } from "@/db/schema";
 import { supabase } from "@/lib/supabase";
-import { CATEGORIAS_GASTO_DEFAULT, PERFILES_DEFAULT, PRECIOS_DEFAULT, SERVICIOS_DEFAULT } from "@/lib/helpers";
+import { CATEGORIAS_GASTO_DEFAULT, CONFIG_DEFAULT, PERFILES_DEFAULT, PRECIOS_DEFAULT, SERVICIOS_DEFAULT } from "@/lib/helpers";
 import type {
   AppData,
   AuditoriaEntrada,
@@ -45,6 +45,7 @@ import type {
   CategoriaGasto,
   Cita,
   Cliente,
+  ConfigGlobal,
   Cupon,
   Empresa,
   HorarioAgenda,
@@ -69,6 +70,7 @@ type ServicioRow = typeof servicios.$inferSelect;
 type HorarioAgendaRow = typeof horariosAgenda.$inferSelect;
 type BloqueoAgendaRow = typeof bloqueosAgenda.$inferSelect;
 type CitaRow = typeof citas.$inferSelect;
+type ConfigRow = typeof config.$inferSelect;
 
 function clienteToRow(c: Cliente): typeof clientes.$inferInsert {
   return {
@@ -136,6 +138,7 @@ function ingresoToRow(i: Ingreso): typeof ingresos.$inferInsert {
     viaCupon: i.viaCupon || false,
     cuponCodigo: i.cuponCodigo || null,
     glosa: i.glosa || null,
+    citaId: i.citaId || null,
   };
 }
 
@@ -152,6 +155,7 @@ function ingresoFromRow(r: IngresoRow): Ingreso {
     viaCupon: r.viaCupon || undefined,
     cuponCodigo: r.cuponCodigo || undefined,
     glosa: r.glosa || undefined,
+    citaId: r.citaId || undefined,
   };
 }
 
@@ -368,6 +372,27 @@ function servicioFromRow(r: ServicioRow): Servicio {
   return { id: r.id, nombre: r.nombre, categoria: r.categoria || undefined, duracionMinutos: r.duracionMinutos, activo: r.activo };
 }
 
+function configToRow(c: ConfigGlobal): typeof config.$inferInsert {
+  return {
+    id: true,
+    horarioOperadorSemanaInicio: c.horarioOperadorSemanaInicio,
+    horarioOperadorSemanaFin: c.horarioOperadorSemanaFin,
+    horarioOperadorFindeInicio: c.horarioOperadorFindeInicio,
+    horarioOperadorFindeFin: c.horarioOperadorFindeFin,
+    festivos: c.festivos,
+  };
+}
+
+function configFromRow(r: ConfigRow): ConfigGlobal {
+  return {
+    horarioOperadorSemanaInicio: r.horarioOperadorSemanaInicio,
+    horarioOperadorSemanaFin: r.horarioOperadorSemanaFin,
+    horarioOperadorFindeInicio: r.horarioOperadorFindeInicio,
+    horarioOperadorFindeFin: r.horarioOperadorFindeFin,
+    festivos: r.festivos ?? [],
+  };
+}
+
 function horarioAgendaToRow(h: HorarioAgenda): typeof horariosAgenda.$inferInsert {
   return { id: h.id, diaSemana: h.diaSemana, horaInicio: h.horaInicio, horaFin: h.horaFin };
 }
@@ -506,6 +531,7 @@ export async function loadAll(): Promise<AppData> {
     bloqueosAgendaRows,
     citasRows,
     citaServiciosRows,
+    configRows,
   ] = await Promise.all([
     safe(db.select().from(clientes)),
     safe(db.select().from(ingresos).orderBy(desc(ingresos.fecha))),
@@ -521,6 +547,7 @@ export async function loadAll(): Promise<AppData> {
     safe(db.select().from(bloqueosAgenda).orderBy(asc(bloqueosAgenda.fecha))),
     safe(db.select().from(citas).orderBy(asc(citas.fechaHora))),
     safe(db.select().from(citaServicios)),
+    safe(db.select().from(config).limit(1)),
   ]);
 
   const perfilesData = perfilesRows.length ? perfilesRows.map(perfilPublicoFromRow) : PERFILES_DEFAULT;
@@ -529,6 +556,7 @@ export async function loadAll(): Promise<AppData> {
     ? categoriasGastoRows.map(categoriaGastoFromRow)
     : CATEGORIAS_GASTO_DEFAULT;
   const serviciosData = serviciosRows.length ? serviciosRows.map(servicioFromRow) : SERVICIOS_DEFAULT;
+  const configData = configRows.length ? configFromRow(configRows[0]) : CONFIG_DEFAULT;
 
   const servicioIdsPorCita = new Map<string, string[]>();
   for (const cs of citaServiciosRows) {
@@ -551,7 +579,26 @@ export async function loadAll(): Promise<AppData> {
     horariosAgenda: horariosAgendaRows.map(horarioAgendaFromRow),
     bloqueosAgenda: bloqueosAgendaRows.map(bloqueoAgendaFromRow),
     citas: citasRows.map((r) => citaFromRow(r, servicioIdsPorCita.get(r.id) ?? [])),
+    config: configData,
   };
+}
+
+/** Lectura directa (sin pasar por loadAll) para el chequeo server-side del bloqueo
+ * horario del módulo Operador (ver insertIngresos en @/lib/db) — no confía en el
+ * horario que traiga el cliente en AppData, que podría estar desactualizado o alterado. */
+export async function getConfig(): Promise<ConfigGlobal> {
+  const [row] = await getDb().select().from(config).limit(1);
+  return row ? configFromRow(row) : CONFIG_DEFAULT;
+}
+
+export async function upsertConfig(cfg: ConfigGlobal): Promise<boolean> {
+  try {
+    await upsertRows(config, config.id, [configToRow(cfg)]);
+    return true;
+  } catch (error) {
+    console.error("Error guardando configuración", error);
+    return false;
+  }
 }
 
 export async function upsertClientes(rows: Cliente[]): Promise<boolean> {

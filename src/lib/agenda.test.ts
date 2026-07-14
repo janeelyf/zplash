@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diaSemanaDe, seSuperponen, validarDisponibilidad } from "./agenda";
+import { diaSemanaDe, puedeIngresarTunelDetailing, seSuperponen, validarDisponibilidad } from "./agenda";
 import type { BloqueoAgenda, Cita, HorarioAgenda } from "@/types";
 
 function horario(diaSemana: number, horaInicio: string, horaFin: string): HorarioAgenda {
@@ -81,5 +81,20 @@ describe("validarDisponibilidad", () => {
   it("ignora la propia cita al editarla (citaIdExcluir)", () => {
     const citas = [cita({ id: "c-editar", fechaHora: "2026-07-14T10:00:00", duracionMinutos: 30 })];
     expect(validarDisponibilidad("2026-07-14", "10:00", 30, horarios, [], citas, "c-editar")).toBeNull();
+  });
+});
+
+describe("puedeIngresarTunelDetailing", () => {
+  it("permite el ingreso cuando el vehículo ya está en el local (Recibido, En Limpieza, Listo para Entrega)", () => {
+    expect(puedeIngresarTunelDetailing("recibido")).toBe(true);
+    expect(puedeIngresarTunelDetailing("en_limpieza")).toBe(true);
+    expect(puedeIngresarTunelDetailing("listo_entrega")).toBe(true);
+  });
+
+  it("rechaza el ingreso si el vehículo todavía no ha llegado o si la cita ya se cerró", () => {
+    expect(puedeIngresarTunelDetailing("agendado")).toBe(false);
+    expect(puedeIngresarTunelDetailing("retirado")).toBe(false);
+    expect(puedeIngresarTunelDetailing("cancelada")).toBe(false);
+    expect(puedeIngresarTunelDetailing("no_asistio")).toBe(false);
   });
 });
