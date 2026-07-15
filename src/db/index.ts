@@ -16,7 +16,19 @@ export function getDb(): PostgresJsDatabase<typeof schema> {
     if (!url) throw new Error("Falta DATABASE_URL en las variables de entorno");
     // prepare:false porque el pooler de Supabase en modo transacción
     // (pgbouncer, puerto 6543) no soporta prepared statements.
-    const client = postgres(url, { prepare: false });
+    //
+    // max:20 (por defecto postgres.js usa 10): loadAll() (ver dataAccess.ts)
+    // dispara 14 queries en paralelo con Promise.all. Verificado a mano: si
+    // `max` es menor que la cantidad de queries concurrentes, postgres.js
+    // (con prepare:false) no solo hace cola prolijamente — directamente se
+    // cuelga para siempre cuando dos+ queries distintas terminan
+    // multiplexadas en la misma conexión (reproducido con max:1..4: nunca
+    // resuelve; con max:6+, siempre resuelve en ~2s). Eso era la causa real
+    // de "Cargando datos..." colgado hasta que Vercel mataba la función a
+    // los 300s. max:20 deja margen sobre las 14 queries de loadAll(); es
+    // seguro porque el pooler en modo transacción está hecho para absorber
+    // muchas conexiones cliente concurrentes (a diferencia del modo sesión).
+    const client = postgres(url, { prepare: false, max: 20 });
     globalForDb.db = drizzle(client, { schema });
   }
   return globalForDb.db;
