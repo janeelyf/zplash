@@ -2,8 +2,8 @@ import "server-only";
 import { TransactionDetail } from "transbank-sdk";
 import { and, eq, sql } from "drizzle-orm";
 import { getDb, type DbOrTx } from "@/db";
-import { clientes, cobrosOneclick, precios, suscripcionesOneclick, ventas } from "@/db/schema";
-import { PLAN_ONECLICK_KEY, PLANES, mesActualKey, precioPlanOneclick, uid } from "@/lib/helpers";
+import { clientes, cobrosOneclick, config, cupones, empresas, pagosWebpayItems, precios, suscripcionesOneclick, ventas } from "@/db/schema";
+import { PLAN_ONECLICK_KEY, PLANES, generarCodigoCupon, mesActualKey, precioPlanOneclick, uid } from "@/lib/helpers";
 import { oneclickChildCommerceCode, oneclickTransaction } from "@/lib/transbank";
 import type { Precios } from "@/types";
 
@@ -111,6 +111,115 @@ export async function aplicarPagoAprobado(p: AplicarPagoParams, db: DbOrTx = get
   });
 
   return { clienteId };
+}
+
+type PagoWebpayItemRow = typeof pagosWebpayItems.$inferSelect;
+
+/**
+ * Aplica un pago aprobado de un Pack Empresa (10/20/30/40 tickets, ver
+ * PACKS_EMPRESA en @/lib/helpers): a diferencia de aplicarPagoAprobado, no
+ * CREA fila en `clientes` (no hay una sola patente de auto asociada —
+ * `clientes.patente` es UNIQUE, así que varias compras de empresa con
+ * patente "" chocarían) ni extiende ningún plan. En vez de eso genera el
+ * lote de cupones tipo "vale" (mismo esquema que VentaEmpresaTab.generar()
+ * en el panel admin), la Venta con los datos de facturación del checkout, y
+ * da de alta la Empresa si el RUT es nuevo (mismo patrón "el RUT manda" que
+ * ya usa VentaEmpresaTab). Si el email del checkout coincide con un cliente
+ * ya existente, sí se enlaza `ventas.clienteId` a ese cliente (sin crear uno
+ * nuevo) para que la compra aparezca en Mi Cuenta.
+ */
+export async function aplicarPagoPackEmpresa(
+  p: { item: PagoWebpayItemRow; ventaId: string; creadoPor: string },
+  db: DbOrTx = getDb()
+): Promise<void> {
+  const { item } = p;
+  const cantidad = item.cantidadCupones || 0;
+  if (cantidad <= 0) {
+    throw new Error(`pagosWebpayItems ${item.id} sin cantidadCupones válida`);
+  }
+
+  const [configRow] = await db.select({ vigenciaDiasPackEmpresa: config.vigenciaDiasPackEmpresa }).from(config).limit(1);
+  const vigenciaDias = configRow?.vigenciaDiasPackEmpresa || 365;
+  const fechaCaducidad = new Date(Date.now() + vigenciaDias * 86400000).toISOString();
+
+  const existentesRows = await db.select({ codigo: cupones.codigo }).from(cupones);
+  const existentes = new Set(existentesRows.map((r) => r.codigo));
+  const valorPorCupon = Math.round(item.monto / cantidad);
+  const ahora = new Date().toISOString();
+  // El cliente manda si le puso nombre a su lote (ej. "Lavados rentacar
+  // SALFA Mayo"); si no, cae a razonSocial y por último al genérico de
+  // siempre.
+  const nombreLote = item.nombreLote || item.razonSocial || "Pack Empresa Web";
+
+  let clienteId: string | null = null;
+  if (item.email) {
+    const [clienteExistente] = await db
+      .select({ id: clientes.id })
+      .from(clientes)
+      .where(sql`lower(${clientes.email}) = ${item.email.toLowerCase()}`)
+      .limit(1);
+    clienteId = clienteExistente?.id || null;
+  }
+
+  const nuevosCupones = Array.from({ length: cantidad }, (_, i) => {
+    const codigo = generarCodigoCupon(existentes);
+    existentes.add(codigo);
+    return {
+      id: `${item.id}-${i}`,
+      codigo,
+      nombreLote,
+      valor: valorPorCupon,
+      numeroLote: i + 1,
+      totalLote: cantidad,
+      fechaCaducidad,
+      usado: false,
+      creadoEn: ahora,
+      creadoPor: p.creadoPor,
+      tipo: "vale" as const,
+      rut: item.rut || null,
+      patentesAutorizadas: item.patentesAutorizadas?.length ? item.patentesAutorizadas : null,
+      email: item.email || null,
+    };
+  });
+  await db.insert(cupones).values(nuevosCupones);
+
+  await db.insert(ventas).values({
+    id: p.ventaId,
+    clienteId,
+    patente: "",
+    nombre: `Venta Empresa Web · ${item.nombreLote || item.razonSocial || "Cliente"}`,
+    plan: "",
+    precio: item.monto,
+    tipo: `${item.nombre} (Web)`,
+    metodoPago: "tarjeta",
+    estadoPago: "pagado",
+    cantidadItems: cantidad,
+    tipoDocumento: item.tipoDocumento,
+    razonSocial: item.razonSocial,
+    rut: item.rut,
+    direccion: item.direccion,
+    giro: item.giro,
+    email: item.email,
+    creadoPor: p.creadoPor,
+  });
+
+  // El RUT manda (mismo criterio que VentaEmpresaTab.generar() en el panel
+  // admin): si es Factura y ese RUT no pertenece a ninguna empresa ya
+  // registrada, se crea una nueva en Empresas.
+  if (item.tipoDocumento === "Factura" && item.rut) {
+    const [existente] = await db.select({ id: empresas.id }).from(empresas).where(eq(empresas.rut, item.rut)).limit(1);
+    if (!existente) {
+      await db.insert(empresas).values({
+        id: uid(),
+        razonSocial: item.razonSocial || "",
+        rut: item.rut,
+        giro: item.giro || null,
+        direccion: item.direccion || null,
+        creadoEn: ahora,
+        creadoPor: p.creadoPor,
+      });
+    }
+  }
 }
 
 type SuscripcionOneclick = typeof suscripcionesOneclick.$inferSelect;

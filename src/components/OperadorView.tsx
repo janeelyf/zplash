@@ -9,6 +9,7 @@ import {
   findClient,
   isValidPatente,
   normPlate,
+  patenteAutorizadaParaCupon,
   todayStr,
 } from "@/lib/helpers";
 import Topbar from "@/components/Topbar";
@@ -171,6 +172,10 @@ export default function OperadorView() {
     }
     if (new Date(cupon.fechaCaducidad) < new Date()) {
       setCuponErr({ msg: "Este cupón está caducado", ok: false });
+      return;
+    }
+    if (!patenteAutorizadaParaCupon(cupon, patente)) {
+      setCuponErr({ msg: "Este ticket fue contratado para otra patente", ok: false });
       return;
     }
 

@@ -3,5 +3,8 @@
 export interface PreciosPublicos {
   plan: { nombre: string; precio: number };
   planOneclick: { nombre: string; precio: number };
+  lavadoUnico: { nombre: string; precio: number };
+  zonaAspirado: { nombre: string; precio: number };
   servicios: { id: string; nombre: string; categoria?: string; precio: number }[];
+  packsEmpresa: { cantidad: number; nombre: string; precio: number }[];
 }

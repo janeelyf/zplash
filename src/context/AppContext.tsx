@@ -73,6 +73,7 @@ const initialUI: UIState = {
   operResult: null,
   adminTab: "clientes",
   contabilidadTab: "egreso",
+  webSettingsTab: "precios",
   search: "",
   modal: null,
   loginErr: "",

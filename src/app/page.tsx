@@ -8,6 +8,7 @@ import AdminView from "@/components/AdminView";
 import HubView from "@/components/HubView";
 import ContabilidadView from "@/components/ContabilidadView";
 import ServiciosAdicionalesView from "@/components/ServiciosAdicionalesView";
+import WebSettingsView from "@/components/WebSettingsView";
 import ModalRoot from "@/components/modals/ModalRoot";
 
 function ZplashApp() {
@@ -37,6 +38,7 @@ function ZplashApp() {
       {ui.view === "hub" && <HubView />}
       {ui.view === "contabilidad" && <ContabilidadView />}
       {ui.view === "servicios" && <ServiciosAdicionalesView />}
+      {ui.view === "web_settings" && <WebSettingsView />}
       <ModalRoot />
     </>
   );

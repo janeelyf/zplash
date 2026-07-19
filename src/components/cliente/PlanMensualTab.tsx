@@ -24,18 +24,21 @@ export default function PlanMensualTab({ precios }: { precios: PreciosPublicos |
       <div className="card">
         <h3>Pago período a período</h3>
         <p style={{ color: "var(--gray)", fontSize: 13, marginBottom: 12 }}>
-          Contrata o renueva un mes a la vez con tarjeta (Webpay Plus).
+          Contrata o renueva un mes a la vez con cualquier tipo de tarjeta (Webpay Plus).
         </p>
-        <div className="price-row" style={{ marginBottom: 0 }}>
+        <div className="price-row" style={{ marginBottom: 14 }}>
           <span className="new">{precios ? fmtCLP(precios.plan.precio) : "..."}</span>
           <span style={{ color: "var(--gray)", fontSize: 12.5 }}>/ mes</span>
         </div>
+        <a href="/pagar?item=plan" className="btn" style={{ marginTop: 0, textDecoration: "none" }}>
+          Comprar
+        </a>
       </div>
 
       <div className="card">
         <h3>Renovación automática</h3>
         <p style={{ color: "var(--gray)", fontSize: 13, marginBottom: 12 }}>
-          Inscribe tu tarjeta una vez y te cobramos automáticamente cada mes, más barato.
+          Inscribe tu Tarjeta de Crédito una vez y te cobramos automáticamente cada mes, más barato.
         </p>
         <div className="price-row" style={{ marginBottom: 0 }}>
           <span className="new">{precios ? fmtCLP(precios.planOneclick.precio) : "..."}</span>
@@ -46,11 +49,8 @@ export default function PlanMensualTab({ precios }: { precios: PreciosPublicos |
             Ahorras {fmtCLP(precios.plan.precio - precios.planOneclick.precio)} al mes
           </div>
         )}
-      </div>
-
-      <div className="card" style={{ gridColumn: "1 / -1", textAlign: "center" }}>
-        <a href="/pagar" className="btn" style={{ textDecoration: "none", display: "inline-block" }}>
-          Contratar o renovar mi plan
+        <a href="/pagar?item=plan&auto=1" className="btn" style={{ marginTop: 12, textDecoration: "none" }}>
+          Contratar
         </a>
       </div>
     </div>

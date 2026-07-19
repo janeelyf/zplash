@@ -8,12 +8,14 @@ import {
   PLANES,
   PLAN_ONECLICK_KEY,
   UPGRADE_PLAN_KEY,
+  ZONA_ASPIRADO_KEY,
   precioLavadoUnico,
   precioNormal,
   precioPlanOneclick,
   precioPreferencial,
   precioServicio,
   precioUpgradePlan,
+  precioZonaAspirado,
   todayYMD,
 } from "@/lib/helpers";
 import type { ConfigGlobal } from "@/types";
@@ -146,6 +148,7 @@ export default function ConfigTab() {
     Object.fromEntries(PLANES.map((p) => [p, String(precioPreferencial(data.precios, p))]))
   );
   const [lavadoUnicoVal, setLavadoUnicoVal] = useState(() => String(precioLavadoUnico(data.precios)));
+  const [zonaAspiradoVal, setZonaAspiradoVal] = useState(() => String(precioZonaAspirado(data.precios)));
   const [planOneclickVal, setPlanOneclickVal] = useState(() => String(precioPlanOneclick(data.precios)));
   const [upgradePlanVal, setUpgradePlanVal] = useState(() => String(precioUpgradePlan(data.precios)));
   const [servicioVals, setServicioVals] = useState<Record<string, string>>(() =>
@@ -186,6 +189,7 @@ export default function ConfigTab() {
       precios[p] = { normal: Number(normalVals[p]) || 0, promo: Number(promoVals[p]) || 0 };
     });
     precios[LAVADO_UNICO_KEY] = { normal: Number(lavadoUnicoVal) || 0, promo: 0 };
+    precios[ZONA_ASPIRADO_KEY] = { normal: Number(zonaAspiradoVal) || 0, promo: 0 };
     precios[PLAN_ONECLICK_KEY] = { normal: Number(planOneclickVal) || 0, promo: 0 };
     precios[UPGRADE_PLAN_KEY] = { normal: Number(upgradePlanVal) || 0, promo: 0 };
     catalogoServicios.forEach((s) => {
@@ -243,6 +247,12 @@ export default function ConfigTab() {
         <div className="field">
           <label>Precio lavado único</label>
           <PriceInput value={lavadoUnicoVal} onChange={setLavadoUnicoVal} />
+        </div>
+
+        <h3 style={{ marginTop: 22 }}>Uso Zona Aspirado Autoservicio</h3>
+        <div className="field">
+          <label>Precio uso puntual</label>
+          <PriceInput value={zonaAspiradoVal} onChange={setZonaAspiradoVal} />
         </div>
 
         <h3 style={{ marginTop: 22 }}>Promoción: upgrade a plan</h3>

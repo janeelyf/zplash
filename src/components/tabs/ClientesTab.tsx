@@ -1,7 +1,7 @@
 "use client";
 
 import { useApp } from "@/context/AppContext";
-import { normPlate, planStatus } from "@/lib/helpers";
+import { fmtTelefono, normPlate, planStatus } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 
 const ESTADO_PRIORIDAD: Record<string, number> = { Vencido: 0, "Por vencer": 1, "Sin plan": 2, Vigente: 3 };
@@ -162,7 +162,7 @@ export default function ClientesTab() {
                   <tr key={`${c.id}-${c.patente}-${idx}`}>
                     <td className="plate-tag">{c.patente}</td>
                     <td>{c.nombre}</td>
-                    <td>{c.telefono || "-"}</td>
+                    <td>{c.telefono ? fmtTelefono(c.telefono) : "-"}</td>
                     <td className="col-mail" title={c.email || ""}>{c.email || "-"}</td>
                     <td>{c.vehiculo || "-"}</td>
                     <td>{c.origen || "LOCAL"}</td>

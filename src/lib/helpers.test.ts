@@ -8,6 +8,7 @@ import {
   formatRut,
   estadoReingresoPlan,
   fmtHora,
+  fmtTelefono,
   formatTelefono,
   isValidPatente,
   isValidRut,
@@ -89,6 +90,23 @@ describe("formatTelefono / isValidTelefono", () => {
     expect(isValidTelefono(null)).toBe(true);
     expect(isValidTelefono("221234567")).toBe(false);
     expect(isValidTelefono("+56912345678")).toBe(true);
+  });
+});
+
+describe("fmtTelefono", () => {
+  it("agrega el formato visual +569 -XXXX XXXX a un celular ya normalizado", () => {
+    expect(fmtTelefono("+56912345678")).toBe("+569 -1234 5678");
+  });
+
+  it("normaliza antes de formatear, aceptando las mismas variantes que formatTelefono", () => {
+    expect(fmtTelefono("912345678")).toBe("+569 -1234 5678");
+    expect(fmtTelefono("+56 9 1234 5678")).toBe("+569 -1234 5678");
+  });
+
+  it("devuelve vacío/original si no hay teléfono o no calza con el patrón chileno", () => {
+    expect(fmtTelefono("")).toBe("");
+    expect(fmtTelefono(null)).toBe("");
+    expect(fmtTelefono("221234567")).toBe("221234567");
   });
 });
 

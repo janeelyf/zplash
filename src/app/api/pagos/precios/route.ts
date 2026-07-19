@@ -2,7 +2,17 @@ import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { precios, servicios } from "@/db/schema";
-import { PLANES, precioNormal, precioPlanOneclick, precioServicio, SERVICIOS_DEFAULT } from "@/lib/helpers";
+import {
+  PACKS_EMPRESA,
+  PLANES,
+  precioLavadoUnico,
+  precioNormal,
+  precioPackEmpresa,
+  precioPlanOneclick,
+  precioServicio,
+  precioZonaAspirado,
+  SERVICIOS_DEFAULT,
+} from "@/lib/helpers";
 
 export const runtime = "nodejs";
 
@@ -23,11 +33,18 @@ export async function GET() {
     return NextResponse.json({
       plan: { nombre: PLANES[0], precio: precioNormal(preciosMap, PLANES[0]) },
       planOneclick: { nombre: PLANES[0], precio: precioPlanOneclick(preciosMap) },
+      lavadoUnico: { nombre: "Lavado único", precio: precioLavadoUnico(preciosMap) },
+      zonaAspirado: { nombre: "Uso Zona Aspirado Autoservicio", precio: precioZonaAspirado(preciosMap) },
       servicios: catalogo.map((s) => ({
         id: s.id,
         nombre: s.nombre,
         categoria: s.categoria,
         precio: precioServicio(preciosMap, s.id),
+      })),
+      packsEmpresa: PACKS_EMPRESA.map((p) => ({
+        cantidad: p.cantidad,
+        nombre: p.key,
+        precio: precioPackEmpresa(preciosMap, p.cantidad),
       })),
     });
   } catch (error) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useApp } from "@/context/AppContext";
+import { fmtTelefono } from "@/lib/helpers";
 import type { Empresa } from "@/types";
 
 function coincide(e: Empresa, q: string): boolean {
@@ -72,7 +73,7 @@ export default function EmpresasTab() {
                   <td>{e.rut}</td>
                   <td>{e.giro || "-"}</td>
                   <td>{e.direccion || "-"}</td>
-                  <td>{e.telefono || "-"}</td>
+                  <td>{e.telefono ? fmtTelefono(e.telefono) : "-"}</td>
                   <td>{e.contactoNombre || "-"}</td>
                   <td className="row-actions">
                     <button className="icon-btn" onClick={() => patchUi({ modal: { type: "empresa", data: e } })}>

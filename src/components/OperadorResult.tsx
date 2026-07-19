@@ -11,7 +11,9 @@ import {
   esNombreVacio,
   estadoReingresoPlan,
   fmtCLP,
+  fmtTelefono,
   formatRut,
+  formatTelefono,
   isValidRut,
   mensajeBloqueoReingreso,
   montoDescuento,
@@ -454,7 +456,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
           </div>
           <div>
             <div className="k">Teléfono</div>
-            <div className="v">{c.telefono || "-"}</div>
+            <div className="v">{c.telefono ? fmtTelefono(c.telefono) : "-"}</div>
           </div>
         </div>
         {planVigente && estadoIngreso === "bloqueado" ? (
@@ -513,6 +515,12 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
   // existe una con ese RUT se traen sus datos (Razón Social, Dirección,
   // Giro) en vez de tipearlos de nuevo. Si no existe, quickAdd() la crea al
   // guardar, con este cliente nuevo como persona de contacto.
+  const onTelefonoBlur = () => {
+    const raw = qTelefonoRef.current?.value.trim() || "";
+    if (!raw || !qTelefonoRef.current) return;
+    qTelefonoRef.current.value = fmtTelefono(raw);
+  };
+
   const onRutBlur = () => {
     const rutRaw = qRutRef.current?.value.trim() || "";
     if (!isValidRut(rutRaw)) return;
@@ -527,7 +535,8 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
 
   const quickAdd = () => {
     const nombre = (qNombreRef.current?.value.trim() || "Cliente sin nombre").toUpperCase();
-    const telefono = qTelefonoRef.current?.value.trim() || "";
+    const telefonoRaw = qTelefonoRef.current?.value.trim() || "";
+    const telefono = telefonoRaw ? formatTelefono(telefonoRaw) : "";
     const email = qEmailRef.current?.value.trim() || "";
     const vehiculo = qVehiculoRef.current?.value.trim() || "";
     const tipoCliente = tipoLavado;
@@ -758,7 +767,7 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
         </div>
         <div>
           <label>Teléfono</label>
-          <input ref={qTelefonoRef} defaultValue="+569" placeholder="+56 9 ..." />
+          <input ref={qTelefonoRef} defaultValue="+569" placeholder="+569 -1111 1111" onBlur={onTelefonoBlur} />
         </div>
         <div>
           <label>Correo electrónico</label>

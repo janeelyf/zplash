@@ -17,6 +17,9 @@ function Resultado() {
 
   return (
     <div className="content" style={{ maxWidth: 480 }}>
+      <a href="/cliente" className="landing-back">
+        ← Volver a Inicio
+      </a>
       <div className={`result-card ${info.cls === "ok" ? "found" : "notfound"}`}>
         <div className="result-head">
           <strong>{info.titulo}</strong>

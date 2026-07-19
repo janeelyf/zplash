@@ -7,6 +7,7 @@ import {
   PLANES,
   RUT_FORMATO_MSG,
   TELEFONO_FORMATO_MSG,
+  fmtTelefono,
   formatRut,
   formatTelefono,
   isValidPatente,
@@ -60,7 +61,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
   const onTelefonoBlur = () => {
     const raw = telefonoRef.current?.value.trim() || "";
     if (!raw || !telefonoRef.current) return;
-    telefonoRef.current.value = formatTelefono(raw);
+    telefonoRef.current.value = fmtTelefono(raw);
   };
 
   const guardar = () => {
@@ -259,7 +260,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
       </div>
       <div className="field">
         <label>Teléfono</label>
-        <input ref={telefonoRef} defaultValue={cli.telefono || "+569"} onBlur={onTelefonoBlur} />
+        <input ref={telefonoRef} defaultValue={cli.telefono ? fmtTelefono(cli.telefono) : "+569"} onBlur={onTelefonoBlur} />
       </div>
       <div className="field">
         <label>Correo electrónico</label>

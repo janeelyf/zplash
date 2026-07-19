@@ -1,0 +1,75 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Image from "next/image";
+import { CATEGORIA_DETAILING, fmtCLP } from "@/lib/helpers";
+import type { PreciosPublicos } from "@/components/cliente/types";
+
+const WHATSAPP_URL =
+  "https://wa.me/56939059611?text=" + encodeURIComponent("Hola, quiero agendar un Servicio de Detailing para mi auto");
+
+export default function DetailingLandingPage() {
+  const [precios, setPrecios] = useState<PreciosPublicos | null>(null);
+
+  useEffect(() => {
+    fetch("/api/pagos/precios")
+      .then((r) => r.json())
+      .then(setPrecios)
+      .catch(() => setPrecios(null));
+  }, []);
+
+  const servicios = (precios?.servicios ?? []).filter((s) => s.categoria === CATEGORIA_DETAILING);
+
+  return (
+    <div id="app">
+      <div className="cliente-header">
+        <div className="title">
+          <Image src="/logo.png" alt="ZPlash" width={30} height={30} className="topbar-logo" unoptimized />
+          <span className="mode">Portal Cliente</span>
+        </div>
+        <a href="/cliente" className="btn ghost" style={{ marginTop: 0, textDecoration: "none" }}>
+          ← Volver a Mi Cuenta
+        </a>
+      </div>
+
+      <div className="cliente-hero">
+        <h1>Lavado Completo Detailing</h1>
+        <p>
+          Limpieza completa por dentro y por fuera: carrocería, llantas, interior y detalles. Agenda tu horario y te
+          esperamos con tu auto listo.
+        </p>
+      </div>
+
+      <div className="content" style={{ maxWidth: 640 }}>
+        {!precios ? (
+          <div className="empty">Cargando servicios...</div>
+        ) : servicios.length === 0 ? (
+          <div className="card">
+            <p style={{ color: "var(--gray)", fontSize: 14 }}>
+              No hay precios de Detailing publicados por el momento. Escríbenos por WhatsApp y te cotizamos.
+            </p>
+          </div>
+        ) : (
+          <div className="service-grid" style={{ marginBottom: 22 }}>
+            {servicios.map((s) => (
+              <div className="service-btn" key={s.id} style={{ cursor: "default" }}>
+                <div className="nombre">{s.nombre}</div>
+                <div className="precio">{fmtCLP(s.precio)}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="card">
+          <h3>📅 Agenda tu hora</h3>
+          <p style={{ color: "var(--gray)", fontSize: 14, marginBottom: 16 }}>
+            Cuéntanos la patente de tu auto y el horario que prefieres, y te confirmamos disponibilidad.
+          </p>
+          <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="btn" style={{ textDecoration: "none", display: "inline-block" }}>
+            Agendar por WhatsApp
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}

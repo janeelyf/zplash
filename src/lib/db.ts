@@ -115,8 +115,11 @@ export async function deletePerfiles(ids: string[]): Promise<boolean> {
   return dataAccess.deletePerfiles(ids);
 }
 
+// Gateada con "config" o "web_settings": la pestaña Configuración y la
+// pestaña Web Settings son las dos únicas superficies que escriben acá (esta
+// última reservada a Gerencia por defecto, ver TODOS_LOS_MODULOS en helpers).
 export async function upsertPrecios(precios: Precios): Promise<boolean> {
-  if (!(await tieneSesionValida())) return false;
+  if (!(await tieneModulo("config")) && !(await tieneModulo("web_settings"))) return false;
   return dataAccess.upsertPrecios(precios);
 }
 
@@ -155,10 +158,11 @@ export async function deleteEmpresas(ids: string[]): Promise<boolean> {
   return dataAccess.deleteEmpresas(ids);
 }
 
-// Gateadas con el módulo "agenda": solo perfiles con acceso a esa pestaña
-// pueden tocar el catálogo de servicios y el horario/bloqueos del negocio.
+// El catálogo de servicios lo tocan dos pestañas con audiencias distintas:
+// Agenda (duración/activo, para agendamiento) y Web Settings (nombre,
+// categoría, banner — contenido de venta web, ver WebSettingsTab).
 export async function upsertServicios(rows: Servicio[]): Promise<boolean> {
-  if (!(await tieneModulo("agenda"))) return false;
+  if (!(await tieneModulo("agenda")) && !(await tieneModulo("web_settings"))) return false;
   return dataAccess.upsertServicios(rows);
 }
 
@@ -225,6 +229,11 @@ export async function insertAuditoria(entradas: AuditoriaEntrada[]): Promise<boo
 export async function subirComprobanteGasto(id: string, file: File): Promise<string | null> {
   if (!(await tieneSesionValida())) return null;
   return dataAccess.subirComprobanteGasto(id, file);
+}
+
+export async function subirBannerServicio(servicioId: string, file: File): Promise<string | null> {
+  if (!(await tieneModulo("web_settings"))) return null;
+  return dataAccess.subirBannerServicio(servicioId, file);
 }
 
 export async function obtenerSuscripcionOneclick(patente: string): Promise<SuscripcionOneclickInfo | null> {

@@ -87,6 +87,10 @@ export const ventas = pgTable("ventas", {
   rut: text("rut"),
   direccion: text("direccion"),
   giro: text("giro"),
+  // Email de quien compró (hoy solo se llena en Pack Empresa por web, ver
+  // pagosWebpayItems.email) — permite mostrarle esta venta en Mi Cuenta
+  // buscando por el correo de la sesión.
+  email: text("email"),
   viaCupon: boolean("via_cupon").notNull().default(false),
   cuponCodigo: text("cupon_codigo").references(() => cupones.codigo, { onDelete: "set null" }),
 });
@@ -138,6 +142,22 @@ export const cupones = pgTable("cupones", {
   patenteAsignada: text("patente_asignada"),
   // Solo aplica a "descuento": true = `valor` es un % (0-100), false = monto fijo en CLP.
   esPorcentaje: boolean("es_porcentaje").notNull().default(false),
+  // RUT de la empresa dueña del lote (packs empresa comprados por web o
+  // generados manualmente en B2B/Tickets con Factura) — permite la consulta
+  // pública de tickets por RUT en /api/empresa/tickets. Null en cupones que
+  // no pertenecen a una empresa (ej. descuentos individuales del bot).
+  rut: text("rut"),
+  // Solo aplica a tipo "vale" de un pack empresa: lista de patentes de la
+  // flota autorizadas a canjear cualquiera de los tickets del lote. Null o
+  // vacío = lote abierto, cualquier patente puede canjear (comportamiento
+  // original de "vale").
+  patentesAutorizadas: jsonb("patentes_autorizadas").$type<string[]>(),
+  // Email de quien compró el Pack Empresa por web — permite mostrar los
+  // tickets en Mi Cuenta (portal cliente) buscando por el correo de la
+  // sesión, sin depender de que el comprador recuerde el RUT. Null en
+  // cupones que no vienen de una compra web con email (generados a mano en
+  // B2B/Tickets/Dsctos, o descuentos individuales del bot).
+  email: text("email"),
 });
 
 export const movimientosContables = pgTable("movimientos_contables", {
@@ -181,6 +201,10 @@ export const config = pgTable("config", {
   horarioOperadorFindeInicio: text("horario_operador_finde_inicio").notNull().default("09:55"),
   horarioOperadorFindeFin: text("horario_operador_finde_fin").notNull().default("19:15"),
   festivos: jsonb("festivos").$type<string[]>().notNull().default([]),
+  // Días de vigencia de los tickets de un Pack Empresa (ver PACKS_EMPRESA en
+  // helpers.ts) desde su fecha de compra/generación — editable en Web
+  // Settings, a propósito NO amarrado a los 90 días fijos de otros productos.
+  vigenciaDiasPackEmpresa: integer("vigencia_dias_pack_empresa").notNull().default(365),
 });
 
 // Catálogo de servicios (fusiona el antiguo listado hardcodeado
@@ -269,16 +293,60 @@ export const pagosWebpay = pgTable("pagos_webpay", {
   buyOrder: text("buy_order").primaryKey(), // máx 26 caracteres (límite Transbank)
   sessionId: text("session_id").notNull(),
   patente: text("patente").notNull(),
-  tipo: text("tipo").notNull(), // "plan_nuevo" | "renovacion" | "servicio"
-  servicioId: text("servicio_id"), // solo si tipo = "servicio" (ver tabla `servicios`)
-  monto: numeric("monto", { mode: "number" }).notNull(),
+  // "plan_nuevo" | "renovacion" | "servicio" | "lavado_unico" si la compra
+  // tenía un solo ítem (se sigue llenando igual que antes, por legibilidad);
+  // "carrito" si tenía 2+ ítems — ver desglose en `pagosWebpayItems`.
+  tipo: text("tipo").notNull(),
+  servicioId: text("servicio_id"), // solo si tipo = "servicio" y la compra tenía un solo ítem
+  monto: numeric("monto", { mode: "number" }).notNull(), // monto total cobrado a Transbank (suma de todos los ítems)
   estado: text("estado").notNull().default("iniciada"), // iniciada|aprobada|rechazada|anulada
   token: text("token"),
   authorizationCode: text("authorization_code"),
   responseCode: integer("response_code"),
+  // Siempre null desde que existe `pagosWebpayItems`: la venta asociada a
+  // cada ítem se registra en `pagosWebpayItems.ventaId`, no acá, para no
+  // tener dos fuentes de verdad cuando una compra tiene varios ítems.
   ventaId: text("venta_id").references(() => ventas.id, { onDelete: "set null" }),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
   actualizadoEn: timestamptz("actualizado_en"),
+});
+
+// Desglose por ítem de una transacción Webpay: Transbank solo permite cobrar
+// un monto único por buy_order, así que un carrito con varios ítems se cobra
+// como una sola transacción (`pagosWebpay.monto` = suma) y acá queda el
+// detalle para poder aplicar el efecto de cada ítem por separado en
+// /api/pagos/webpay/retorno (extender plan, crear una venta por ítem, etc).
+export const pagosWebpayItems = pgTable("pagos_webpay_items", {
+  id: text("id").primaryKey(), // `${buyOrder}-${index}`
+  buyOrder: text("buy_order")
+    .notNull()
+    .references(() => pagosWebpay.buyOrder, { onDelete: "cascade" }),
+  tipo: text("tipo").notNull(), // "plan_nuevo" | "renovacion" | "servicio" | "lavado_unico" | "pack_empresa"
+  servicioId: text("servicio_id"), // solo si tipo = "servicio"
+  nombre: text("nombre").notNull(), // snapshot del nombre al momento del cobro
+  monto: numeric("monto", { mode: "number" }).notNull(),
+  ventaId: text("venta_id").references(() => ventas.id, { onDelete: "set null" }),
+  creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+  // Columnas usadas solo cuando tipo = "pack_empresa": llevan el dato de
+  // facturación/flota ingresado en el checkout a través del viaje de ida y
+  // vuelta a Transbank, hasta que /api/pagos/webpay/retorno los aplica (ver
+  // aplicarPagoPackEmpresa en @/lib/pagos).
+  tipoDocumento: text("tipo_documento"),
+  razonSocial: text("razon_social"),
+  rut: text("rut"),
+  direccion: text("direccion"),
+  giro: text("giro"),
+  // Email de quien compró — llega desde el checkout, viaja hasta acá igual
+  // que el resto de estos campos, y aplicarPagoPackEmpresa lo copia a los
+  // cupones/venta resultantes para poder mostrarlos en Mi Cuenta.
+  email: text("email"),
+  cantidadCupones: integer("cantidad_cupones"),
+  patentesAutorizadas: jsonb("patentes_autorizadas").$type<string[]>(),
+  // Nombre de lote que el propio cliente le pone a su compra (ej. "Lavados
+  // rentacar SALFA Mayo") para reconocerlo después en Mi Cuenta y en el
+  // panel B2B/Tickets/Dsctos — si lo deja vacío, aplicarPagoPackEmpresa cae
+  // a razonSocial o "Pack Empresa Web" (mismo fallback de siempre).
+  nombreLote: text("nombre_lote"),
 });
 
 // Tarjeta inscrita en Oneclick Mall para renovación automática mensual. Una

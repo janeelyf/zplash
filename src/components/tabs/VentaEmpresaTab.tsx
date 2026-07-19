@@ -7,21 +7,17 @@ import PriceInput from "@/components/PriceInput";
 import {
   PATENTE_FORMATO_MSG,
   RUT_FORMATO_MSG,
+  estadoCupon,
   fmtCLP,
   formatRut,
   generarCodigoCupon,
   isValidPatente,
   isValidRut,
   normPlate,
+  parsearPatentes,
   uid,
 } from "@/lib/helpers";
 import type { Cupon, Empresa, Venta } from "@/types";
-
-function estadoCupon(c: Cupon): { label: string; cls: "ok" | "warn" | "bad" } {
-  if (c.usado) return { label: "Usado", cls: "ok" };
-  if (new Date(c.fechaCaducidad) < new Date()) return { label: "Caducado", cls: "bad" };
-  return { label: "Disponible", cls: "warn" };
-}
 
 function valorCupon(c: Cupon): string {
   if (c.tipo === "descuento") return c.esPorcentaje ? `${c.valor}%` : fmtCLP(c.valor);
@@ -44,6 +40,8 @@ export default function VentaEmpresaTab() {
   const [estadoTransferencia, setEstadoTransferencia] = useState<"pagado" | "pendiente" | null>(null);
   const [err, setErr] = useState<{ msg: string; ok: boolean } | null>(null);
   const [busqueda, setBusqueda] = useState("");
+  const [patentesAbierto, setPatentesAbierto] = useState(true);
+  const [patentesTexto, setPatentesTexto] = useState("");
 
   const dNombreRef = useRef<HTMLInputElement>(null);
   const [dValorTexto, setDValorTexto] = useState("");
@@ -102,6 +100,19 @@ export default function VentaEmpresaTab() {
       return;
     }
 
+    const razonSocial = tipoDoc === "Factura" ? razonSocialRef.current?.value.trim() || "" : "";
+    const rut = tipoDoc === "Factura" ? formatRut(rutRef.current?.value.trim() || "") : "";
+    const direccion = tipoDoc === "Factura" ? direccionRef.current?.value.trim() || "" : "";
+    const giro = tipoDoc === "Factura" ? giroRef.current?.value.trim() || "" : "";
+    const patentesAutorizadas = patentesAbierto ? undefined : parsearPatentes(patentesTexto);
+    if (patentesAutorizadas) {
+      const invalida = patentesAutorizadas.find((p) => !isValidPatente(p));
+      if (invalida) {
+        setErr({ msg: `Patente inválida: ${invalida}. ${PATENTE_FORMATO_MSG}`, ok: false });
+        return;
+      }
+    }
+
     const valorPorCupon = Math.round(valorTotal / cantidad);
     const existentes = new Set(data.cupones.map((c) => c.codigo));
     const nuevos: Cupon[] = [];
@@ -120,13 +131,10 @@ export default function VentaEmpresaTab() {
         creadoEn: new Date().toISOString(),
         creadoPor: "Administrador",
         tipo: "vale",
+        rut: rut || undefined,
+        patentesAutorizadas: patentesAutorizadas?.length ? patentesAutorizadas : undefined,
       });
     }
-
-    const razonSocial = tipoDoc === "Factura" ? razonSocialRef.current?.value.trim() || "" : "";
-    const rut = tipoDoc === "Factura" ? formatRut(rutRef.current?.value.trim() || "") : "";
-    const direccion = tipoDoc === "Factura" ? direccionRef.current?.value.trim() || "" : "";
-    const giro = tipoDoc === "Factura" ? giroRef.current?.value.trim() || "" : "";
 
     let ventas = data.ventas;
     if (valorTotal > 0) {
@@ -190,6 +198,8 @@ export default function VentaEmpresaTab() {
     if (rutRef.current) rutRef.current.value = "";
     if (direccionRef.current) direccionRef.current.value = "";
     if (giroRef.current) giroRef.current.value = "";
+    setPatentesAbierto(true);
+    setPatentesTexto("");
     setTipoDoc("Boleta");
     setHayValor(false);
     setMetodoPago(null);
@@ -328,6 +338,39 @@ export default function VentaEmpresaTab() {
             }}
           />
         </div>
+        <div className="field">
+          <label>¿Para qué patentes son los cupones?</label>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className={patentesAbierto ? "btn" : "btn ghost"}
+              style={{ flex: 1, marginTop: 0 }}
+              onClick={() => setPatentesAbierto(true)}
+            >
+              Dejar abierto (cualquier patente)
+            </button>
+            <button
+              type="button"
+              className={!patentesAbierto ? "btn" : "btn ghost"}
+              style={{ flex: 1, marginTop: 0 }}
+              onClick={() => setPatentesAbierto(false)}
+            >
+              Ingresar patentes autorizadas
+            </button>
+          </div>
+        </div>
+        {!patentesAbierto && (
+          <div className="field">
+            <label>Patentes (una por línea o separadas por coma)</label>
+            <textarea
+              value={patentesTexto}
+              onChange={(e) => setPatentesTexto(e.target.value)}
+              placeholder={"AB1234\nCD5678"}
+              rows={3}
+              style={{ textTransform: "uppercase" }}
+            />
+          </div>
+        )}
         <div className="field">
           <label>Fecha de caducidad</label>
           <input ref={caducidadRef} type="date" />

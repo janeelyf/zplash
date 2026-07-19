@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { RUT_FORMATO_MSG, formatRut, isValidRut, uid } from "@/lib/helpers";
+import { RUT_FORMATO_MSG, fmtTelefono, formatRut, formatTelefono, isValidRut, uid } from "@/lib/helpers";
 import type { Empresa } from "@/types";
 
 export default function EmpresaModal({ data: e }: { data: Empresa | null }) {
@@ -44,6 +44,12 @@ export default function EmpresaModal({ data: e }: { data: Empresa | null }) {
     }
   };
 
+  const onTelefonoBlur = () => {
+    const raw = telefonoRef.current?.value.trim() || "";
+    if (!raw || !telefonoRef.current) return;
+    telefonoRef.current.value = fmtTelefono(raw);
+  };
+
   const guardar = async () => {
     const razonSocial = razonSocialRef.current?.value.trim() || "";
     const rutRaw = rutRef.current?.value.trim() || "";
@@ -64,7 +70,8 @@ export default function EmpresaModal({ data: e }: { data: Empresa | null }) {
 
     const giro = giroRef.current?.value.trim() || "";
     const direccion = direccionRef.current?.value.trim() || "";
-    const telefono = telefonoRef.current?.value.trim() || "";
+    const telefonoRaw = telefonoRef.current?.value.trim() || "";
+    const telefono = telefonoRaw ? formatTelefono(telefonoRaw) : "";
     const contactoClienteId = contactoRef.current?.value || "";
     const contactoNombre = contactoClienteId
       ? data.clientes.find((c) => c.id === contactoClienteId)?.nombre || ""
@@ -128,7 +135,12 @@ export default function EmpresaModal({ data: e }: { data: Empresa | null }) {
       </div>
       <div className="field">
         <label>Teléfono</label>
-        <input ref={telefonoRef} defaultValue={emp.telefono || ""} />
+        <input
+          ref={telefonoRef}
+          defaultValue={emp.telefono ? fmtTelefono(emp.telefono) : ""}
+          placeholder="+569 -1111 1111"
+          onBlur={onTelefonoBlur}
+        />
       </div>
       <div className="field">
         <label>Persona de contacto</label>

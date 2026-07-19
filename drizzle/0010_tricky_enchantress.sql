@@ -1,0 +1,1 @@
+ALTER TABLE "pagos_webpay_items" ADD COLUMN "nombre_lote" text;

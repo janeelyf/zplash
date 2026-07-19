@@ -1,4 +1,6 @@
-import { PRECIO_LAVADO_UNICO, fmtCLP } from "@/lib/helpers";
+import Image from "next/image";
+import Link from "next/link";
+import { fmtCLP } from "@/lib/helpers";
 import type { PreciosPublicos } from "./types";
 
 export default function TiposLavadoTab({ precios }: { precios: PreciosPublicos | null }) {
@@ -6,16 +8,35 @@ export default function TiposLavadoTab({ precios }: { precios: PreciosPublicos |
 
   return (
     <div>
-      <div className="card" style={{ marginBottom: 18 }}>
-        <h3>🚿 Lavado túnel único</h3>
-        <p style={{ color: "var(--gray)", fontSize: 14, marginBottom: 10 }}>
-          Para quienes no tienen el Plan Ilimitado Mensual vigente: un pase por el túnel de lavado.
-        </p>
-        <div className="price-row" style={{ marginBottom: 0 }}>
-          <span className="new">{fmtCLP(PRECIO_LAVADO_UNICO)}</span>
-        </div>
+      <h2 style={{ marginBottom: 12 }}>LAVADOS EXTERIOR TUNEL + USO ILIMITADO ESTACIONES DE ASPIRADO</h2>
+      <div className="landing-banners" style={{ marginBottom: 22 }}>
+        <Link href="/servicios/full-tunnel" className="landing-banner">
+          <Image src="/servicios-precios.jpg" alt="Lavado Full Tunnel" fill unoptimized />
+          <div className="overlay">
+            <h3>🚿 Lavado Full Tunnel</h3>
+            <p>Un pase completo por nuestro túnel, sin reserva de hora.</p>
+            <span className="ver-mas">Ver detalles →</span>
+          </div>
+        </Link>
+        <Link href="/servicios/plan-mensual" className="landing-banner">
+          <Image src="/plan-mensual.jpg" alt="Plan Mensual Ilimitado" fill unoptimized />
+          <div className="overlay">
+            <h3>🚗 Plan Mensual Ilimitado</h3>
+            <p>Lavados ilimitados por el túnel durante todo el mes.</p>
+            <span className="ver-mas">Ver detalles →</span>
+          </div>
+        </Link>
+        <Link href="/servicios/zona-aspirado" className="landing-banner">
+          <Image src="/servicios-precios.jpg" alt="Uso Zona Aspirado Autoservicio" fill unoptimized />
+          <div className="overlay">
+            <h3>🧹 Uso Zona Aspirado Autoservicio</h3>
+            <p>Estación de aspirado autoservicio, sin límite de tiempo por uso.</p>
+            <span className="ver-mas">Ver detalles →</span>
+          </div>
+        </Link>
       </div>
 
+      <h2 style={{ marginBottom: 12 }}>SERVICIOS DE LIMPIEZA PROFESIONAL Y DETAILING AUTOMOTRIZ</h2>
       {!precios ? (
         <div className="empty">Cargando servicios...</div>
       ) : (
@@ -26,10 +47,10 @@ export default function TiposLavadoTab({ precios }: { precios: PreciosPublicos |
               {precios.servicios
                 .filter((s) => (s.categoria || "Otros") === cat)
                 .map((s) => (
-                  <div className="service-btn" key={s.id} style={{ cursor: "default" }}>
+                  <Link href={`/servicios/${s.id}`} className="service-btn" key={s.id} style={{ textDecoration: "none", color: "inherit" }}>
                     <div className="nombre">{s.nombre}</div>
                     <div className="precio">{fmtCLP(s.precio)}</div>
-                  </div>
+                  </Link>
                 ))}
             </div>
           </div>

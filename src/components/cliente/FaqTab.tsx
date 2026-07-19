@@ -1,8 +1,6 @@
-"use client";
+import FaqAccordion from "./FaqAccordion";
 
-import { useState } from "react";
-
-const PREGUNTAS: { q: string; a: string }[] = [
+export const PREGUNTAS: { q: string; a: string }[] = [
   {
     q: "¿Qué incluye el Plan Ilimitado Mensual?",
     a: "Lavados ilimitados por el túnel durante 30 días desde la contratación, con un ingreso máximo por día. No incluye los servicios adicionales (tapiz, alfombra, techo, motor, chasis).",
@@ -34,26 +32,5 @@ const PREGUNTAS: { q: string; a: string }[] = [
 ];
 
 export default function FaqTab() {
-  const [abierta, setAbierta] = useState<number | null>(0);
-
-  return (
-    <div className="card">
-      {PREGUNTAS.map((p, i) => {
-        const open = abierta === i;
-        return (
-          <div className="faq-item" key={p.q}>
-            <button
-              type="button"
-              className={`faq-question${open ? " open" : ""}`}
-              onClick={() => setAbierta(open ? null : i)}
-            >
-              {p.q}
-              <span className="chev">▾</span>
-            </button>
-            {open && <div className="faq-answer">{p.a}</div>}
-          </div>
-        );
-      })}
-    </div>
-  );
+  return <FaqAccordion preguntas={PREGUNTAS} />;
 }

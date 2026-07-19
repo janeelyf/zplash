@@ -85,6 +85,10 @@ export interface Venta extends DatosFacturacion {
   esServicioAdicional?: boolean;
   viaCupon?: boolean;
   cuponCodigo?: string;
+  // Email de quien compró (hoy solo se llena en Pack Empresa por web) —
+  // permite mostrarle esta venta en Mi Cuenta buscando por el correo de la
+  // sesión, sin depender de clienteId (que queda null en compras B2B).
+  email?: string;
 }
 
 // Empresas de compra y venta para emitir/recibir facturas. contactoClienteId
@@ -134,6 +138,18 @@ export interface Cupon {
   // "descuento" — distinto de patenteUso, que se llena recién al canjear.
   // Si no tiene patente asignada, el descuento es "abierto" (cualquier patente).
   patenteAsignada?: string;
+  // RUT de la empresa dueña del lote (packs empresa por web o generados
+  // manualmente en B2B/Tickets con Factura) — permite la consulta pública de
+  // tickets por RUT en /api/empresa/tickets.
+  rut?: string;
+  // Solo aplica a tipo "vale" de un pack empresa: patentes de la flota
+  // autorizadas a canjear cualquiera de los tickets del lote. Vacío/undefined
+  // = lote abierto, cualquier patente puede canjear.
+  patentesAutorizadas?: string[];
+  // Email de quien compró el Pack Empresa por web — permite mostrar los
+  // tickets en Mi Cuenta (portal cliente) buscando por el correo de la
+  // sesión. Undefined en cupones generados a mano o sin email.
+  email?: string;
 }
 
 // Un módulo = una vista principal de la app. Determina qué ve cada perfil
@@ -151,7 +167,8 @@ export type Modulo =
   | "config"
   | "contabilidad"
   | "permisos"
-  | "agenda";
+  | "agenda"
+  | "web_settings";
 
 // Lo que el cliente sí puede cargar: nombre y módulos permitidos, nunca la
 // contraseña. La clave solo se consulta/valida server-side, dentro de las
@@ -221,6 +238,7 @@ export interface Servicio {
   categoria?: string;
   duracionMinutos: number;
   activo: boolean;
+  imagen?: string;
 }
 
 // Horario semanal recurrente único para todo el negocio (no por profesional
@@ -301,6 +319,10 @@ export interface ConfigGlobal {
   horarioOperadorFindeInicio: string;
   horarioOperadorFindeFin: string;
   festivos: string[];
+  // Días de vigencia de los tickets de un Pack Empresa (ver PACKS_EMPRESA en
+  // helpers.ts), editable en Web Settings — a propósito no amarrado a los 90
+  // días fijos de otros productos.
+  vigenciaDiasPackEmpresa: number;
 }
 
 export interface AppData {
@@ -344,10 +366,11 @@ export type ModalState =
   | null;
 
 export interface UIState {
-  view: "login" | "hub" | "operador" | "admin" | "servicios" | "contabilidad";
+  view: "login" | "hub" | "operador" | "admin" | "servicios" | "contabilidad" | "web_settings";
   operResult: OperResult;
   adminTab: string;
   contabilidadTab: string;
+  webSettingsTab: string;
   search: string;
   modal: ModalState;
   loginErr: string;

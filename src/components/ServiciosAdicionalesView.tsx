@@ -13,6 +13,7 @@ import {
   TELEFONO_FORMATO_MSG,
   findClient,
   fmtCLP,
+  fmtTelefono,
   formatRut,
   formatTelefono,
   isValidEmail,
@@ -187,6 +188,12 @@ export default function ServiciosAdicionalesView() {
     if (razonSocialRef.current) razonSocialRef.current.value = empresa.razonSocial;
     if (direccionRef.current) direccionRef.current.value = empresa.direccion || "";
     if (giroRef.current) giroRef.current.value = empresa.giro || "";
+  };
+
+  const onTelefonoBlur = () => {
+    const raw = telefonoRef.current?.value.trim() || "";
+    if (!raw || !telefonoRef.current) return;
+    telefonoRef.current.value = fmtTelefono(raw);
   };
 
   const buscarPatente = () => {
@@ -677,7 +684,13 @@ export default function ServiciosAdicionalesView() {
                 </div>
                 <div className="field">
                   <label>Teléfono *</label>
-                  <input ref={telefonoRef} required defaultValue={clienteExistente?.telefono || "+569"} />
+                  <input
+                    ref={telefonoRef}
+                    required
+                    defaultValue={clienteExistente?.telefono ? fmtTelefono(clienteExistente.telefono) : "+569"}
+                    placeholder="+569 -1111 1111"
+                    onBlur={onTelefonoBlur}
+                  />
                 </div>
                 <div className="field">
                   <label>Correo electrónico *</label>

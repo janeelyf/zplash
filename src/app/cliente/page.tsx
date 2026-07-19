@@ -8,6 +8,7 @@ import VentaEmpresaInfoTab from "@/components/cliente/VentaEmpresaInfoTab";
 import PlanMensualTab from "@/components/cliente/PlanMensualTab";
 import FaqTab from "@/components/cliente/FaqTab";
 import MiCuentaTab from "@/components/cliente/MiCuentaTab";
+import CarritoBadge from "@/components/cliente/CarritoBadge";
 import type { PreciosPublicos } from "@/components/cliente/types";
 
 const TABS = [
@@ -39,9 +40,12 @@ export default function ClientePage() {
           <Image src="/logo.png" alt="ZPlash" width={30} height={30} className="topbar-logo" unoptimized />
           <span className="mode">Portal Cliente</span>
         </div>
-        <a href="/pagar" className="btn" style={{ marginTop: 0, textDecoration: "none" }}>
-          Pagar / Renovar plan
-        </a>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <CarritoBadge />
+          <a href="/pagar" className="btn" style={{ marginTop: 0, textDecoration: "none" }}>
+            Pagar / Renovar plan
+          </a>
+        </div>
       </div>
 
       <div className="cliente-hero">
@@ -60,7 +64,7 @@ export default function ClientePage() {
 
         {tab === "ubicacion" && <UbicacionTab />}
         {tab === "lavados" && <TiposLavadoTab precios={precios} />}
-        {tab === "empresa" && <VentaEmpresaInfoTab />}
+        {tab === "empresa" && <VentaEmpresaInfoTab precios={precios} />}
         {tab === "plan" && <PlanMensualTab precios={precios} />}
         {tab === "faq" && <FaqTab />}
         {tab === "cuenta" && <MiCuentaTab />}

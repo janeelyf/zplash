@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import PriceInput from "@/components/PriceInput";
 import { useApp } from "@/context/AppContext";
 import { ESTADOS_CITA, esEstadoFinal, esRetrocesoInvalido } from "@/lib/agenda";
-import { fmtCLP, precioServicio, sumarDias, todayYMD, uid } from "@/lib/helpers";
+import { fmtCLP, fmtTelefono, precioServicio, sumarDias, todayYMD, uid } from "@/lib/helpers";
 import type { BloqueoAgenda, Cita, HorarioAgenda, Servicio } from "@/types";
 
 const DIAS = [
@@ -77,7 +77,7 @@ function CitasDelDia() {
                   <td>
                     {c.nombre} <span className="plate-tag">{c.patente}</span>
                   </td>
-                  <td>{c.telefono || "-"}</td>
+                  <td>{c.telefono ? fmtTelefono(c.telefono) : "-"}</td>
                   <td>
                     <span className={`status-pill ${c.origen === "publico" ? "warn" : "ok"}`}>
                       {c.origen === "publico" ? "Público" : "Interno"}

@@ -30,6 +30,7 @@ import {
   ingresos,
   movimientosContables,
   pagosWebpay,
+  pagosWebpayItems,
   perfiles,
   precios,
   servicios,
@@ -188,6 +189,7 @@ function ventaToRow(v: Venta): typeof ventas.$inferInsert {
     rut: v.rut || null,
     direccion: v.direccion || null,
     giro: v.giro || null,
+    email: v.email || null,
     viaCupon: v.viaCupon || false,
     cuponCodigo: v.cuponCodigo || null,
   };
@@ -219,6 +221,7 @@ function ventaFromRow(r: VentaRow): Venta {
     rut: r.rut || undefined,
     direccion: r.direccion || undefined,
     giro: r.giro || undefined,
+    email: r.email || undefined,
     viaCupon: r.viaCupon || undefined,
     cuponCodigo: r.cuponCodigo || undefined,
   };
@@ -266,6 +269,9 @@ function cuponToRow(c: Cupon): typeof cupones.$inferInsert {
     tipo: c.tipo || "vale",
     patenteAsignada: c.patenteAsignada || null,
     esPorcentaje: c.esPorcentaje || false,
+    rut: c.rut || null,
+    patentesAutorizadas: c.patentesAutorizadas?.length ? c.patentesAutorizadas : null,
+    email: c.email || null,
   };
 }
 
@@ -287,6 +293,9 @@ function cuponFromRow(r: CuponRow): Cupon {
     tipo: (r.tipo as Cupon["tipo"]) || "vale",
     patenteAsignada: r.patenteAsignada || undefined,
     esPorcentaje: r.esPorcentaje || false,
+    rut: r.rut || undefined,
+    patentesAutorizadas: r.patentesAutorizadas?.length ? r.patentesAutorizadas : undefined,
+    email: r.email || undefined,
   };
 }
 
@@ -380,6 +389,7 @@ function configToRow(c: ConfigGlobal): typeof config.$inferInsert {
     horarioOperadorFindeInicio: c.horarioOperadorFindeInicio,
     horarioOperadorFindeFin: c.horarioOperadorFindeFin,
     festivos: c.festivos,
+    vigenciaDiasPackEmpresa: c.vigenciaDiasPackEmpresa,
   };
 }
 
@@ -390,6 +400,7 @@ function configFromRow(r: ConfigRow): ConfigGlobal {
     horarioOperadorFindeInicio: r.horarioOperadorFindeInicio,
     horarioOperadorFindeFin: r.horarioOperadorFindeFin,
     festivos: r.festivos ?? [],
+    vigenciaDiasPackEmpresa: r.vigenciaDiasPackEmpresa || 365,
   };
 }
 
@@ -702,14 +713,22 @@ export async function upsertVentas(rows: Venta[]): Promise<boolean> {
 }
 
 // Borra también el pago Transbank (Webpay Plus u Oneclick) que haya generado
-// la venta, si tuvo uno: ambas tablas de pago guardan `ventaId` con onDelete
+// la venta, si tuvo uno: las tablas de pago guardan `ventaId` con onDelete
 // "set null", así que sin este paso previo quedarían filas huérfanas en vez
 // de desaparecer junto con el servicio que las originó.
+//
+// `pagosWebpay.ventaId` solo queda seteado en compras legacy de un solo ítem
+// (antes de existir `pagosWebpayItems`) — ahí sí se borra la fila entera. Una
+// compra por carrito guarda el `ventaId` en `pagosWebpayItems`; borrar una de
+// esas ventas borra solo su fila de ítem, dejando intacta la fila padre de
+// `pagosWebpay` (que sigue siendo el registro fiel de lo que Transbank cobró
+// en total, aunque se corrija un ítem después).
 export async function deleteVentas(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
   try {
     const db = getDb();
     await db.delete(pagosWebpay).where(inArray(pagosWebpay.ventaId, ids));
+    await db.delete(pagosWebpayItems).where(inArray(pagosWebpayItems.ventaId, ids));
     await db.delete(cobrosOneclick).where(inArray(cobrosOneclick.ventaId, ids));
     await db.delete(ventas).where(inArray(ventas.id, ids));
     return true;
@@ -985,6 +1004,20 @@ export async function subirComprobanteGasto(id: string, file: File): Promise<str
     return null;
   }
   const { data } = supabase.storage.from(COMPROBANTES_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
+
+const BANNERS_SERVICIOS_BUCKET = "banners-servicios";
+
+/** Sube la imagen de banner de un servicio (Web Settings) y devuelve su URL pública, o null si falló. */
+export async function subirBannerServicio(servicioId: string, file: File): Promise<string | null> {
+  const path = `${servicioId}-${file.name}`;
+  const { error } = await supabase.storage.from(BANNERS_SERVICIOS_BUCKET).upload(path, file, { upsert: true });
+  if (error) {
+    console.error("Error subiendo banner de servicio", error);
+    return null;
+  }
+  const { data } = supabase.storage.from(BANNERS_SERVICIOS_BUCKET).getPublicUrl(path);
   return data.publicUrl;
 }
 

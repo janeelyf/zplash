@@ -50,6 +50,34 @@
       "when": 1784070329746,
       "tag": "0006_last_loki",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784374188989,
+      "tag": "0007_goofy_nuke",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784422775950,
+      "tag": "0008_regular_star_brand",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784430687057,
+      "tag": "0009_smooth_darkstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784432134822,
+      "tag": "0010_tricky_enchantress",
+      "breakpoints": true
     }
   ]
 }

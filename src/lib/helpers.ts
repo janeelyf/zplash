@@ -34,6 +34,17 @@ export function precioPlanOneclick(precios: Precios): number {
   return (precios[PLAN_ONECLICK_KEY] && precios[PLAN_ONECLICK_KEY].normal) || PRECIO_PLAN_ONECLICK_DEFAULT;
 }
 
+/** Precio del uso puntual de la zona de aspirado autoservicio, sin plan ni límite de tiempo. */
+export const PRECIO_ZONA_ASPIRADO = 4990;
+
+/** Clave usada dentro de Precios para guardar el valor editable de la zona de aspirado autoservicio. */
+export const ZONA_ASPIRADO_KEY = "Uso Zona Aspirado Autoservicio";
+
+/** Precio vigente del uso de la zona de aspirado autoservicio, editable por el administrador; si no se ha guardado uno, usa el valor por defecto. */
+export function precioZonaAspirado(precios: Precios): number {
+  return (precios[ZONA_ASPIRADO_KEY] && precios[ZONA_ASPIRADO_KEY].normal) || PRECIO_ZONA_ASPIRADO;
+}
+
 /** Monto adicional (sobre el lavado único ya pagado) para convertir la visita de hoy en la contratación del Plan Ilimitado Mensual — promoción ofrecida en el módulo Operador dentro de la primera hora tras el ingreso. */
 export const PRECIO_UPGRADE_PLAN_DEFAULT = 12000;
 
@@ -109,7 +120,34 @@ export const CONFIG_DEFAULT: ConfigGlobal = {
   horarioOperadorFindeInicio: "09:55",
   horarioOperadorFindeFin: "19:15",
   festivos: [],
+  vigenciaDiasPackEmpresa: 365,
 };
+
+/** Catálogo fijo de los 4 packs de tickets para empresas (flotas, automotoras,
+ * rent a car, talleres mecánicos), vendidos online con Webpay desde la
+ * pestaña "Venta a Empresa" del portal cliente. `key` es la clave usada
+ * dentro de `Precios` (mismo patrón que PLAN_ONECLICK_KEY/UPGRADE_PLAN_KEY),
+ * y `precioDefault` es el valor IVA incluido publicado en zplash.cl/empresas/
+ * mientras el administrador no lo edite desde Web Settings. */
+export const PACKS_EMPRESA = [
+  { cantidad: 10, key: "Pack Empresa 10 Tickets", precioDefault: 89990 },
+  { cantidad: 20, key: "Pack Empresa 20 Tickets", precioDefault: 159990 },
+  { cantidad: 30, key: "Pack Empresa 30 Tickets", precioDefault: 224990 },
+  { cantidad: 40, key: "Pack Empresa 40 Tickets", precioDefault: 279600 },
+] as const;
+
+export type CantidadPackEmpresa = (typeof PACKS_EMPRESA)[number]["cantidad"];
+
+export function packEmpresaPorCantidad(cantidad: number): (typeof PACKS_EMPRESA)[number] | undefined {
+  return PACKS_EMPRESA.find((p) => p.cantidad === cantidad);
+}
+
+/** Precio vigente de un pack empresa, editable por el administrador desde Web Settings; si no se ha guardado uno, usa precioDefault. */
+export function precioPackEmpresa(precios: Precios, cantidad: number): number {
+  const pack = packEmpresaPorCantidad(cantidad);
+  if (!pack) return 0;
+  return (precios[pack.key] && precios[pack.key].normal) || pack.precioDefault;
+}
 
 export const MODULOS_ADMIN: Modulo[] = [
   "clientes",
@@ -122,12 +160,19 @@ export const MODULOS_ADMIN: Modulo[] = [
   "config",
   "agenda",
 ];
+// "web_settings" queda fuera de MODULOS_ADMIN a propósito: ese array es lo
+// que reciben por defecto los perfiles admin "genéricos" (ver Evelyn en
+// PERFILES_DEFAULT), y los precios de venta web deben quedar reservados a
+// Gerencia por defecto. Sigue siendo un módulo asignable como cualquier
+// otro (aparece en el checklist de PerfilesTab vía TODOS_LOS_MODULOS), solo
+// que nadie más lo recibe de fábrica.
 export const TODOS_LOS_MODULOS: Modulo[] = [
   "operador",
   "servicios",
   ...MODULOS_ADMIN,
   "contabilidad",
   "permisos",
+  "web_settings",
 ];
 
 export const MODULO_LABELS: Record<Modulo, string> = {
@@ -144,6 +189,7 @@ export const MODULO_LABELS: Record<Modulo, string> = {
   contabilidad: "Contabilidad",
   permisos: "Permisos (asignar módulos)",
   agenda: "Agenda",
+  web_settings: "Web Settings (precios de venta web)",
 };
 
 /** Identidades por defecto para un entorno nuevo sin filas en `perfiles`
@@ -446,6 +492,21 @@ export function isValidTelefono(tel: string | null | undefined): boolean {
 export const TELEFONO_FORMATO_MSG =
   "Teléfono inválido. Debe ser un celular chileno: +569 seguido de 8 dígitos (ej. +56912345678).";
 
+/**
+ * Formato visual del celular para mostrarlo a operadores/clientes en tablas,
+ * detalles y campos de edición: "+569 -XXXX XXXX". Se aplica solo a la
+ * presentación — el valor guardado en la base de datos sigue siendo el
+ * canónico "+569XXXXXXXX" de formatTelefono, sin espacios ni guion. Si el
+ * teléfono no calza con el patrón chileno esperado (fijo, otro país, dato
+ * corrupto) se devuelve intacto, igual que formatTelefono.
+ */
+export function fmtTelefono(tel: string | null | undefined): string {
+  const formateado = formatTelefono(tel);
+  if (!TELEFONO_REGEX.test(formateado)) return formateado;
+  const resto = formateado.slice(4); // 8 dígitos tras "+569"
+  return `+569 -${resto.slice(0, 4)} ${resto.slice(4)}`;
+}
+
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function isValidEmail(email: string | null | undefined): boolean {
@@ -584,6 +645,37 @@ export function resolverDescuento(
 /** Monto a descontar del precio base: si el cupón es de porcentaje, se calcula sobre precioBase; si no, es el monto fijo. */
 export function montoDescuento(cupon: Cupon, precioBase: number): number {
   return cupon.esPorcentaje ? Math.round((precioBase * cupon.valor) / 100) : cupon.valor;
+}
+
+/** true si la patente puede canjear este cupón: los cupones tipo "vale" de un
+ * pack empresa pueden traer una lista de patentes autorizadas (la flota para
+ * la que se contrató el lote); sin lista (vacía/undefined) el cupón queda
+ * abierto, cualquier patente puede canjearlo (comportamiento original). */
+export function patenteAutorizadaParaCupon(cupon: Pick<Cupon, "patentesAutorizadas">, patente: string): boolean {
+  if (!cupon.patentesAutorizadas || cupon.patentesAutorizadas.length === 0) return true;
+  return cupon.patentesAutorizadas.includes(normPlate(patente));
+}
+
+export type EstadoCupon = { label: string; cls: "ok" | "warn" | "bad" };
+
+/** Estado a mostrar de un cupón: usado, caducado o disponible — compartido
+ * entre el panel admin (VentaEmpresaTab) y la consulta pública de tickets por
+ * RUT (/api/empresa/tickets), para no duplicar el criterio en ambos lados. */
+export function estadoCupon(c: Pick<Cupon, "usado" | "fechaCaducidad">): EstadoCupon {
+  if (c.usado) return { label: "Usado", cls: "ok" };
+  if (new Date(c.fechaCaducidad) < new Date()) return { label: "Caducado", cls: "bad" };
+  return { label: "Disponible", cls: "warn" };
+}
+
+/** Separa un texto de patentes por coma, espacio o salto de línea — se usa
+ * tanto en la compra web de Packs Empresa como en el generador manual de
+ * cupones del admin (B2B/Tickets), para que el cliente/admin pueda pegarlas
+ * de un Excel o escribirlas una por línea. */
+export function parsearPatentes(texto: string): string[] {
+  return texto
+    .split(/[\s,;]+/)
+    .map((p) => normPlate(p))
+    .filter((p, i, arr) => p && arr.indexOf(p) === i);
 }
 
 export function uid(): string {
