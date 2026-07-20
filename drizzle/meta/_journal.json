@@ -78,6 +78,20 @@
       "when": 1784432134822,
       "tag": "0010_tricky_enchantress",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1784477427535,
+      "tag": "0011_pink_mister_fear",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1784496909991,
+      "tag": "0012_great_paper_doll",
+      "breakpoints": true
     }
   ]
 }

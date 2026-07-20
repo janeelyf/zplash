@@ -3,6 +3,7 @@
 import { useApp } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
 import ClientesTab from "@/components/tabs/ClientesTab";
+import SuscripcionesTab from "@/components/tabs/SuscripcionesTab";
 import IngresosTab from "@/components/tabs/IngresosTab";
 import CierreTab from "@/components/tabs/CierreTab";
 import PerfilesTab from "@/components/tabs/PerfilesTab";
@@ -14,15 +15,16 @@ import AgendaTab from "@/components/tabs/AgendaTab";
 import type { Modulo } from "@/types";
 
 const TABS: { id: Modulo; label: string }[] = [
-  { id: "clientes", label: "Clientes" },
-  { id: "ingresos", label: "Historial de ingresos" },
   { id: "cierre", label: "Cierre de Caja" },
-  { id: "empresa", label: "B2B/Tickets/Dsctos" },
+  { id: "ingresos", label: "Historial de ingresos" },
+  { id: "clientes", label: "Clientes" },
   { id: "empresas_facturacion", label: "Empresas" },
-  { id: "perfiles", label: "Perfiles" },
-  { id: "stats", label: "Estadísticas" },
+  { id: "suscripciones", label: "Suscripciones" },
+  { id: "empresa", label: "B2B/Tickets/Dsctos" },
   { id: "agenda", label: "Agenda" },
+  { id: "stats", label: "Estadísticas" },
   { id: "config", label: "Configuración" },
+  { id: "perfiles", label: "Perfiles" },
 ];
 
 export default function AdminView() {
@@ -50,6 +52,7 @@ export default function AdminView() {
           ))}
         </div>
         {ui.adminTab === "clientes" && <ClientesTab />}
+        {ui.adminTab === "suscripciones" && <SuscripcionesTab />}
         {ui.adminTab === "ingresos" && <IngresosTab />}
         {ui.adminTab === "cierre" && <CierreTab />}
         {ui.adminTab === "empresa" && <VentaEmpresaTab />}

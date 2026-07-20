@@ -1,13 +1,12 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Buscador } from "@/components/Buscador";
 import PriceInput from "@/components/PriceInput";
 import { useApp } from "@/context/AppContext";
 import { subirComprobanteGasto } from "@/lib/db";
-import { RUT_FORMATO_MSG, fmtCLP, formatRut, isValidRut, todayYMD } from "@/lib/helpers";
+import { CANAL_INGRESO_OTROS, CANAL_INGRESO_TUNEL, RUT_FORMATO_MSG, fmtCLP, formatRut, isValidRut, todayYMD } from "@/lib/helpers";
 import type { MovimientoContable, PagoInfo } from "@/types";
-
-const CATEGORIAS_INGRESO = ["Servicios de Lavado / Túnel", "Otros"] as const;
 
 const CONTRAPARTE_LABEL: Record<MovimientoContable["tipo"], string> = {
   ingreso: "Cliente / Origen",
@@ -27,65 +26,6 @@ const ESTADO_EGRESO_CLASE: Record<string, "ok" | "warn" | "bad"> = {
   pendiente_pago: "bad",
 };
 
-function BuscadorGlosa({
-  value,
-  onChange,
-  opciones,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  opciones: { categoria: string; grupo: string }[];
-}) {
-  const [abierto, setAbierto] = useState(false);
-  const q = value.trim().toLowerCase();
-  const filtradas = q ? opciones.filter((o) => o.categoria.toLowerCase().includes(q)) : opciones;
-
-  return (
-    <div style={{ position: "relative" }}>
-      <input
-        value={value}
-        onChange={(e) => {
-          onChange(e.target.value);
-          setAbierto(true);
-        }}
-        onFocus={() => setAbierto(true)}
-        onBlur={() => setTimeout(() => setAbierto(false), 150)}
-        placeholder="Escribe para buscar un tipo de gasto..."
-      />
-      {abierto && filtradas.length > 0 && (
-        <div
-          style={{
-            position: "absolute",
-            zIndex: 20,
-            top: "calc(100% + 4px)",
-            left: 0,
-            right: 0,
-            maxHeight: 220,
-            overflowY: "auto",
-            background: "var(--bg-card)",
-            border: "1px solid var(--border)",
-            borderRadius: 10,
-          }}
-        >
-          {filtradas.map((o) => (
-            <div
-              key={o.categoria}
-              onMouseDown={() => {
-                onChange(o.categoria);
-                setAbierto(false);
-              }}
-              style={{ padding: "8px 12px", cursor: "pointer" }}
-            >
-              <div>{o.categoria}</div>
-              <div style={{ fontSize: 11, color: "var(--gray)" }}>{o.grupo}</div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function MovimientoContableTab({
   tipo,
   titulo,
@@ -95,6 +35,7 @@ export default function MovimientoContableTab({
 }) {
   const { data, commit, patchUi } = useApp();
   const glosasGasto = data.categoriasGasto.filter((c) => c.activa).map((c) => ({ categoria: c.nombre, grupo: c.grupo }));
+  const canalesIngreso = data.categoriasIngreso.filter((c) => c.activa);
   const fechaRef = useRef<HTMLInputElement>(null);
   const descripcionRef = useRef<HTMLInputElement>(null);
   const [categoriaGasto, setCategoriaGasto] = useState("");
@@ -127,7 +68,7 @@ export default function MovimientoContableTab({
     })
     .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
-  const estadoBloqueadoPagado = tipo === "ingreso" && categoriaIngreso === CATEGORIAS_INGRESO[0];
+  const estadoBloqueadoPagado = tipo === "ingreso" && categoriaIngreso === CANAL_INGRESO_TUNEL;
 
   const total = items.reduce((s, m) => s + m.monto, 0);
   const totalPagado = items.filter((m) => m.estado === (tipo === "egreso" ? "pagado_cc" : "pagado")).reduce((s, m) => s + m.monto, 0);
@@ -164,10 +105,10 @@ export default function MovimientoContableTab({
     const categoria =
       tipo === "egreso"
         ? categoriaGasto.trim()
-        : categoriaIngreso === "Otros"
+        : categoriaIngreso === CANAL_INGRESO_OTROS
           ? comentarioOtros.trim()
-            ? `Otros: ${comentarioOtros.trim()}`
-            : "Otros"
+            ? `${CANAL_INGRESO_OTROS}: ${comentarioOtros.trim()}`
+            : CANAL_INGRESO_OTROS
           : categoriaIngreso;
     const contraparte = contraparteRef.current?.value.trim() || "";
     const descripcion =
@@ -308,7 +249,12 @@ export default function MovimientoContableTab({
         <div className="field">
           <label>{tipo === "egreso" ? "Tipo de gasto" : "Categoría"}</label>
           {tipo === "egreso" ? (
-            <BuscadorGlosa value={categoriaGasto} onChange={setCategoriaGasto} opciones={glosasGasto} />
+            <Buscador
+              value={categoriaGasto}
+              onChange={setCategoriaGasto}
+              opciones={glosasGasto}
+              placeholder="Escribe para buscar un tipo de gasto..."
+            />
           ) : (
             <>
               <select
@@ -316,17 +262,17 @@ export default function MovimientoContableTab({
                 onChange={(e) => {
                   const v = e.target.value;
                   setCategoriaIngreso(v);
-                  if (v === CATEGORIAS_INGRESO[0]) setEstado("pagado");
+                  if (v === CANAL_INGRESO_TUNEL) setEstado("pagado");
                 }}
               >
                 <option value="">Selecciona una categoría...</option>
-                {CATEGORIAS_INGRESO.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
+                {canalesIngreso.map((c) => (
+                  <option key={c.id} value={c.nombre}>
+                    {c.nombre}
                   </option>
                 ))}
               </select>
-              {categoriaIngreso === "Otros" && (
+              {categoriaIngreso === CANAL_INGRESO_OTROS && (
                 <textarea
                   value={comentarioOtros}
                   onChange={(e) => setComentarioOtros(e.target.value)}

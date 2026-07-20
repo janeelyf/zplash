@@ -8,13 +8,16 @@ import {
   CATEGORIA_DETAILING,
   PLANES,
   RUT_FORMATO_MSG,
+  TELEFONO_FORMATO_MSG,
   esNombreVacio,
   estadoReingresoPlan,
   fmtCLP,
   fmtTelefono,
   formatRut,
   formatTelefono,
+  isValidEmail,
   isValidRut,
+  isValidTelefono,
   mensajeBloqueoReingreso,
   montoDescuento,
   normPlate,
@@ -46,9 +49,12 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
   const { data, ui, commit, patchUi } = useApp();
   const nombreRef = useRef<HTMLInputElement>(null);
   const vehiculoRef = useRef<HTMLInputElement>(null);
+  const telefonoRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
   const [guardarErr, setGuardarErr] = useState("");
 
   const c = cliente;
+  const registroIncompleto = esNombreVacio(c.nombre) || !c.telefono || !c.email;
   const st = planStatus(c);
   const pNormal = precioNormal(data.precios, c.plan || "");
   const pPromo = precioPreferencial(data.precios, c.plan || "");
@@ -204,6 +210,47 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
     updateResult(updated);
   };
 
+  const onTelefonoBlur = () => {
+    const raw = telefonoRef.current?.value.trim() || "";
+    if (!raw || !telefonoRef.current) return;
+    telefonoRef.current.value = fmtTelefono(raw);
+  };
+
+  const guardarTelefono = async () => {
+    const raw = telefonoRef.current?.value.trim();
+    if (!raw) return;
+    const telefono = formatTelefono(raw);
+    if (!isValidTelefono(telefono)) {
+      setGuardarErr(TELEFONO_FORMATO_MSG);
+      return;
+    }
+    const updated = { ...c, telefono };
+    const ok = await commit({ clientes: data.clientes.map((x) => (x.id === c.id ? updated : x)) });
+    if (!ok) {
+      setGuardarErr(ERROR_GUARDADO);
+      return;
+    }
+    setGuardarErr("");
+    updateResult(updated);
+  };
+
+  const guardarEmail = async () => {
+    const val = emailRef.current?.value.trim();
+    if (!val) return;
+    if (!isValidEmail(val)) {
+      setGuardarErr("Ingresa un email válido");
+      return;
+    }
+    const updated = { ...c, email: val };
+    const ok = await commit({ clientes: data.clientes.map((x) => (x.id === c.id ? updated : x)) });
+    if (!ok) {
+      setGuardarErr(ERROR_GUARDADO);
+      return;
+    }
+    setGuardarErr("");
+    updateResult(updated);
+  };
+
   const renovar = () => {
     pedirPago(pPromo, `Renovación temprana del plan de ${c.nombre} a precio preferencial`, async (pago) => {
       const patch = renovarPlan(data, c, ui.perfilActual?.nombre, pago);
@@ -312,6 +359,11 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
 
   return (
     <>
+      {registroIncompleto && (
+        <div className="err" style={{ marginBottom: 10 }}>
+          Registro de Cliente Incompleto, Agregue información faltante para poder dar Ingreso
+        </div>
+      )}
       {citaDetailingPendiente && (
         <div className="offer-card">
           <div className="offer-head">
@@ -322,7 +374,12 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
             {c.nombre} tiene un Lavado Completo Detailing vendido en Servicios Adicionales. Regístralo para dejarlo
             entrar al túnel — esto no genera una venta nueva, la venta ya está hecha.
           </div>
-          <button className="btn secondary" onClick={registrarDetailing}>
+          <button
+            className="btn secondary"
+            onClick={registrarDetailing}
+            disabled={registroIncompleto}
+            title={registroIncompleto ? "Completa el registro del cliente para poder dar ingreso" : undefined}
+          >
             Registrar ingreso — Servicio de Detailing
           </button>
         </div>
@@ -456,7 +513,56 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
           </div>
           <div>
             <div className="k">Teléfono</div>
-            <div className="v">{c.telefono ? fmtTelefono(c.telefono) : "-"}</div>
+            {c.telefono ? (
+              <div className="v">{fmtTelefono(c.telefono)}</div>
+            ) : (
+              <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
+                <input
+                  ref={telefonoRef}
+                  defaultValue="+569"
+                  placeholder="+569 -1111 1111"
+                  onBlur={onTelefonoBlur}
+                  style={{
+                    flex: 1,
+                    background: "var(--bg)",
+                    border: "1px solid var(--border)",
+                    color: "var(--white)",
+                    padding: "6px 8px",
+                    borderRadius: 6,
+                    fontSize: 13,
+                  }}
+                />
+                <button className="icon-btn" style={{ whiteSpace: "nowrap" }} onClick={guardarTelefono}>
+                  Guardar
+                </button>
+              </div>
+            )}
+          </div>
+          <div>
+            <div className="k">Correo electrónico</div>
+            {c.email ? (
+              <div className="v">{c.email}</div>
+            ) : (
+              <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
+                <input
+                  ref={emailRef}
+                  type="email"
+                  placeholder="correo@ejemplo.com"
+                  style={{
+                    flex: 1,
+                    background: "var(--bg)",
+                    border: "1px solid var(--border)",
+                    color: "var(--white)",
+                    padding: "6px 8px",
+                    borderRadius: 6,
+                    fontSize: 13,
+                  }}
+                />
+                <button className="icon-btn" style={{ whiteSpace: "nowrap" }} onClick={guardarEmail}>
+                  Guardar
+                </button>
+              </div>
+            )}
           </div>
         </div>
         {planVigente && estadoIngreso === "bloqueado" ? (
@@ -464,12 +570,24 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
             <div className="hint" style={{ textAlign: "left", color: "var(--gray)", marginTop: 16 }}>
               {mensajeBloqueoReingreso(data.ingresos, c.id)}
             </div>
-            <button className="btn secondary" style={{ marginTop: 8 }} onClick={cobrarLavadoUnico}>
+            <button
+              className="btn secondary"
+              style={{ marginTop: 8 }}
+              onClick={cobrarLavadoUnico}
+              disabled={registroIncompleto}
+              title={registroIncompleto ? "Completa el registro del cliente para poder dar ingreso" : undefined}
+            >
               Comprar lavado por {fmtCLP(precioLavadoUnico(data.precios))} e ingresar de todas formas
             </button>
           </>
         ) : planVigente ? (
-          <button className="btn" style={{ marginTop: 16 }} onClick={registrar}>
+          <button
+            className="btn"
+            style={{ marginTop: 16 }}
+            onClick={registrar}
+            disabled={registroIncompleto}
+            title={registroIncompleto ? "Completa el registro del cliente para poder dar ingreso" : undefined}
+          >
             Registrar ingreso
           </button>
         ) : (
@@ -481,7 +599,13 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
               <button className="btn" style={{ marginTop: 0 }} onClick={contratarPlan}>
                 Renovar / Contratar plan
               </button>
-              <button className="btn secondary" style={{ marginTop: 0 }} onClick={registrarPagado}>
+              <button
+                className="btn secondary"
+                style={{ marginTop: 0 }}
+                onClick={registrarPagado}
+                disabled={registroIncompleto}
+                title={registroIncompleto ? "Completa el registro del cliente para poder dar ingreso" : undefined}
+              >
                 Lavado Full Túnel ({fmtCLP(precioLavadoUnico(data.precios))})
               </button>
             </div>
@@ -534,23 +658,45 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
   };
 
   const quickAdd = () => {
-    const nombre = (qNombreRef.current?.value.trim() || "Cliente sin nombre").toUpperCase();
+    const nombre = (qNombreRef.current?.value.trim() || "").toUpperCase();
     const telefonoRaw = qTelefonoRef.current?.value.trim() || "";
     const telefono = telefonoRaw ? formatTelefono(telefonoRaw) : "";
     const email = qEmailRef.current?.value.trim() || "";
     const vehiculo = qVehiculoRef.current?.value.trim() || "";
+    if (!nombre || !telefonoRaw || !email) {
+      setErr("Completa Nombre, Teléfono y Correo electrónico para registrar al cliente");
+      return;
+    }
+    if (!isValidTelefono(telefono)) {
+      setErr(TELEFONO_FORMATO_MSG);
+      return;
+    }
+    if (!isValidEmail(email)) {
+      setErr("Ingresa un email válido");
+      return;
+    }
     const tipoCliente = tipoLavado;
     const plan = PLANES[0];
     const tipoDocumento = tipoDoc;
     const razonSocial = tipoDocumento === "Factura" ? qRazonSocialRef.current?.value.trim() || "" : "";
     const rutRaw = tipoDocumento === "Factura" ? qRutRef.current?.value.trim() || "" : "";
-    if (tipoDocumento === "Factura" && !isValidRut(rutRaw)) {
-      setErr(RUT_FORMATO_MSG);
-      return;
-    }
-    const rut = tipoDocumento === "Factura" ? formatRut(rutRaw) : "";
     const direccion = tipoDocumento === "Factura" ? qDireccionRef.current?.value.trim() || "" : "";
     const giro = tipoDocumento === "Factura" ? qGiroRef.current?.value.trim() || "" : "";
+    if (tipoDocumento === "Factura") {
+      if (!email || !isValidEmail(email)) {
+        setErr("Ingresa un email válido para la factura");
+        return;
+      }
+      if (!razonSocial || !direccion || !giro) {
+        setErr("Completa Razón Social, Dirección y Giro para la factura");
+        return;
+      }
+      if (!isValidRut(rutRaw)) {
+        setErr(RUT_FORMATO_MSG);
+        return;
+      }
+    }
+    const rut = tipoDocumento === "Factura" ? formatRut(rutRaw) : "";
     let vencimiento: string | null = null;
     if (tipoCliente === "plan") {
       const venc = new Date();
@@ -673,20 +819,36 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
     }
     pedirPago(precio, `Lavado único sin registro (${patente})`, async (pago) => {
       const ahora = new Date().toISOString();
+      // No queda "sin registro" de verdad: se crea una ficha de Cliente
+      // identificada como "Invitado" para esa patente, así el próximo
+      // ingreso la encuentra por findClient() y queda historial de
+      // visitas/frecuencia de ese vehículo aunque nunca haya dado sus datos.
+      const invitado: Cliente = {
+        id: uid(),
+        nombre: "Invitado",
+        patente,
+        plan: "",
+        vencimiento: null,
+        origen: "LOCAL",
+        visitas: 1,
+        ultimaVisita: ahora,
+        creadoEn: ahora,
+        creadoPor: ui.perfilActual?.nombre || "",
+      };
       const ingreso: Ingreso = {
         id: "i" + Date.now(),
-        clienteId: "",
+        clienteId: invitado.id,
         patente,
-        nombre: "Sin registro",
+        nombre: invitado.nombre,
         fecha: ahora,
         planEstadoAlIngreso: "bad",
         creadoPor: ui.perfilActual?.nombre || "",
       };
       const venta: Venta = {
         id: "v" + Date.now(),
-        clienteId: "",
+        clienteId: invitado.id,
         patente,
-        nombre: "Sin registro",
+        nombre: invitado.nombre,
         plan: "",
         precio,
         tipo: "Lavado único",
@@ -698,6 +860,7 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
         cuponCodigo: cuponAplicado?.codigo,
       };
       const ok = await commit({
+        clientes: [...data.clientes, invitado],
         ingresos: [ingreso, ...data.ingresos],
         ventas: [venta, ...data.ventas],
         ...(cuponAplicado
@@ -758,19 +921,19 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
         Ingresar sin registro — Lavado único ({fmtCLP(precioLavadoUnico(data.precios))})
       </button>
       <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginTop: 14 }}>
-        O registra un cliente rápido para dejarlo ingresado ahora mismo.
+        O registra un cliente rápido para dejarlo ingresado ahora mismo. Los campos con * son obligatorios.
       </div>
       <div className="quick-form">
         <div>
-          <label>Nombre</label>
+          <label>Nombre *</label>
           <input ref={qNombreRef} placeholder="Nombre del cliente" />
         </div>
         <div>
-          <label>Teléfono</label>
+          <label>Teléfono *</label>
           <input ref={qTelefonoRef} defaultValue="+569" placeholder="+569 -1111 1111" onBlur={onTelefonoBlur} />
         </div>
         <div>
-          <label>Correo electrónico</label>
+          <label>Correo electrónico *</label>
           <input ref={qEmailRef} type="email" placeholder="correo@ejemplo.com" />
         </div>
         <div>

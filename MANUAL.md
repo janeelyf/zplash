@@ -126,7 +126,7 @@ Módulo aparte (acceso vía módulo **Contabilidad**), con su propio menú later
 - **Cuentas por Cobrar**: ventas con pago pendiente (p. ej. transferencias no confirmadas) que aún no se han cobrado.
 - **Cuentas por Pagar**: gastos u obligaciones pendientes de pago.
 - **EERR (Estado de Resultados)**: reporte mensual con los ingresos de explotación y los gastos agrupados en 5 categorías fijas (Otros Costos Directos, Remuneraciones, Administración, etc.), separando lo operacional de lo no operacional, para ver el resultado del mes.
-- **Configuración**: categorías de gasto y su agrupación dentro del EERR.
+- **Configuración**: categorías de gasto y su agrupación dentro del EERR, y categorías de ingreso (canal) usadas al registrar un ingreso.
 
 ## 8. Portal del Cliente (`/cliente`)
 

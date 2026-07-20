@@ -18,7 +18,9 @@ import { getDb } from "@/db";
 import {
   auditoria,
   bloqueosAgenda,
+  cartolaMovimientos,
   categoriasGasto,
+  categoriasIngreso,
   citaServicios,
   citas,
   clientes,
@@ -33,17 +35,28 @@ import {
   pagosWebpayItems,
   perfiles,
   precios,
+  reglasConciliacion,
   servicios,
   suscripcionesOneclick,
   ventas,
 } from "@/db/schema";
 import { supabase } from "@/lib/supabase";
-import { CATEGORIAS_GASTO_DEFAULT, CONFIG_DEFAULT, PERFILES_DEFAULT, PRECIOS_DEFAULT, SERVICIOS_DEFAULT } from "@/lib/helpers";
+import { oneclickInscription } from "@/lib/transbank";
+import {
+  CATEGORIAS_GASTO_DEFAULT,
+  CATEGORIAS_INGRESO_DEFAULT,
+  CONFIG_DEFAULT,
+  PERFILES_DEFAULT,
+  PRECIOS_DEFAULT,
+  SERVICIOS_DEFAULT,
+} from "@/lib/helpers";
 import type {
   AppData,
   AuditoriaEntrada,
   BloqueoAgenda,
+  CartolaMovimiento,
   CategoriaGasto,
+  CategoriaIngreso,
   Cita,
   Cliente,
   ConfigGlobal,
@@ -54,6 +67,7 @@ import type {
   MovimientoContable,
   PerfilPublico,
   Precios,
+  ReglaConciliacion,
   Servicio,
   Venta,
 } from "@/types";
@@ -63,6 +77,7 @@ type IngresoRow = typeof ingresos.$inferSelect;
 type VentaRow = typeof ventas.$inferSelect;
 type PerfilPublicoRow = Pick<typeof perfiles.$inferSelect, "id" | "nombre" | "modulos" | "icono">;
 type CategoriaGastoRow = typeof categoriasGasto.$inferSelect;
+type CategoriaIngresoRow = typeof categoriasIngreso.$inferSelect;
 type CuponRow = typeof cupones.$inferSelect;
 type MovimientoRow = typeof movimientosContables.$inferSelect;
 type PrecioRow = typeof precios.$inferSelect;
@@ -72,6 +87,8 @@ type HorarioAgendaRow = typeof horariosAgenda.$inferSelect;
 type BloqueoAgendaRow = typeof bloqueosAgenda.$inferSelect;
 type CitaRow = typeof citas.$inferSelect;
 type ConfigRow = typeof config.$inferSelect;
+type CartolaMovimientoRow = typeof cartolaMovimientos.$inferSelect;
+type ReglaConciliacionRow = typeof reglasConciliacion.$inferSelect;
 
 function clienteToRow(c: Cliente): typeof clientes.$inferInsert {
   return {
@@ -251,6 +268,14 @@ function categoriaGastoFromRow(r: CategoriaGastoRow): CategoriaGasto {
   return { id: r.id, nombre: r.nombre, grupo: r.grupo, activa: r.activa };
 }
 
+function categoriaIngresoToRow(c: CategoriaIngreso): typeof categoriasIngreso.$inferInsert {
+  return { id: c.id, nombre: c.nombre, activa: c.activa };
+}
+
+function categoriaIngresoFromRow(r: CategoriaIngresoRow): CategoriaIngreso {
+  return { id: r.id, nombre: r.nombre, activa: r.activa };
+}
+
 function cuponToRow(c: Cupon): typeof cupones.$inferInsert {
   return {
     id: c.id,
@@ -341,6 +366,54 @@ function movimientoFromRow(r: MovimientoRow): MovimientoContable {
     creadoEn: r.creadoEn,
     creadoPor: r.creadoPor || undefined,
   };
+}
+
+function cartolaMovimientoToRow(m: CartolaMovimiento): typeof cartolaMovimientos.$inferInsert {
+  return {
+    id: m.id,
+    cuenta: m.cuenta || "santander_empresa",
+    fecha: m.fecha,
+    glosa: m.glosa,
+    cargo: m.cargo || 0,
+    abono: m.abono || 0,
+    saldo: m.saldo ?? null,
+    numeroDocumento: m.numeroDocumento || null,
+    sucursal: m.sucursal || null,
+    categoria: m.categoria || null,
+    estado: m.estado,
+    movimientoContableId: m.movimientoContableId || null,
+    notas: m.notas || null,
+    creadoEn: m.creadoEn,
+    creadoPor: m.creadoPor || null,
+  };
+}
+
+function cartolaMovimientoFromRow(r: CartolaMovimientoRow): CartolaMovimiento {
+  return {
+    id: r.id,
+    cuenta: r.cuenta,
+    fecha: r.fecha,
+    glosa: r.glosa,
+    cargo: r.cargo || 0,
+    abono: r.abono || 0,
+    saldo: r.saldo ?? undefined,
+    numeroDocumento: r.numeroDocumento || undefined,
+    sucursal: r.sucursal || undefined,
+    categoria: r.categoria || undefined,
+    estado: (r.estado as CartolaMovimiento["estado"]) || "pendiente",
+    movimientoContableId: r.movimientoContableId || undefined,
+    notas: r.notas || undefined,
+    creadoEn: r.creadoEn,
+    creadoPor: r.creadoPor || undefined,
+  };
+}
+
+function reglaConciliacionToRow(r: ReglaConciliacion): typeof reglasConciliacion.$inferInsert {
+  return { id: r.id, categoria: r.categoria, creadoEn: r.creadoEn };
+}
+
+function reglaConciliacionFromRow(r: ReglaConciliacionRow): ReglaConciliacion {
+  return { id: r.id, categoria: r.categoria, creadoEn: r.creadoEn };
 }
 
 function empresaToRow(e: Empresa): typeof empresas.$inferInsert {
@@ -536,6 +609,7 @@ export async function loadAll(): Promise<AppData> {
     cuponesRows,
     movimientosRows,
     categoriasGastoRows,
+    categoriasIngresoRows,
     empresasRows,
     serviciosRows,
     horariosAgendaRows,
@@ -543,6 +617,8 @@ export async function loadAll(): Promise<AppData> {
     citasRows,
     citaServiciosRows,
     configRows,
+    cartolaMovimientosRows,
+    reglasConciliacionRows,
   ] = await Promise.all([
     safe(db.select().from(clientes)),
     safe(db.select().from(ingresos).orderBy(desc(ingresos.fecha))),
@@ -552,6 +628,7 @@ export async function loadAll(): Promise<AppData> {
     safe(db.select().from(cupones).orderBy(desc(cupones.creadoEn))),
     safe(db.select().from(movimientosContables).orderBy(desc(movimientosContables.fecha))),
     safe(db.select().from(categoriasGasto).orderBy(asc(categoriasGasto.nombre))),
+    safe(db.select().from(categoriasIngreso).orderBy(asc(categoriasIngreso.nombre))),
     safe(db.select().from(empresas).orderBy(asc(empresas.razonSocial))),
     safe(db.select().from(servicios).orderBy(asc(servicios.nombre))),
     safe(db.select().from(horariosAgenda).orderBy(asc(horariosAgenda.diaSemana))),
@@ -559,6 +636,8 @@ export async function loadAll(): Promise<AppData> {
     safe(db.select().from(citas).orderBy(asc(citas.fechaHora))),
     safe(db.select().from(citaServicios)),
     safe(db.select().from(config).limit(1)),
+    safe(db.select().from(cartolaMovimientos).orderBy(desc(cartolaMovimientos.fecha))),
+    safe(db.select().from(reglasConciliacion).orderBy(asc(reglasConciliacion.id))),
   ]);
 
   const perfilesData = perfilesRows.length ? perfilesRows.map(perfilPublicoFromRow) : PERFILES_DEFAULT;
@@ -566,6 +645,9 @@ export async function loadAll(): Promise<AppData> {
   const categoriasGastoData = categoriasGastoRows.length
     ? categoriasGastoRows.map(categoriaGastoFromRow)
     : CATEGORIAS_GASTO_DEFAULT;
+  const categoriasIngresoData = categoriasIngresoRows.length
+    ? categoriasIngresoRows.map(categoriaIngresoFromRow)
+    : CATEGORIAS_INGRESO_DEFAULT;
   const serviciosData = serviciosRows.length ? serviciosRows.map(servicioFromRow) : SERVICIOS_DEFAULT;
   const configData = configRows.length ? configFromRow(configRows[0]) : CONFIG_DEFAULT;
 
@@ -606,6 +688,7 @@ export async function loadAll(): Promise<AppData> {
     perfiles: perfilesData,
     precios: preciosData,
     categoriasGasto: categoriasGastoData,
+    categoriasIngreso: categoriasIngresoData,
     cupones: cuponesRows.map(cuponFromRow),
     movimientosContables: movimientosRows.map(movimientoFromRow),
     empresas: empresasRows.map(empresaFromRow),
@@ -614,6 +697,8 @@ export async function loadAll(): Promise<AppData> {
     bloqueosAgenda: bloqueosAgendaRows.map(bloqueoAgendaFromRow),
     citas: citasRows.map((r) => citaFromRow(r, servicioIdsPorCita.get(r.id) ?? [])),
     config: configData,
+    cartolaMovimientos: cartolaMovimientosRows.map(cartolaMovimientoFromRow),
+    reglasConciliacion: reglasConciliacionRows.map(reglaConciliacionFromRow),
   };
 }
 
@@ -823,6 +908,39 @@ export async function deleteMovimientosContables(ids: string[]): Promise<boolean
   }
 }
 
+export async function upsertCartolaMovimientos(rows: CartolaMovimiento[]): Promise<boolean> {
+  if (!rows.length) return true;
+  try {
+    await upsertRows(cartolaMovimientos, cartolaMovimientos.id, rows.map(cartolaMovimientoToRow));
+    return true;
+  } catch (error) {
+    console.error("Error guardando movimientos de cartola", error);
+    return false;
+  }
+}
+
+export async function deleteCartolaMovimientos(ids: string[]): Promise<boolean> {
+  if (!ids.length) return true;
+  try {
+    await getDb().delete(cartolaMovimientos).where(inArray(cartolaMovimientos.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error eliminando movimientos de cartola", error);
+    return false;
+  }
+}
+
+export async function upsertReglasConciliacion(rows: ReglaConciliacion[]): Promise<boolean> {
+  if (!rows.length) return true;
+  try {
+    await upsertRows(reglasConciliacion, reglasConciliacion.id, rows.map(reglaConciliacionToRow));
+    return true;
+  } catch (error) {
+    console.error("Error guardando reglas de conciliación", error);
+    return false;
+  }
+}
+
 export async function upsertCategoriasGasto(rows: CategoriaGasto[]): Promise<boolean> {
   if (!rows.length) return true;
   try {
@@ -830,6 +948,17 @@ export async function upsertCategoriasGasto(rows: CategoriaGasto[]): Promise<boo
     return true;
   } catch (error) {
     console.error("Error guardando categorías de gasto", error);
+    return false;
+  }
+}
+
+export async function upsertCategoriasIngreso(rows: CategoriaIngreso[]): Promise<boolean> {
+  if (!rows.length) return true;
+  try {
+    await upsertRows(categoriasIngreso, categoriasIngreso.id, rows.map(categoriaIngresoToRow));
+    return true;
+  } catch (error) {
+    console.error("Error guardando categorías de ingreso", error);
     return false;
   }
 }
@@ -1023,6 +1152,8 @@ export async function subirBannerServicio(servicioId: string, file: File): Promi
 
 export interface SuscripcionOneclickInfo {
   id: string;
+  patente: string;
+  clienteNombre: string;
   estado: string;
   proximoCobro: string | null;
   cardTipo: string | null;
@@ -1048,8 +1179,12 @@ export async function obtenerSuscripcionOneclick(patente: string): Promise<Suscr
     .orderBy(desc(cobrosOneclick.creadoEn))
     .limit(1);
 
+  const [cliente] = await db.select({ nombre: clientes.nombre }).from(clientes).where(eq(clientes.patente, patente)).limit(1);
+
   return {
     id: suscripcion.id,
+    patente: suscripcion.patente,
+    clienteNombre: cliente?.nombre || suscripcion.patente,
     estado: suscripcion.estado,
     proximoCobro: suscripcion.proximoCobro,
     cardTipo: suscripcion.cardTipo,
@@ -1062,4 +1197,94 @@ export async function obtenerSuscripcionOneclick(patente: string): Promise<Suscr
 export async function obtenerSuscripcionOneclickPorId(id: string) {
   const [suscripcion] = await getDb().select().from(suscripcionesOneclick).where(eq(suscripcionesOneclick.id, id)).limit(1);
   return suscripcion || null;
+}
+
+const ESTADO_ORDEN: Record<string, number> = { activa: 0, suspendida: 1, pendiente: 2, cancelada: 3 };
+
+/** Todas las suscripciones Oneclick para la pestaña Admin → Suscripciones,
+ * con el nombre del cliente (join por patente, ya que suscripcionesOneclick
+ * no guarda clienteId — se inscribe antes de que necesariamente exista una
+ * fila en clientes) y el último intento de cobro de cada una. */
+export async function listarSuscripcionesOneclick(): Promise<SuscripcionOneclickInfo[]> {
+  const db = getDb();
+  const filas = await db
+    .select({ suscripcion: suscripcionesOneclick, clienteNombre: clientes.nombre })
+    .from(suscripcionesOneclick)
+    .leftJoin(clientes, eq(clientes.patente, suscripcionesOneclick.patente))
+    .orderBy(desc(suscripcionesOneclick.creadoEn));
+
+  const ultimosCobros = await db
+    .select({ suscripcionId: cobrosOneclick.suscripcionId, estado: cobrosOneclick.estado, fecha: cobrosOneclick.creadoEn })
+    .from(cobrosOneclick)
+    .orderBy(desc(cobrosOneclick.creadoEn));
+  const ultimoPorSuscripcion = new Map<string, { estado: string; fecha: string }>();
+  for (const c of ultimosCobros) {
+    if (!ultimoPorSuscripcion.has(c.suscripcionId)) ultimoPorSuscripcion.set(c.suscripcionId, { estado: c.estado, fecha: c.fecha });
+  }
+
+  return filas
+    .map(({ suscripcion, clienteNombre }) => ({
+      id: suscripcion.id,
+      patente: suscripcion.patente,
+      clienteNombre: clienteNombre || suscripcion.patente,
+      estado: suscripcion.estado,
+      proximoCobro: suscripcion.proximoCobro,
+      cardTipo: suscripcion.cardTipo,
+      cardUltimosDigitos: suscripcion.cardUltimosDigitos,
+      ultimoCobro: ultimoPorSuscripcion.get(suscripcion.id) || null,
+    }))
+    .sort((a, b) => (ESTADO_ORDEN[a.estado] ?? 9) - (ESTADO_ORDEN[b.estado] ?? 9));
+}
+
+/** Cancela una suscripción: da de baja la tarjeta en Transbank (si alcanzó a
+ * quedar "activa" alguna vez) y marca el estado localmente. Es terminal — a
+ * diferencia de suspenderSuscripcionOneclick, no se puede reactivar después
+ * porque el token de tarjeta ya no existe en Transbank. */
+export async function cancelarSuscripcionOneclick(id: string): Promise<boolean> {
+  const db = getDb();
+  const suscripcion = await obtenerSuscripcionOneclickPorId(id);
+  if (!suscripcion) return false;
+
+  if (suscripcion.tbkUser) {
+    try {
+      await oneclickInscription().delete(suscripcion.tbkUser, suscripcion.username);
+    } catch (error) {
+      // Best-effort: si Transbank falla (ej. ya estaba dada de baja), igual
+      // se cancela localmente — lo que importa es que el cron deje de
+      // cobrarla. Mismo criterio que cobrarSuscripcion() en pagos.ts: nunca
+      // perder el estado local por un error downstream.
+      console.error("Error dando de baja tarjeta Oneclick en Transbank", id, error);
+    }
+  }
+
+  await db
+    .update(suscripcionesOneclick)
+    .set({ estado: "cancelada", actualizadoEn: new Date().toISOString() })
+    .where(eq(suscripcionesOneclick.id, id));
+  return true;
+}
+
+/** Pausa los cobros futuros sin dar de baja la tarjeta en Transbank, para
+ * poder reactivarla después con reactivarSuscripcionOneclick(). El cron
+ * (/api/pagos/oneclick/cobrar) solo cobra estado "activa", así que
+ * "suspendida" queda excluida automáticamente sin más cambios. */
+export async function suspenderSuscripcionOneclick(id: string): Promise<boolean> {
+  const db = getDb();
+  await db
+    .update(suscripcionesOneclick)
+    .set({ estado: "suspendida", actualizadoEn: new Date().toISOString() })
+    .where(eq(suscripcionesOneclick.id, id));
+  return true;
+}
+
+/** Vuelve a activar una suscripción "suspendida" (no recalcula proximoCobro:
+ * si quedó vencido, el cron del día siguiente cobra normalmente, igual que
+ * cualquier otra suscripción activa atrasada). */
+export async function reactivarSuscripcionOneclick(id: string): Promise<boolean> {
+  const db = getDb();
+  await db
+    .update(suscripcionesOneclick)
+    .set({ estado: "activa", actualizadoEn: new Date().toISOString() })
+    .where(eq(suscripcionesOneclick.id, id));
+  return true;
 }

@@ -10,6 +10,7 @@ import {
   fmtTelefono,
   formatRut,
   formatTelefono,
+  isValidEmail,
   isValidPatente,
   isValidRut,
   isValidTelefono,
@@ -91,13 +92,23 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
     const tipoDocumento = tipoDoc;
     const razonSocial = tipoDocumento === "Factura" ? razonSocialRef.current?.value.trim() || "" : "";
     const rutRaw = tipoDocumento === "Factura" ? rutRef.current?.value.trim() || "" : "";
-    if (tipoDocumento === "Factura" && !isValidRut(rutRaw)) {
-      setErr(RUT_FORMATO_MSG);
-      return;
-    }
-    const rut = tipoDocumento === "Factura" ? formatRut(rutRaw) : "";
     const direccion = tipoDocumento === "Factura" ? direccionRef.current?.value.trim() || "" : "";
     const giro = tipoDocumento === "Factura" ? giroRef.current?.value.trim() || "" : "";
+    if (tipoDocumento === "Factura") {
+      if (!email || !isValidEmail(email)) {
+        setErr("Ingresa un email válido para la factura");
+        return;
+      }
+      if (!razonSocial || !direccion || !giro) {
+        setErr("Completa Razón Social, Dirección y Giro para la factura");
+        return;
+      }
+      if (!isValidRut(rutRaw)) {
+        setErr(RUT_FORMATO_MSG);
+        return;
+      }
+    }
+    const rut = tipoDocumento === "Factura" ? formatRut(rutRaw) : "";
 
     let plan: string;
     let vencimiento: string | null;

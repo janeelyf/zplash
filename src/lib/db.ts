@@ -17,7 +17,9 @@ import type {
   AppData,
   AuditoriaEntrada,
   BloqueoAgenda,
+  CartolaMovimiento,
   CategoriaGasto,
+  CategoriaIngreso,
   Cita,
   Cliente,
   ConfigGlobal,
@@ -28,6 +30,7 @@ import type {
   MovimientoContable,
   PerfilPublico,
   Precios,
+  ReglaConciliacion,
   Servicio,
   Venta,
 } from "@/types";
@@ -148,6 +151,26 @@ export async function upsertCategoriasGasto(rows: CategoriaGasto[]): Promise<boo
   return dataAccess.upsertCategoriasGasto(rows);
 }
 
+export async function upsertCategoriasIngreso(rows: CategoriaIngreso[]): Promise<boolean> {
+  if (!(await tieneSesionValida())) return false;
+  return dataAccess.upsertCategoriasIngreso(rows);
+}
+
+export async function upsertCartolaMovimientos(rows: CartolaMovimiento[]): Promise<boolean> {
+  if (!(await tieneSesionValida())) return false;
+  return dataAccess.upsertCartolaMovimientos(rows);
+}
+
+export async function deleteCartolaMovimientos(ids: string[]): Promise<boolean> {
+  if (!(await tieneSesionValida())) return false;
+  return dataAccess.deleteCartolaMovimientos(ids);
+}
+
+export async function upsertReglasConciliacion(rows: ReglaConciliacion[]): Promise<boolean> {
+  if (!(await tieneSesionValida())) return false;
+  return dataAccess.upsertReglasConciliacion(rows);
+}
+
 export async function upsertEmpresas(rows: Empresa[]): Promise<boolean> {
   if (!(await tieneSesionValida())) return false;
   return dataAccess.upsertEmpresas(rows);
@@ -249,6 +272,28 @@ export async function cobrarSuscripcionManual(suscripcionId: string): Promise<{ 
   const suscripcion = await dataAccess.obtenerSuscripcionOneclickPorId(suscripcionId);
   if (!suscripcion) return null;
   return cobrarSuscripcion(suscripcion);
+}
+
+// Listado completo para la pestaña Admin → Suscripciones (a diferencia de
+// obtenerSuscripcionOneclick, que trae solo la de un cliente puntual).
+export async function listarSuscripcionesOneclick(): Promise<SuscripcionOneclickInfo[]> {
+  if (!(await tieneModulo("clientes"))) return [];
+  return dataAccess.listarSuscripcionesOneclick();
+}
+
+export async function cancelarSuscripcionOneclick(id: string): Promise<boolean> {
+  if (!(await tieneModulo("clientes"))) return false;
+  return dataAccess.cancelarSuscripcionOneclick(id);
+}
+
+export async function suspenderSuscripcionOneclick(id: string): Promise<boolean> {
+  if (!(await tieneModulo("clientes"))) return false;
+  return dataAccess.suspenderSuscripcionOneclick(id);
+}
+
+export async function reactivarSuscripcionOneclick(id: string): Promise<boolean> {
+  if (!(await tieneModulo("clientes"))) return false;
+  return dataAccess.reactivarSuscripcionOneclick(id);
 }
 
 // Gateada con "config", igual que el resto de la pestaña Administrador de

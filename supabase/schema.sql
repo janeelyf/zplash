@@ -231,6 +231,21 @@ insert into categorias_gasto (id, nombre, grupo) values
   ('cg-costo-venta-activos-fijos', 'Costo de Venta por Enajenación de Activos Fijos', 'Otros Egresos Fuera de la Explotación')
 on conflict (id) do nothing;
 
+-- Canal editable para Ingresos (Contabilidad → Ingresos): identifica de
+-- dónde vino la plata. A diferencia de categorias_gasto no tiene "grupo": el
+-- EERR hoy no desglosa los ingresos de explotación por canal, solo los suma.
+create table if not exists categorias_ingreso (
+  id text primary key,
+  nombre text not null unique,
+  activa boolean not null default true,
+  creado_en timestamptz not null default now()
+);
+
+insert into categorias_ingreso (id, nombre) values
+  ('ci-tunel', 'Servicios de Lavado / Túnel'),
+  ('ci-otros', 'Otros')
+on conflict (id) do nothing;
+
 -- Tabla "singleton" (una sola fila) para configuración global.
 -- horario_operador_*: bloqueo horario del módulo Operador — fuera de este
 -- rango, un perfil sin acceso a Configuración no puede registrar el ingreso
@@ -375,6 +390,7 @@ alter table config enable row level security;
 alter table cupones enable row level security;
 alter table movimientos_contables enable row level security;
 alter table categorias_gasto enable row level security;
+alter table categorias_ingreso enable row level security;
 alter table auditoria enable row level security;
 alter table servicios enable row level security;
 alter table horarios_agenda enable row level security;
@@ -396,6 +412,7 @@ drop policy if exists "anon full access" on config;
 drop policy if exists "anon full access" on cupones;
 drop policy if exists "anon full access" on movimientos_contables;
 drop policy if exists "anon full access" on categorias_gasto;
+drop policy if exists "anon full access" on categorias_ingreso;
 
 -- Bucket de Storage para adjuntar el comprobante (boleta/factura escaneada)
 -- de un egreso/gasto.

@@ -82,8 +82,10 @@ export default function VentaEmpresaTab() {
     if (valorTotal > 0 && tipoDoc === "Factura") {
       const razonSocial = razonSocialRef.current?.value.trim();
       const rut = rutRef.current?.value.trim();
-      if (!razonSocial || !rut) {
-        setErr({ msg: "Completa Razón Social y RUT para la factura", ok: false });
+      const direccion = direccionRef.current?.value.trim();
+      const giro = giroRef.current?.value.trim();
+      if (!razonSocial || !rut || !direccion || !giro) {
+        setErr({ msg: "Completa Razón Social, RUT, Dirección y Giro para la factura", ok: false });
         return;
       }
       if (!isValidRut(rut)) {

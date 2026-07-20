@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import UbicacionTab from "@/components/cliente/UbicacionTab";
 import TiposLavadoTab from "@/components/cliente/TiposLavadoTab";
+import DetailingTab from "@/components/cliente/DetailingTab";
 import VentaEmpresaInfoTab from "@/components/cliente/VentaEmpresaInfoTab";
-import PlanMensualTab from "@/components/cliente/PlanMensualTab";
 import FaqTab from "@/components/cliente/FaqTab";
 import MiCuentaTab from "@/components/cliente/MiCuentaTab";
 import CarritoBadge from "@/components/cliente/CarritoBadge";
@@ -14,8 +14,8 @@ import type { PreciosPublicos } from "@/components/cliente/types";
 const TABS = [
   { id: "ubicacion", label: "Ubicación y Horarios" },
   { id: "lavados", label: "Tipos de Lavados" },
+  { id: "detailing", label: "Limpieza y Detailing" },
   { id: "empresa", label: "Venta a Empresa" },
-  { id: "plan", label: "Plan Mensual" },
   { id: "faq", label: "Preguntas Frecuentes" },
   { id: "cuenta", label: "Mi Cuenta" },
 ] as const;
@@ -64,8 +64,8 @@ export default function ClientePage() {
 
         {tab === "ubicacion" && <UbicacionTab />}
         {tab === "lavados" && <TiposLavadoTab precios={precios} />}
+        {tab === "detailing" && <DetailingTab precios={precios} />}
         {tab === "empresa" && <VentaEmpresaInfoTab precios={precios} />}
-        {tab === "plan" && <PlanMensualTab precios={precios} />}
         {tab === "faq" && <FaqTab />}
         {tab === "cuenta" && <MiCuentaTab />}
       </div>

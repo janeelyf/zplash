@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { obtenerSuscripcionOneclick, cobrarSuscripcionManual } from "@/lib/db";
+import {
+  cancelarSuscripcionOneclick,
+  cobrarSuscripcionManual,
+  obtenerSuscripcionOneclick,
+  reactivarSuscripcionOneclick,
+  suspenderSuscripcionOneclick,
+} from "@/lib/db";
 import type { SuscripcionOneclickInfo } from "@/lib/dataAccess";
 import { fmtDate } from "@/lib/helpers";
 import type { Cliente } from "@/types";
@@ -39,6 +45,47 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
     }
   }
 
+  async function reactivar() {
+    if (!suscripcion) return;
+    setCobrando(true);
+    setErrSuscripcion("");
+    try {
+      await reactivarSuscripcionOneclick(suscripcion.id);
+      const actualizada = await obtenerSuscripcionOneclick(c.patente);
+      setSuscripcion(actualizada);
+    } catch {
+      setErrSuscripcion("No se pudo reactivar la suscripción.");
+    } finally {
+      setCobrando(false);
+    }
+  }
+
+  function suspender() {
+    if (!suscripcion) return;
+    patchUi({
+      modal: {
+        type: "confirm",
+        mensaje: `¿Suspender la renovación automática de ${c.nombre}? Se pausan los cobros, pero la tarjeta queda inscrita y se puede reactivar después.`,
+        confirmLabel: "Suspender",
+        danger: false,
+        onConfirm: () => suspenderSuscripcionOneclick(suscripcion.id),
+      },
+    });
+  }
+
+  function cancelar() {
+    if (!suscripcion) return;
+    patchUi({
+      modal: {
+        type: "confirm",
+        mensaje: `¿Cancelar la renovación automática de ${c.nombre}? Se elimina la tarjeta inscrita en Transbank y no se puede reactivar después.`,
+        confirmLabel: "Cancelar suscripción",
+        danger: true,
+        onConfirm: () => cancelarSuscripcionOneclick(suscripcion.id),
+      },
+    });
+  }
+
   return (
     <div className="modal" style={{ maxWidth: 400 }}>
       <h3>Información adicional</h3>
@@ -66,7 +113,13 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
           <div>
             <div className="k">Renovación automática</div>
             <div className="v">
-              {suscripcion.estado === "activa" ? "Activa" : suscripcion.estado === "cancelada" ? "Cancelada" : "Pendiente"}
+              {suscripcion.estado === "activa"
+                ? "Activa"
+                : suscripcion.estado === "suspendida"
+                  ? "Suspendida"
+                  : suscripcion.estado === "cancelada"
+                    ? "Cancelada"
+                    : "Pendiente"}
               {suscripcion.cardUltimosDigitos ? ` (tarjeta ${suscripcion.cardUltimosDigitos})` : ""}
             </div>
           </div>
@@ -84,12 +137,27 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
               </div>
             </div>
           )}
-          {suscripcion.ultimoCobro?.estado === "rechazada" && suscripcion.estado === "activa" && (
-            <div style={{ gridColumn: "1 / -1" }}>
-              <button className="btn secondary" onClick={reintentarCobro} disabled={cobrando}>
-                {cobrando ? "Cobrando..." : "Reintentar cobro ahora"}
+          {(suscripcion.estado === "activa" || suscripcion.estado === "suspendida") && (
+            <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {suscripcion.ultimoCobro?.estado === "rechazada" && suscripcion.estado === "activa" && (
+                <button className="btn secondary" onClick={reintentarCobro} disabled={cobrando}>
+                  {cobrando ? "Cobrando..." : "Reintentar cobro ahora"}
+                </button>
+              )}
+              {suscripcion.estado === "activa" && (
+                <button className="btn secondary" onClick={suspender} disabled={cobrando}>
+                  Suspender
+                </button>
+              )}
+              {suscripcion.estado === "suspendida" && (
+                <button className="btn secondary" onClick={reactivar} disabled={cobrando}>
+                  {cobrando ? "Reactivando..." : "Reactivar"}
+                </button>
+              )}
+              <button className="btn danger" onClick={cancelar} disabled={cobrando}>
+                Cancelar suscripción
               </button>
-              {errSuscripcion && <div className="err">{errSuscripcion}</div>}
+              {errSuscripcion && <div style={{ width: "100%" }} className="err">{errSuscripcion}</div>}
             </div>
           )}
         </div>

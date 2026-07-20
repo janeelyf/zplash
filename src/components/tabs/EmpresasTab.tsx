@@ -1,6 +1,7 @@
 "use client";
 
 import { useApp } from "@/context/AppContext";
+import { empresasFaltantesDesdeClientes } from "@/lib/actions";
 import { fmtTelefono } from "@/lib/helpers";
 import type { Empresa } from "@/types";
 
@@ -34,6 +35,36 @@ export default function EmpresasTab() {
     });
   };
 
+  // Backfill puntual: clientes con Factura que quedaron sin su Empresa (p. ej.
+  // los importados por Excel antes de que importarClientes sincronizara
+  // Empresas, ver actions.ts) — solo agrega, nunca modifica ni borra.
+  const sincronizarDesdeClientes = () => {
+    const faltantes = empresasFaltantesDesdeClientes(data);
+    if (faltantes.length === 0) {
+      patchUi({
+        modal: {
+          type: "confirm",
+          mensaje: "Todos los clientes con Factura ya tienen su Empresa registrada.",
+          confirmLabel: "Entendido",
+          danger: false,
+          onConfirm: () => {},
+        },
+      });
+      return;
+    }
+    patchUi({
+      modal: {
+        type: "confirm",
+        mensaje: `Se encontraron ${faltantes.length} cliente(s) con Factura sin Empresa registrada. ¿Agregarlas a la base de Empresas?`,
+        confirmLabel: "Agregar",
+        danger: false,
+        onConfirm: () => {
+          commit({ empresas: [...data.empresas, ...faltantes] });
+        },
+      },
+    });
+  };
+
   return (
     <div>
       <div className="toolbar">
@@ -42,6 +73,9 @@ export default function EmpresasTab() {
           value={ui.search || ""}
           onChange={(e) => patchUi({ search: e.target.value })}
         />
+        <button className="btn ghost" onClick={sincronizarDesdeClientes}>
+          Sincronizar desde clientes con Factura
+        </button>
         <button className="btn" onClick={() => patchUi({ modal: { type: "empresa", data: null } })}>
           + Nueva empresa
         </button>

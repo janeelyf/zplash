@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { importarClientes, registrarIngreso, registrarIngresoDetailing, renovarPlan } from "./actions";
+import {
+  empresasFaltantesDesdeClientes,
+  importarCartola,
+  importarClientes,
+  registrarIngreso,
+  registrarIngresoDetailing,
+  renovarPlan,
+} from "./actions";
 import { CONFIG_DEFAULT, PRECIOS_DEFAULT } from "./helpers";
+import type { ParsedMovimiento } from "./cartolaParser";
 import type { AppData, Cita, Cliente } from "@/types";
 
 function appDataVacia(): AppData {
@@ -13,12 +21,15 @@ function appDataVacia(): AppData {
     cupones: [],
     movimientosContables: [],
     categoriasGasto: [],
+    categoriasIngreso: [],
     empresas: [],
     servicios: [],
     horariosAgenda: [],
     bloqueosAgenda: [],
     citas: [],
     config: CONFIG_DEFAULT,
+    cartolaMovimientos: [],
+    reglasConciliacion: [],
   };
 }
 
@@ -215,5 +226,129 @@ describe("importarClientes", () => {
 
     expect(resultado.errores).toEqual([2]);
     expect(resultado.patch.clientes).toHaveLength(0);
+  });
+
+  it("da de alta la Empresa cuando una fila trae Factura con un RUT nuevo", () => {
+    const data = appDataVacia();
+    const rows = [
+      {
+        patente: "ab1234",
+        nombre: "maria lopez",
+        "tipo documento": "Factura",
+        "razon social": "Comercial Lopez SpA",
+        rut: "12345678-9",
+        direccion: "Av. Siempre Viva 123",
+        giro: "Comercio",
+      },
+    ];
+
+    const resultado = importarClientes(data, rows);
+
+    expect(resultado.patch.empresas).toHaveLength(1);
+    expect(resultado.patch.empresas![0].razonSocial).toBe("Comercial Lopez SpA");
+    expect(resultado.patch.empresas![0].contactoClienteId).toBe(resultado.patch.clientes![0].id);
+  });
+
+  it("no duplica la Empresa si el RUT ya está registrado", () => {
+    const data = appDataVacia();
+    data.empresas = [
+      {
+        id: "e1",
+        razonSocial: "Ya Existe SpA",
+        rut: "12.345.678-9",
+        creadoEn: new Date().toISOString(),
+      },
+    ];
+    const rows = [
+      { patente: "ab1234", nombre: "maria lopez", "tipo documento": "Factura", "razon social": "Otro nombre", rut: "12345678-9" },
+    ];
+
+    const resultado = importarClientes(data, rows);
+
+    expect(resultado.patch.empresas).toBeUndefined();
+  });
+});
+
+describe("empresasFaltantesDesdeClientes", () => {
+  it("encuentra clientes con Factura que no tienen Empresa y los agrupa por RUT único", () => {
+    const data = appDataVacia();
+    data.clientes = [
+      clienteBase({ id: "c1", patente: "AB1234", tipoDocumento: "Factura", rut: "12.345.678-9", razonSocial: "Empresa Uno" }),
+      clienteBase({ id: "c2", patente: "CD5678", tipoDocumento: "Factura", rut: "12345678-9", razonSocial: "Empresa Uno" }),
+      clienteBase({ id: "c3", patente: "EF9012", tipoDocumento: "Boleta" }),
+    ];
+
+    const faltantes = empresasFaltantesDesdeClientes(data);
+
+    expect(faltantes).toHaveLength(1);
+    expect(faltantes[0].contactoClienteId).toBe("c1");
+  });
+
+  it("no repite empresas que ya existen", () => {
+    const data = appDataVacia();
+    data.empresas = [{ id: "e1", razonSocial: "Empresa Uno", rut: "12.345.678-9", creadoEn: new Date().toISOString() }];
+    data.clientes = [clienteBase({ id: "c1", tipoDocumento: "Factura", rut: "12345678-9", razonSocial: "Empresa Uno" })];
+
+    const faltantes = empresasFaltantesDesdeClientes(data);
+
+    expect(faltantes).toHaveLength(0);
+  });
+});
+
+function movimientoParseado(overrides: Partial<ParsedMovimiento> = {}): ParsedMovimiento {
+  return {
+    fecha: "2026-06-01T12:00:00.000Z",
+    glosa: "Abono Ventas GETNET 30/05/26 CIERR",
+    cargo: 0,
+    abono: 1066944,
+    saldo: 11007059,
+    numeroDocumento: "88545256",
+    sucursal: "TEMUCO PZA EXPRESSO",
+    ...overrides,
+  };
+}
+
+describe("importarCartola", () => {
+  it("importa movimientos nuevos y aplica la regla semilla de GETNET", () => {
+    const data = appDataVacia();
+
+    const resultado = importarCartola(data, [movimientoParseado()], "santander_empresa");
+
+    expect(resultado.nuevos).toBe(1);
+    expect(resultado.duplicados).toBe(0);
+    expect(resultado.patch.reglasConciliacion).toEqual([
+      expect.objectContaining({ id: "GETNET", categoria: "Ingreso Tarjeta POS (GETNET)" }),
+    ]);
+    expect(resultado.patch.cartolaMovimientos?.[0]).toMatchObject({
+      cuenta: "santander_empresa",
+      abono: 1066944,
+      categoria: "Ingreso Tarjeta POS (GETNET)",
+      estado: "pendiente",
+    });
+  });
+
+  it("no duplica un movimiento ya importado al volver a subir la misma cartola", () => {
+    const data = appDataVacia();
+    const primera = importarCartola(data, [movimientoParseado()], "santander_empresa");
+    data.cartolaMovimientos = primera.patch.cartolaMovimientos!;
+    data.reglasConciliacion = primera.patch.reglasConciliacion!;
+
+    const segunda = importarCartola(data, [movimientoParseado()], "santander_empresa");
+
+    expect(segunda.nuevos).toBe(0);
+    expect(segunda.duplicados).toBe(1);
+    expect(segunda.patch.cartolaMovimientos).toBeUndefined();
+  });
+
+  it("no clasifica una glosa sin regla conocida", () => {
+    const data = appDataVacia();
+
+    const resultado = importarCartola(
+      data,
+      [movimientoParseado({ glosa: "086906100K PAGO PROVEEDOR ARRENDA", cargo: 341019, abono: 0 })],
+      "santander_empresa"
+    );
+
+    expect(resultado.patch.cartolaMovimientos?.[0].categoria).toBeUndefined();
   });
 });

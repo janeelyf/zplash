@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fmtCLP, fmtDate, fmtFecha } from "@/lib/helpers";
+import { fmtCLP, fmtDate, fmtFecha, isValidPatente, normPlate, PATENTE_FORMATO_MSG } from "@/lib/helpers";
 import GoogleIcon from "@/components/GoogleIcon";
+import { useSesionCliente } from "@/hooks/useSesionCliente";
+import type { VehiculoSesion } from "@/lib/sesionCliente";
 
 // Diseño asume que la cuenta de Google se vincula a un cliente por
 // coincidencia de email (clientes.email) — no todos los clientes tienen
@@ -12,7 +14,7 @@ const EMAIL_ENCONTRADO = "juan.perez@gmail.com";
 const EMAIL_NO_ENCONTRADO = "otro.correo@gmail.com";
 const WHATSAPP_URL = "https://wa.me/56939059611?text=" + encodeURIComponent("Hola, quiero vincular mi correo a mi cuenta ZPlash");
 
-const VEHICULOS_DEMO = [
+const VEHICULOS_DEMO: VehiculoSesion[] = [
   { patente: "AB1234", plan: "Plan Ilimitado Mensual", estado: { label: "Vigente", cls: "ok" as const }, vencimiento: "2026-08-02" },
   { patente: "CD5678", plan: "Sin plan", estado: { label: "Vencido", cls: "bad" as const }, vencimiento: null },
 ];
@@ -34,8 +36,6 @@ const COMPRAS_DEMO = [
   { fecha: "2026-06-28T16:40:00", tipo: "Limpieza de Tapiz", monto: 15000 },
   { fecha: "2026-06-10T09:05:00", tipo: "Lavado único", monto: 9990 },
 ];
-
-type Paso = "login" | "conectando" | "encontrado" | "no-encontrado";
 
 interface TicketEmpresa {
   codigo: string;
@@ -118,6 +118,117 @@ function TicketsEmpresaSection({ email }: { email: string }) {
   );
 }
 
+// Solo aplica a vehículos con un plan mensual vigente: el cambio de patente
+// no es inmediato porque el plan ya está pagado/activo para el mes en curso
+// bajo la patente actual — se hace efectivo recién cuando ese mes termina y
+// empieza el siguiente. Por ahora esto solo queda visible en la pantalla
+// (no hay backend detrás del login todavía, ver MiCuentaTab).
+function SolicitudCambioPatente({ patente, plan, vencimiento }: { patente: string; plan: string; vencimiento: string | null }) {
+  const [abierto, setAbierto] = useState(false);
+  const [nueva, setNueva] = useState("");
+  const [error, setError] = useState("");
+  const [confirmando, setConfirmando] = useState(false);
+  const [solicitada, setSolicitada] = useState<string | null>(null);
+
+  if (solicitada) {
+    return (
+      <p style={{ color: "var(--gray)", fontSize: 12.5, marginTop: 8 }}>
+        Solicitaste cambiar tu patente a <strong>{solicitada}</strong>. El cambio se aplicará
+        automáticamente a tu plan cuando termine tu mes actual{vencimiento ? ` (vence el ${fmtFecha(vencimiento)})` : ""} e
+        inicie el próximo — hasta esa fecha tu plan sigue funcionando con la patente {patente}.
+      </p>
+    );
+  }
+
+  if (!abierto) {
+    return (
+      <button
+        type="button"
+        className="btn ghost"
+        style={{ marginTop: 8, padding: "6px 10px", fontSize: 12.5 }}
+        onClick={() => setAbierto(true)}
+      >
+        Solicitar cambio de patente
+      </button>
+    );
+  }
+
+  const pedirConfirmacion = () => {
+    if (!isValidPatente(nueva)) {
+      setError(PATENTE_FORMATO_MSG);
+      return;
+    }
+    if (normPlate(nueva) === normPlate(patente)) {
+      setError("Esa ya es tu patente actual.");
+      return;
+    }
+    setConfirmando(true);
+  };
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      <div className="field" style={{ marginBottom: 6 }}>
+        <input
+          value={nueva}
+          onChange={(e) => {
+            setNueva(e.target.value.toUpperCase());
+            setError("");
+          }}
+          placeholder="Nueva patente (ej. AB1234)"
+          maxLength={6}
+          style={{ textTransform: "uppercase" }}
+        />
+      </div>
+      {error && <div className="err">{error}</div>}
+      <div style={{ display: "flex", gap: 8 }}>
+        <button type="button" className="btn" style={{ marginTop: 0, padding: "6px 10px", fontSize: 12.5 }} onClick={pedirConfirmacion}>
+          Confirmar
+        </button>
+        <button
+          type="button"
+          className="btn ghost"
+          style={{ marginTop: 0, padding: "6px 10px", fontSize: 12.5 }}
+          onClick={() => {
+            setAbierto(false);
+            setNueva("");
+            setError("");
+          }}
+        >
+          Cancelar
+        </button>
+      </div>
+
+      {confirmando && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: 400 }}>
+            <h3>Confirmar cambio de patente</h3>
+            <div style={{ color: "var(--white)", fontSize: 14, lineHeight: 1.5, marginBottom: 10 }}>
+              ¿Estás seguro que deseas cambiar tu <strong>{plan}</strong> de tu vehículo patente{" "}
+              <strong>{patente}</strong> a tu patente <strong>{normPlate(nueva)}</strong>?
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="btn ghost" onClick={() => setConfirmando(false)}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => {
+                  setSolicitada(normPlate(nueva));
+                  setConfirmando(false);
+                  setAbierto(false);
+                }}
+              >
+                Sí, cambiar patente
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CuentaBar({ email, onLogout }: { email: string; onLogout: () => void }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22, flexWrap: "wrap", gap: 10 }}>
@@ -136,14 +247,22 @@ function CuentaBar({ email, onLogout }: { email: string; onLogout: () => void })
 }
 
 export default function MiCuentaTab() {
-  const [paso, setPaso] = useState<Paso>("login");
+  const { sesion, iniciar, cerrar } = useSesionCliente();
+  const [conectando, setConectando] = useState(false);
 
   const conectar = (destino: "encontrado" | "no-encontrado") => {
-    setPaso("conectando");
-    setTimeout(() => setPaso(destino), 600);
+    setConectando(true);
+    setTimeout(() => {
+      iniciar({
+        paso: destino,
+        email: destino === "encontrado" ? EMAIL_ENCONTRADO : EMAIL_NO_ENCONTRADO,
+        vehiculos: destino === "encontrado" ? VEHICULOS_DEMO : [],
+      });
+      setConectando(false);
+    }, 600);
   };
 
-  if (paso === "login" || paso === "conectando") {
+  if (!sesion) {
     return (
       <div className="card" style={{ maxWidth: 420, margin: "0 auto", textAlign: "center" }}>
         <h3>Mi Cuenta</h3>
@@ -151,9 +270,9 @@ export default function MiCuentaTab() {
           Inicia sesión con tu cuenta de Google para ver tus compras y vehículos registrados. Buscamos tus datos
           por el correo asociado a esa cuenta.
         </p>
-        <button type="button" className="google-btn" onClick={() => conectar("encontrado")} disabled={paso === "conectando"}>
+        <button type="button" className="google-btn" onClick={() => conectar("encontrado")} disabled={conectando}>
           <GoogleIcon />
-          {paso === "conectando" ? "Conectando con Google..." : "Iniciar sesión con Google"}
+          {conectando ? "Conectando con Google..." : "Iniciar sesión con Google"}
         </button>
         <p style={{ color: "var(--gray)", fontSize: 11.5, marginTop: 16 }}>
           El inicio de sesión con Google todavía no está conectado — este botón muestra una vista previa con datos
@@ -174,15 +293,15 @@ export default function MiCuentaTab() {
     );
   }
 
-  if (paso === "no-encontrado") {
+  if (sesion.paso === "no-encontrado") {
     return (
       <div>
-        <CuentaBar email={EMAIL_NO_ENCONTRADO} onLogout={() => setPaso("login")} />
-        <TicketsEmpresaSection email={EMAIL_NO_ENCONTRADO} />
+        <CuentaBar email={sesion.email} onLogout={cerrar} />
+        <TicketsEmpresaSection email={sesion.email} />
         <div className="card" style={{ maxWidth: 460, margin: "0 auto", textAlign: "center" }}>
           <h3>No encontramos tus datos</h3>
           <p style={{ color: "var(--gray)", fontSize: 14, marginBottom: 18 }}>
-            No tenemos ningún vehículo registrado con el correo <strong>{EMAIL_NO_ENCONTRADO}</strong>. Si ya eres
+            No tenemos ningún vehículo registrado con el correo <strong>{sesion.email}</strong>. Si ya eres
             cliente pero con otro correo o solo con tu teléfono, escríbenos y lo vinculamos.
           </p>
           <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="btn" style={{ textDecoration: "none", display: "inline-block" }}>
@@ -195,12 +314,12 @@ export default function MiCuentaTab() {
 
   return (
     <div>
-      <CuentaBar email={EMAIL_ENCONTRADO} onLogout={() => setPaso("login")} />
-      <TicketsEmpresaSection email={EMAIL_ENCONTRADO} />
+      <CuentaBar email={sesion.email} onLogout={cerrar} />
+      <TicketsEmpresaSection email={sesion.email} />
 
       <h3 style={{ marginBottom: 12 }}>Mis vehículos</h3>
       <div className="card-grid" style={{ marginBottom: 26 }}>
-        {VEHICULOS_DEMO.map((v) => (
+        {sesion.vehiculos.map((v) => (
           <div className="vehicle-card" key={v.patente}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span className="plate-tag">{v.patente}</span>
@@ -210,6 +329,7 @@ export default function MiCuentaTab() {
             {v.vencimiento && (
               <div style={{ color: "var(--gray)", fontSize: 12.5 }}>Vence el {fmtFecha(v.vencimiento)}</div>
             )}
+            {v.plan !== "Sin plan" && <SolicitudCambioPatente patente={v.patente} plan={v.plan} vencimiento={v.vencimiento} />}
           </div>
         ))}
       </div>

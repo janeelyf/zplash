@@ -313,13 +313,19 @@ export default function ServiciosAdicionalesView() {
     const vehiculo = vehiculoValor;
     const razonSocial = tipoDoc === "Factura" ? razonSocialRef.current?.value.trim() || "" : "";
     const rutRaw = tipoDoc === "Factura" ? rutRef.current?.value.trim() || "" : "";
-    if (tipoDoc === "Factura" && !isValidRut(rutRaw)) {
-      setErr(RUT_FORMATO_MSG);
-      return;
-    }
-    const rut = tipoDoc === "Factura" ? formatRut(rutRaw) : "";
     const direccion = tipoDoc === "Factura" ? direccionRef.current?.value.trim() || "" : "";
     const giro = tipoDoc === "Factura" ? giroRef.current?.value.trim() || "" : "";
+    if (tipoDoc === "Factura") {
+      if (!razonSocial || !direccion || !giro) {
+        setErr("Completa Razón Social, Dirección y Giro para la factura");
+        return;
+      }
+      if (!isValidRut(rutRaw)) {
+        setErr(RUT_FORMATO_MSG);
+        return;
+      }
+    }
+    const rut = tipoDoc === "Factura" ? formatRut(rutRaw) : "";
     const horaEntrega = horaEntregaCampo || "";
     const fechaEntrega = horaEntregaCampo ? fechaEntregaCampo || fechaCita : "";
     const notas = notasRef.current?.value.trim() || "";

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { fmtCLP, formatRut, isValidEmail, isValidPatente, isValidRut, parsearPatentes } from "@/lib/helpers";
 import { redirigirAWebpay } from "@/lib/webpayClient";
+import { useSesionCliente } from "@/hooks/useSesionCliente";
 import type { PreciosPublicos } from "@/components/cliente/types";
 
 const WHATSAPP_URL = "https://wa.me/56939059611?text=" + encodeURIComponent("Hola, quiero cotizar lavados para mi empresa");
@@ -28,6 +29,8 @@ function estadoClase(estado: string): "ok" | "warn" | "bad" {
 }
 
 function FormularioCompra({ cantidad, precio }: { cantidad: number; precio: number }) {
+  const { sesion } = useSesionCliente();
+  const patentesPropias = sesion?.paso === "encontrado" ? sesion.vehiculos.map((v) => v.patente) : [];
   const [tipoDocumento, setTipoDocumento] = useState<TipoDocumento>("Boleta");
   const [email, setEmail] = useState("");
   const [nombreLote, setNombreLote] = useState("");
@@ -47,8 +50,8 @@ function FormularioCompra({ cantidad, precio }: { cantidad: number; precio: numb
       return;
     }
     if (tipoDocumento === "Factura") {
-      if (!razonSocial.trim() || !rut.trim()) {
-        setErr("Completa Razón Social y RUT para la factura");
+      if (!razonSocial.trim() || !rut.trim() || !direccion.trim() || !giro.trim()) {
+        setErr("Completa Razón Social, RUT, Dirección y Giro para la factura");
         return;
       }
       if (!isValidRut(rut)) {
@@ -180,6 +183,20 @@ function FormularioCompra({ cantidad, precio }: { cantidad: number; precio: numb
       {modoPatente === "lista" && (
         <div className="field">
           <label>Patentes (una por línea o separadas por coma)</label>
+          {patentesPropias.length > 0 && (
+            <button
+              type="button"
+              className="btn ghost"
+              style={{ marginTop: 0, marginBottom: 8, padding: "6px 10px", fontSize: 12.5 }}
+              onClick={() => {
+                const actuales = parsearPatentes(patentesTexto);
+                const combinadas = [...actuales, ...patentesPropias].filter((p, i, arr) => arr.indexOf(p) === i);
+                setPatentesTexto(combinadas.join(", "));
+              }}
+            >
+              🚛 Cargar mis patentes registradas ({patentesPropias.length})
+            </button>
+          )}
           <textarea
             value={patentesTexto}
             onChange={(e) => setPatentesTexto(e.target.value)}

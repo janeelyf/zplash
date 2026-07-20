@@ -346,6 +346,11 @@ h4,
 .btn:hover {
   filter: brightness(1.08);
 }
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: none;
+}
 .btn.secondary {
   background: transparent;
   border: 1px solid var(--gold);
@@ -979,6 +984,13 @@ tr:hover td {
 .landing-banner p {
   color: var(--silver);
   font-size: 13px;
+}
+.landing-banner .price {
+  color: var(--gold);
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  margin-top: 4px;
 }
 .landing-banner .ver-mas {
   color: var(--gold);

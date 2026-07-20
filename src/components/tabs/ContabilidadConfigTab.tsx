@@ -3,13 +3,15 @@
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { GRUPOS_GASTO_EERR } from "@/lib/helpers";
-import type { CategoriaGasto } from "@/types";
+import type { CategoriaGasto, CategoriaIngreso } from "@/types";
 
 export default function ContabilidadConfigTab() {
   const { data, commit } = useApp();
   const nuevaCategoriaNombreRef = useRef<HTMLInputElement>(null);
   const nuevaCategoriaGrupoRef = useRef<HTMLSelectElement>(null);
   const [categoriaErr, setCategoriaErr] = useState<{ msg: string; ok: boolean } | null>(null);
+  const nuevoCanalNombreRef = useRef<HTMLInputElement>(null);
+  const [canalErr, setCanalErr] = useState<{ msg: string; ok: boolean } | null>(null);
 
   const agregarCategoria = async () => {
     const nombre = nuevaCategoriaNombreRef.current?.value.trim() || "";
@@ -40,6 +42,31 @@ export default function ContabilidadConfigTab() {
   const cambiarGrupoCategoria = (cat: CategoriaGasto, grupo: string) => {
     const actualizada = { ...cat, grupo };
     commit({ categoriasGasto: data.categoriasGasto.map((c) => (c.id === cat.id ? actualizada : c)) });
+  };
+
+  const agregarCanal = async () => {
+    const nombre = nuevoCanalNombreRef.current?.value.trim() || "";
+    if (!nombre) {
+      setCanalErr({ msg: "Escribe el nombre del canal", ok: false });
+      return;
+    }
+    if (data.categoriasIngreso.some((c) => c.nombre.toLowerCase() === nombre.toLowerCase())) {
+      setCanalErr({ msg: "Ya existe un canal con ese nombre", ok: false });
+      return;
+    }
+    const nuevo: CategoriaIngreso = { id: "ci" + Date.now() + Math.floor(Math.random() * 1000), nombre, activa: true };
+    const ok = await commit({ categoriasIngreso: [...data.categoriasIngreso, nuevo] });
+    if (!ok) {
+      setCanalErr({ msg: "No se pudo guardar (sin conexión). Intenta de nuevo.", ok: false });
+      return;
+    }
+    setCanalErr({ msg: "Canal agregado correctamente", ok: true });
+    if (nuevoCanalNombreRef.current) nuevoCanalNombreRef.current.value = "";
+  };
+
+  const toggleActivaCanal = (cat: CategoriaIngreso) => {
+    const actualizada = { ...cat, activa: !cat.activa };
+    commit({ categoriasIngreso: data.categoriasIngreso.map((c) => (c.id === cat.id ? actualizada : c)) });
   };
 
   return (
@@ -115,6 +142,46 @@ export default function ContabilidadConfigTab() {
             </div>
           );
         })}
+      </div>
+
+      <div className="modal" style={{ maxWidth: 520, margin: "24px 0 0" }}>
+        <h3>Categorías de ingreso (canal)</h3>
+        <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
+          Estas son las opciones seleccionables en &quot;Categoría&quot; al registrar un ingreso, e identifican de qué
+          canal proviene la plata. Puedes agregar canales nuevos o desactivar uno sin borrarlo — desactivarlo lo saca
+          del selector de ingresos nuevos, pero conserva el historial ya registrado con él.
+        </div>
+        <div className="field">
+          <label>Nuevo canal</label>
+          <input ref={nuevoCanalNombreRef} placeholder="Ej: Tienda Web" />
+        </div>
+        <div className="err" style={{ color: canalErr?.ok ? "var(--green)" : undefined }}>
+          {canalErr?.msg || ""}
+        </div>
+        <button className="btn" onClick={agregarCanal}>
+          Agregar canal
+        </button>
+
+        <div style={{ marginTop: 22 }}>
+          {data.categoriasIngreso.map((c) => (
+            <div
+              key={c.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "8px 0",
+                borderBottom: "1px solid var(--border)",
+                opacity: c.activa ? 1 : 0.5,
+              }}
+            >
+              <div style={{ flex: 1 }}>{c.nombre}</div>
+              <button className="icon-btn" onClick={() => toggleActivaCanal(c)}>
+                {c.activa ? "Desactivar" : "Reactivar"}
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

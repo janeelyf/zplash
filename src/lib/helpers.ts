@@ -151,6 +151,7 @@ export function precioPackEmpresa(precios: Precios, cantidad: number): number {
 
 export const MODULOS_ADMIN: Modulo[] = [
   "clientes",
+  "suscripciones",
   "ingresos",
   "cierre",
   "empresa",
@@ -179,6 +180,7 @@ export const MODULO_LABELS: Record<Modulo, string> = {
   operador: "Operador (validar patente / ingreso)",
   servicios: "Servicios Adicionales",
   clientes: "Clientes",
+  suscripciones: "Suscripciones",
   ingresos: "Historial de Ingresos",
   cierre: "Cierre de Caja",
   empresa: "B2B/Tickets/Dsctos",
@@ -287,6 +289,21 @@ export const CATEGORIAS_GASTO_DEFAULT: { id: string; nombre: string; grupo: stri
 export function categoriaAGrupo(categorias: { nombre: string; grupo: string }[], nombre: string): string {
   return categorias.find((c) => c.nombre === nombre)?.grupo || "Otros Costos Directos";
 }
+
+/** Nombres de los dos canales de ingreso con comportamiento especial en
+ * MovimientoContableTab: el Túnel siempre se registra como "Pagado" (no
+ * puede quedar pendiente) y "Otros" agrega un comentario libre a la
+ * descripción. Se referencian por nombre (no por posición en la lista) para
+ * que sigan funcionando aunque se agreguen/reordenen otros canales. */
+export const CANAL_INGRESO_TUNEL = "Servicios de Lavado / Túnel";
+export const CANAL_INGRESO_OTROS = "Otros";
+
+/** Semilla/fallback para cuando la tabla categorias_ingreso está vacía o la
+ * migración todavía no corrió — mismo patrón que CATEGORIAS_GASTO_DEFAULT. */
+export const CATEGORIAS_INGRESO_DEFAULT: { id: string; nombre: string; activa: boolean }[] = [
+  { id: "ci-tunel", nombre: CANAL_INGRESO_TUNEL, activa: true },
+  { id: "ci-otros", nombre: CANAL_INGRESO_OTROS, activa: true },
+];
 
 /** Clave "YYYY-MM" de una fecha ISO, usada para filtrar movimientos por mes. */
 export function mesKey(fecha: string): string {
@@ -690,6 +707,11 @@ export function uidIngreso(): string {
 /** Mismo esquema de id usado para ventas en toda la app ("v" + timestamp), envuelto en una función por el mismo motivo que uidIngreso(). */
 export function uidVenta(): string {
   return "v" + Date.now();
+}
+
+/** Mismo esquema de id usado para movimientos contables ("mc" + timestamp + random), envuelto en una función por el mismo motivo que uidIngreso() — necesario acá porque ConciliacionBancariaTab crea el movimiento dentro del cuerpo del componente, no en un módulo aparte como MovimientoContableTab. */
+export function uidMovimientoContable(): string {
+  return "mc" + Date.now() + Math.floor(Math.random() * 1000);
 }
 
 /** 30 days from now, as an ISO string. Kept outside component bodies since it is not a pure computation. */

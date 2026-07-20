@@ -5,7 +5,9 @@ import type {
   AppData,
   AuditoriaEntrada,
   BloqueoAgenda,
+  CartolaMovimiento,
   CategoriaGasto,
+  CategoriaIngreso,
   Cita,
   Cliente,
   Cupon,
@@ -14,14 +16,23 @@ import type {
   Ingreso,
   MovimientoContable,
   PerfilPublico,
+  ReglaConciliacion,
   Servicio,
   TablaAuditada,
   UIState,
   Venta,
 } from "@/types";
-import { CATEGORIAS_GASTO_DEFAULT, CONFIG_DEFAULT, PERFILES_DEFAULT, PRECIOS_DEFAULT, SERVICIOS_DEFAULT } from "@/lib/helpers";
+import {
+  CATEGORIAS_GASTO_DEFAULT,
+  CATEGORIAS_INGRESO_DEFAULT,
+  CONFIG_DEFAULT,
+  PERFILES_DEFAULT,
+  PRECIOS_DEFAULT,
+  SERVICIOS_DEFAULT,
+} from "@/lib/helpers";
 import {
   deleteBloqueosAgenda,
+  deleteCartolaMovimientos,
   deleteCitas,
   deleteClientes,
   deleteCupones,
@@ -36,7 +47,9 @@ import {
   insertVentas,
   loadAll,
   upsertBloqueosAgenda,
+  upsertCartolaMovimientos,
   upsertCategoriasGasto,
+  upsertCategoriasIngreso,
   upsertCitas,
   upsertClientes,
   upsertConfig,
@@ -46,6 +59,7 @@ import {
   upsertMovimientosContables,
   upsertPerfiles,
   upsertPrecios,
+  upsertReglasConciliacion,
   upsertServicios,
   upsertVentas,
   waitForStorage,
@@ -60,12 +74,15 @@ const initialData: AppData = {
   cupones: [],
   movimientosContables: [],
   categoriasGasto: JSON.parse(JSON.stringify(CATEGORIAS_GASTO_DEFAULT)),
+  categoriasIngreso: JSON.parse(JSON.stringify(CATEGORIAS_INGRESO_DEFAULT)),
   empresas: [],
   servicios: JSON.parse(JSON.stringify(SERVICIOS_DEFAULT)),
   horariosAgenda: [],
   bloqueosAgenda: [],
   citas: [],
   config: JSON.parse(JSON.stringify(CONFIG_DEFAULT)),
+  cartolaMovimientos: [],
+  reglasConciliacion: [],
 };
 
 const initialUI: UIState = {
@@ -273,6 +290,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (patch.categoriasGasto) {
       const { cambiados } = diffPorId<CategoriaGasto>(previous.categoriasGasto, patch.categoriasGasto);
       if (cambiados.length) ops.push(upsertCategoriasGasto(cambiados));
+    }
+    if (patch.categoriasIngreso) {
+      const { cambiados } = diffPorId<CategoriaIngreso>(previous.categoriasIngreso, patch.categoriasIngreso);
+      if (cambiados.length) ops.push(upsertCategoriasIngreso(cambiados));
+    }
+    if (patch.cartolaMovimientos) {
+      const { cambiados, eliminados } = diffPorId<CartolaMovimiento>(previous.cartolaMovimientos, patch.cartolaMovimientos);
+      if (cambiados.length) ops.push(upsertCartolaMovimientos(cambiados));
+      if (eliminados.length) ops.push(deleteCartolaMovimientos(eliminados));
+    }
+    if (patch.reglasConciliacion) {
+      const { cambiados } = diffPorId<ReglaConciliacion>(previous.reglasConciliacion, patch.reglasConciliacion);
+      if (cambiados.length) ops.push(upsertReglasConciliacion(cambiados));
     }
     if (patch.empresas) {
       const { cambiados, eliminados } = diffPorId<Empresa>(previous.empresas, patch.empresas);

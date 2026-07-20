@@ -158,6 +158,7 @@ export type Modulo =
   | "operador"
   | "servicios"
   | "clientes"
+  | "suscripciones"
   | "ingresos"
   | "cierre"
   | "empresa"
@@ -214,6 +215,38 @@ export interface MovimientoContable {
   creadoPor?: string;
 }
 
+// Línea individual importada de una cartola bancaria (ver
+// @/lib/cartolaParser y ConciliacionBancariaTab). `categoria` es una
+// taxonomía propia (ej. "Ingreso Tarjeta POS (GETNET)"), asignada por una
+// ReglaConciliacion o a mano — no tiene relación con
+// MovimientoContable.categoria (esa sigue el EERR).
+export interface CartolaMovimiento {
+  id: string;
+  cuenta: string;
+  fecha: string;
+  glosa: string;
+  cargo: number;
+  abono: number;
+  saldo?: number;
+  numeroDocumento?: string;
+  sucursal?: string;
+  categoria?: string;
+  estado: "pendiente" | "conciliado" | "ignorado";
+  movimientoContableId?: string;
+  notas?: string;
+  creadoEn: string;
+  creadoPor?: string;
+}
+
+// Regla "aprendida" para clasificar automáticamente futuras líneas de
+// cartola cuya glosa contenga `id` (case-insensitive) — ver importarCartola
+// en @/lib/actions. `id` es el propio patrón (ej. "GETNET").
+export interface ReglaConciliacion {
+  id: string;
+  categoria: string;
+  creadoEn: string;
+}
+
 // Glosa seleccionable para el formulario de Egresos/Gastos. "grupo" debe ser
 // uno de los 5 grupos fijos del EERR (ver GRUPOS_GASTO_EERR en helpers.ts);
 // "activa" permite retirarla del selector de nuevos gastos sin borrarla
@@ -223,6 +256,17 @@ export interface CategoriaGasto {
   id: string;
   nombre: string;
   grupo: string;
+  activa: boolean;
+}
+
+// Canal seleccionable para el formulario de Ingresos (Contabilidad → Ingresos)
+// — identifica de dónde vino la plata (Túnel, Venta a Empresa, etc.), igual
+// que CategoriaGasto identifica el tipo de gasto. A diferencia de
+// CategoriaGasto no tiene "grupo": el EERR hoy no desglosa los ingresos de
+// explotación por canal (ver EERRTab.tsx), solo los suma.
+export interface CategoriaIngreso {
+  id: string;
+  nombre: string;
   activa: boolean;
 }
 
@@ -334,12 +378,15 @@ export interface AppData {
   cupones: Cupon[];
   movimientosContables: MovimientoContable[];
   categoriasGasto: CategoriaGasto[];
+  categoriasIngreso: CategoriaIngreso[];
   empresas: Empresa[];
   servicios: Servicio[];
   horariosAgenda: HorarioAgenda[];
   bloqueosAgenda: BloqueoAgenda[];
   citas: Cita[];
   config: ConfigGlobal;
+  cartolaMovimientos: CartolaMovimiento[];
+  reglasConciliacion: ReglaConciliacion[];
 }
 
 export type PlanStatusCls = "ok" | "warn" | "bad";

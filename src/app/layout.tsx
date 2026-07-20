@@ -1,9 +1,17 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "ZPlash · Control de Acceso",
   description: "Sistema de control de acceso y planes de ZPlash",
+  appleWebApp: {
+    title: "ZPlash",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#2d2926",
 };
 
 export default function RootLayout({

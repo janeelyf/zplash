@@ -1,5 +1,6 @@
-import type { AppData, Cita, Cliente, Ingreso, PagoInfo, Venta } from "@/types";
+import type { AppData, CartolaMovimiento, Cita, Cliente, Empresa, Ingreso, PagoInfo, ReglaConciliacion, Venta } from "@/types";
 import { esRetrocesoInvalido } from "@/lib/agenda";
+import type { ParsedMovimiento } from "@/lib/cartolaParser";
 import {
   GLOSA_SERVICIO_DETAILING,
   PLANES,
@@ -152,6 +153,12 @@ export function importarClientes(data: AppData, rows: Record<string, unknown>[])
   let actualizados = 0;
   const errores: number[] = [];
   const clientes = [...data.clientes];
+  // El RUT manda (mismo criterio que ClientModal/ServiciosAdicionalesView/
+  // VentaEmpresaTab): si una fila trae Factura con un RUT que no está en
+  // Empresas, se da de alta ahí también, para que no queden facturables
+  // "huérfanos" que solo existen en clientes.
+  const rutsEmpresa = new Set(data.empresas.map((e) => formatRut(e.rut)));
+  const nuevasEmpresas: Empresa[] = [];
 
   rows.forEach((row, idx) => {
     const patenteRaw = getField(row, "patente", "placa", "placa patente");
@@ -184,8 +191,10 @@ export function importarClientes(data: AppData, rows: Record<string, unknown>[])
     const origen: "WEB" | "LOCAL" = origenRaw.toLowerCase().startsWith("web") ? "WEB" : "LOCAL";
 
     const existenteIdx = clientes.findIndex((c) => normPlate(c.patente) === patente);
+    let clienteId: string;
     if (existenteIdx !== -1) {
       const existente = clientes[existenteIdx];
+      clienteId = existente.id;
       clientes[existenteIdx] = {
         ...existente,
         nombre,
@@ -204,8 +213,9 @@ export function importarClientes(data: AppData, rows: Record<string, unknown>[])
       };
       actualizados++;
     } else {
+      clienteId = uid();
       clientes.push({
-        id: uid(),
+        id: clienteId,
         nombre,
         patente,
         telefono,
@@ -226,9 +236,135 @@ export function importarClientes(data: AppData, rows: Record<string, unknown>[])
       });
       nuevos++;
     }
+
+    if (tipoDocumento === "Factura" && rut && !rutsEmpresa.has(rut)) {
+      rutsEmpresa.add(rut);
+      nuevasEmpresas.push({
+        id: uid(),
+        razonSocial,
+        rut,
+        giro,
+        direccion,
+        telefono,
+        contactoClienteId: clienteId,
+        contactoNombre: nombre,
+        creadoEn: new Date().toISOString(),
+        creadoPor: "Carga masiva (Excel)",
+      });
+    }
   });
 
-  return { patch: { clientes }, nuevos, actualizados, errores };
+  return {
+    patch: { clientes, ...(nuevasEmpresas.length ? { empresas: [...data.empresas, ...nuevasEmpresas] } : {}) },
+    nuevos,
+    actualizados,
+    errores,
+  };
+}
+
+// Regla semilla: "GETNET" ya fue confirmado por el usuario como la
+// liquidación de ventas con tarjeta vía POS — se agrega sola en el primer
+// import de conciliación si todavía no existe (ver importarCartola), sin
+// necesitar un seed en @/lib/helpers ni en la base de datos.
+const REGLA_GETNET_ID = "GETNET";
+const REGLA_GETNET_CATEGORIA = "Ingreso Tarjeta POS (GETNET)";
+
+export interface ImportCartolaResult {
+  patch: Partial<AppData>;
+  nuevos: number;
+  duplicados: number;
+}
+
+function claveCartolaMovimiento(cuenta: string, fecha: string, cargo: number, abono: number, saldo?: number): string {
+  return `${cuenta}|${fecha}|${cargo}|${abono}|${saldo ?? ""}`;
+}
+
+function categoriaPorRegla(reglas: ReglaConciliacion[], glosa: string): string | undefined {
+  const glosaUpper = glosa.toUpperCase();
+  return reglas.find((r) => glosaUpper.includes(r.id.toUpperCase()))?.categoria;
+}
+
+// Importa las líneas ya parseadas de una cartola (ver @/lib/cartolaParser) al
+// modelo de la app. Pura, igual que importarClientes: no llama a commit() acá
+// para poder testear sin tocar la base de datos (ver ConciliacionBancariaTab,
+// que sí llama a commit(result.patch) después).
+export function importarCartola(data: AppData, movimientos: ParsedMovimiento[], cuenta: string): ImportCartolaResult {
+  // Dedup contra lo ya importado (permite volver a subir el mismo PDF sin
+  // duplicar) y también dentro del mismo archivo, por si el banco repite una
+  // línea entre páginas — el saldo corrido actúa casi como clave natural
+  // fila a fila, junto al resto de los campos.
+  const clavesExistentes = new Set(
+    data.cartolaMovimientos
+      .filter((m) => m.cuenta === cuenta)
+      .map((m) => claveCartolaMovimiento(m.cuenta, m.fecha, m.cargo, m.abono, m.saldo))
+  );
+
+  const reglasNuevas: ReglaConciliacion[] = [];
+  if (!data.reglasConciliacion.some((r) => r.id === REGLA_GETNET_ID)) {
+    reglasNuevas.push({ id: REGLA_GETNET_ID, categoria: REGLA_GETNET_CATEGORIA, creadoEn: new Date().toISOString() });
+  }
+  const reglasEfectivas = [...data.reglasConciliacion, ...reglasNuevas];
+
+  let duplicados = 0;
+  const nuevas: CartolaMovimiento[] = [];
+  const ahora = Date.now();
+  movimientos.forEach((m, idx) => {
+    const clave = claveCartolaMovimiento(cuenta, m.fecha, m.cargo, m.abono, m.saldo);
+    if (clavesExistentes.has(clave)) {
+      duplicados++;
+      return;
+    }
+    clavesExistentes.add(clave);
+    nuevas.push({
+      id: "cb" + (ahora + idx) + Math.floor(Math.random() * 1000),
+      cuenta,
+      fecha: m.fecha,
+      glosa: m.glosa,
+      cargo: m.cargo,
+      abono: m.abono,
+      saldo: m.saldo,
+      numeroDocumento: m.numeroDocumento,
+      sucursal: m.sucursal,
+      categoria: categoriaPorRegla(reglasEfectivas, m.glosa),
+      estado: "pendiente",
+      creadoEn: new Date().toISOString(),
+    });
+  });
+
+  const patch: Partial<AppData> = {};
+  if (nuevas.length) patch.cartolaMovimientos = [...nuevas, ...data.cartolaMovimientos];
+  if (reglasNuevas.length) patch.reglasConciliacion = reglasEfectivas;
+
+  return { patch, nuevos: nuevas.length, duplicados };
+}
+
+// Backfill para clientes con Factura que quedaron sin su Empresa (p. ej. los
+// que importarClientes creó antes de que sincronizara Empresas, o cualquier
+// otro origen histórico): junta un cliente por RUT único que no esté ya en
+// Empresas y lo da de alta ahí, con ese cliente como contacto. No toca
+// clientes ni borra nada — solo agrega filas nuevas a Empresas.
+export function empresasFaltantesDesdeClientes(data: AppData): Empresa[] {
+  const rutsEmpresa = new Set(data.empresas.map((e) => formatRut(e.rut)));
+  const nuevas: Empresa[] = [];
+  for (const c of data.clientes) {
+    if (c.tipoDocumento !== "Factura" || !c.rut) continue;
+    const rut = formatRut(c.rut);
+    if (rutsEmpresa.has(rut)) continue;
+    rutsEmpresa.add(rut);
+    nuevas.push({
+      id: uid(),
+      razonSocial: c.razonSocial || c.nombre,
+      rut,
+      giro: c.giro,
+      direccion: c.direccion,
+      telefono: c.telefono,
+      contactoClienteId: c.id,
+      contactoNombre: c.nombre,
+      creadoEn: new Date().toISOString(),
+      creadoPor: "Sincronización (clientes con Factura)",
+    });
+  }
+  return nuevas;
 }
 
 export function descargarCierre(data: AppData, desde: string, hasta: string) {
