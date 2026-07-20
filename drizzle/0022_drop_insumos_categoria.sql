@@ -1,0 +1,1 @@
+ALTER TABLE "insumos" DROP COLUMN "categoria";

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { fmtCLP, formatRut, mesActualKey, mesKey } from "@/lib/helpers";
+import { esEstadoPagadoEgreso, fmtCLP, formatRut, mesActualKey, mesKey } from "@/lib/helpers";
 import type { MovimientoContable } from "@/types";
 
 const GRUPOS = [
@@ -24,7 +24,9 @@ function TablaGasto({
       <table>
         <thead>
           <tr>
-            <th>Fecha</th>
+            <th>Fecha Emisión</th>
+            <th>Fecha Registro</th>
+            <th>Fecha Pago</th>
             <th>Descripción</th>
             <th>Tipo de gasto</th>
             <th>RUT</th>
@@ -39,7 +41,7 @@ function TablaGasto({
         <tbody>
           {items.length === 0 ? (
             <tr>
-              <td colSpan={10}>
+              <td colSpan={12}>
                 <div className="empty">Sin registros para este periodo</div>
               </td>
             </tr>
@@ -47,6 +49,8 @@ function TablaGasto({
             items.map((m) => (
               <tr key={m.id}>
                 <td>{new Date(m.fecha).toLocaleDateString("es-CL")}</td>
+                <td>{new Date(m.creadoEn).toLocaleDateString("es-CL")}</td>
+                <td>{m.fechaPago ? new Date(m.fechaPago).toLocaleDateString("es-CL") : "-"}</td>
                 <td>{m.descripcion}</td>
                 <td>{m.categoria || "-"}</td>
                 <td>{m.rutProveedor ? formatRut(m.rutProveedor) : "-"}</td>
@@ -66,6 +70,7 @@ function TablaGasto({
                 <td className="row-actions">
                   <select value={m.estado} onChange={(e) => cambiarEstado(m, e.target.value as MovimientoContable["estado"])}>
                     <option value="pagado_cc">Pagado desde CC</option>
+                    <option value="pagado_efectivo">Pagado en Efectivo</option>
                     <option value="x_rendir">X Rendir</option>
                     <option value="pendiente_pago">Pendiente de Pago</option>
                   </select>
@@ -111,7 +116,8 @@ export default function CuentasPorPagarTab() {
   const documentosGeneral = porGrupo.reduce((s, g) => s + g.items.length, 0);
 
   const cambiarEstado = (m: MovimientoContable, nuevoEstado: MovimientoContable["estado"]) => {
-    commit({ movimientosContables: data.movimientosContables.map((x) => (x.id === m.id ? { ...x, estado: nuevoEstado } : x)) });
+    const fechaPago = esEstadoPagadoEgreso(nuevoEstado) ? new Date().toISOString() : undefined;
+    commit({ movimientosContables: data.movimientosContables.map((x) => (x.id === m.id ? { ...x, estado: nuevoEstado, fechaPago } : x)) });
   };
 
   const eliminar = (m: MovimientoContable) => {

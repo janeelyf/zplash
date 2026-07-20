@@ -21,6 +21,8 @@ import {
   cartolaMovimientos,
   categoriasGasto,
   categoriasIngreso,
+  categoriasInsumo,
+  categoriasProducto,
   citaServicios,
   citas,
   clientes,
@@ -30,11 +32,14 @@ import {
   empresas,
   horariosAgenda,
   ingresos,
+  insumos,
   movimientosContables,
   pagosWebpay,
   pagosWebpayItems,
   perfiles,
   precios,
+  productos,
+  proveedores,
   reglasConciliacion,
   servicios,
   suscripcionesOneclick,
@@ -57,6 +62,8 @@ import type {
   CartolaMovimiento,
   CategoriaGasto,
   CategoriaIngreso,
+  CategoriaInsumo,
+  CategoriaProducto,
   Cita,
   Cliente,
   ConfigGlobal,
@@ -64,9 +71,12 @@ import type {
   Empresa,
   HorarioAgenda,
   Ingreso,
+  Insumo,
   MovimientoContable,
   PerfilPublico,
   Precios,
+  Producto,
+  Proveedor,
   ReglaConciliacion,
   Servicio,
   Venta,
@@ -78,6 +88,8 @@ type VentaRow = typeof ventas.$inferSelect;
 type PerfilPublicoRow = Pick<typeof perfiles.$inferSelect, "id" | "nombre" | "modulos" | "icono">;
 type CategoriaGastoRow = typeof categoriasGasto.$inferSelect;
 type CategoriaIngresoRow = typeof categoriasIngreso.$inferSelect;
+type CategoriaProductoRow = typeof categoriasProducto.$inferSelect;
+type CategoriaInsumoRow = typeof categoriasInsumo.$inferSelect;
 type CuponRow = typeof cupones.$inferSelect;
 type MovimientoRow = typeof movimientosContables.$inferSelect;
 type PrecioRow = typeof precios.$inferSelect;
@@ -89,6 +101,9 @@ type CitaRow = typeof citas.$inferSelect;
 type ConfigRow = typeof config.$inferSelect;
 type CartolaMovimientoRow = typeof cartolaMovimientos.$inferSelect;
 type ReglaConciliacionRow = typeof reglasConciliacion.$inferSelect;
+type ProveedorRow = typeof proveedores.$inferSelect;
+type ProductoRow = typeof productos.$inferSelect;
+type InsumoRow = typeof insumos.$inferSelect;
 
 function clienteToRow(c: Cliente): typeof clientes.$inferInsert {
   return {
@@ -276,6 +291,22 @@ function categoriaIngresoFromRow(r: CategoriaIngresoRow): CategoriaIngreso {
   return { id: r.id, nombre: r.nombre, activa: r.activa };
 }
 
+function categoriaProductoToRow(c: CategoriaProducto): typeof categoriasProducto.$inferInsert {
+  return { id: c.id, nombre: c.nombre, activa: c.activa };
+}
+
+function categoriaProductoFromRow(r: CategoriaProductoRow): CategoriaProducto {
+  return { id: r.id, nombre: r.nombre, activa: r.activa };
+}
+
+function categoriaInsumoToRow(c: CategoriaInsumo): typeof categoriasInsumo.$inferInsert {
+  return { id: c.id, nombre: c.nombre, activa: c.activa };
+}
+
+function categoriaInsumoFromRow(r: CategoriaInsumoRow): CategoriaInsumo {
+  return { id: r.id, nombre: r.nombre, activa: r.activa };
+}
+
 function cuponToRow(c: Cupon): typeof cupones.$inferInsert {
   return {
     id: c.id,
@@ -324,7 +355,7 @@ function cuponFromRow(r: CuponRow): Cupon {
   };
 }
 
-function movimientoToRow(m: MovimientoContable): typeof movimientosContables.$inferInsert {
+export function movimientoToRow(m: MovimientoContable): typeof movimientosContables.$inferInsert {
   return {
     id: m.id,
     tipo: m.tipo,
@@ -343,6 +374,8 @@ function movimientoToRow(m: MovimientoContable): typeof movimientosContables.$in
     notas: m.notas || null,
     creadoEn: m.creadoEn,
     creadoPor: m.creadoPor || null,
+    fechaPago: m.fechaPago || null,
+    ventaId: m.ventaId || null,
   };
 }
 
@@ -365,6 +398,8 @@ function movimientoFromRow(r: MovimientoRow): MovimientoContable {
     notas: r.notas || undefined,
     creadoEn: r.creadoEn,
     creadoPor: r.creadoPor || undefined,
+    fechaPago: r.fechaPago || undefined,
+    ventaId: r.ventaId || undefined,
   };
 }
 
@@ -441,6 +476,112 @@ function empresaFromRow(r: EmpresaRow): Empresa {
     telefono: r.telefono || undefined,
     contactoClienteId: r.contactoClienteId || undefined,
     contactoNombre: r.contactoNombre || undefined,
+    creadoEn: r.creadoEn,
+    creadoPor: r.creadoPor || undefined,
+  };
+}
+
+function proveedorToRow(p: Proveedor): typeof proveedores.$inferInsert {
+  return {
+    id: p.id,
+    nombre: p.nombre,
+    rut: p.rut || null,
+    telefono: p.telefono || null,
+    email: p.email || null,
+    direccion: p.direccion || null,
+    contacto: p.contacto || null,
+    emailVendedor: p.emailVendedor || null,
+    telefonoVendedor: p.telefonoVendedor || null,
+    emailComprobantes: p.emailComprobantes || null,
+    creadoEn: p.creadoEn,
+    creadoPor: p.creadoPor || null,
+  };
+}
+
+function proveedorFromRow(r: ProveedorRow): Proveedor {
+  return {
+    id: r.id,
+    nombre: r.nombre,
+    rut: r.rut || undefined,
+    telefono: r.telefono || undefined,
+    email: r.email || undefined,
+    direccion: r.direccion || undefined,
+    contacto: r.contacto || undefined,
+    emailVendedor: r.emailVendedor || undefined,
+    telefonoVendedor: r.telefonoVendedor || undefined,
+    emailComprobantes: r.emailComprobantes || undefined,
+    creadoEn: r.creadoEn,
+    creadoPor: r.creadoPor || undefined,
+  };
+}
+
+function productoToRow(p: Producto): typeof productos.$inferInsert {
+  return {
+    id: p.id,
+    codigo: p.codigo,
+    sku: p.sku,
+    detalle: p.detalle,
+    categoriaId: p.categoriaId || null,
+    valorCompra: p.valorCompra || 0,
+    valorVenta: p.valorVenta || 0,
+    stock: p.stock || 0,
+    stockMin: p.stockMin || 0,
+    stockMax: p.stockMax || 0,
+    empaqueMinimo: p.empaqueMinimo || 1,
+    proveedorId: p.proveedorId || null,
+    activo: p.activo,
+    creadoEn: p.creadoEn,
+    creadoPor: p.creadoPor || null,
+  };
+}
+
+function productoFromRow(r: ProductoRow): Producto {
+  return {
+    id: r.id,
+    codigo: r.codigo,
+    sku: r.sku,
+    detalle: r.detalle,
+    categoriaId: r.categoriaId || undefined,
+    valorCompra: r.valorCompra || 0,
+    valorVenta: r.valorVenta || 0,
+    stock: r.stock || 0,
+    stockMin: r.stockMin || 0,
+    stockMax: r.stockMax || 0,
+    empaqueMinimo: r.empaqueMinimo || 1,
+    proveedorId: r.proveedorId || undefined,
+    activo: r.activo,
+    creadoEn: r.creadoEn,
+    creadoPor: r.creadoPor || undefined,
+  };
+}
+
+function insumoToRow(i: Insumo): typeof insumos.$inferInsert {
+  return {
+    id: i.id,
+    nombre: i.nombre,
+    categoriaId: i.categoriaId || null,
+    valorCompra: i.valorCompra || 0,
+    stock: i.stock || 0,
+    stockMin: i.stockMin || 0,
+    stockMax: i.stockMax || 0,
+    proveedorId: i.proveedorId || null,
+    activo: i.activo,
+    creadoEn: i.creadoEn,
+    creadoPor: i.creadoPor || null,
+  };
+}
+
+function insumoFromRow(r: InsumoRow): Insumo {
+  return {
+    id: r.id,
+    nombre: r.nombre,
+    categoriaId: r.categoriaId || undefined,
+    valorCompra: r.valorCompra || 0,
+    stock: r.stock || 0,
+    stockMin: r.stockMin || 0,
+    stockMax: r.stockMax || 0,
+    proveedorId: r.proveedorId || undefined,
+    activo: r.activo,
     creadoEn: r.creadoEn,
     creadoPor: r.creadoPor || undefined,
   };
@@ -612,6 +753,8 @@ export async function loadAll(): Promise<AppData> {
     movimientosRows,
     categoriasGastoRows,
     categoriasIngresoRows,
+    categoriasProductoRows,
+    categoriasInsumoRows,
     empresasRows,
     serviciosRows,
     horariosAgendaRows,
@@ -621,6 +764,9 @@ export async function loadAll(): Promise<AppData> {
     configRows,
     cartolaMovimientosRows,
     reglasConciliacionRows,
+    proveedoresRows,
+    productosRows,
+    insumosRows,
   ] = await Promise.all([
     safe(db.select().from(clientes)),
     safe(db.select().from(ingresos).orderBy(desc(ingresos.fecha))),
@@ -631,6 +777,8 @@ export async function loadAll(): Promise<AppData> {
     safe(db.select().from(movimientosContables).orderBy(desc(movimientosContables.fecha))),
     safe(db.select().from(categoriasGasto).orderBy(asc(categoriasGasto.nombre))),
     safe(db.select().from(categoriasIngreso).orderBy(asc(categoriasIngreso.nombre))),
+    safe(db.select().from(categoriasProducto).orderBy(asc(categoriasProducto.nombre))),
+    safe(db.select().from(categoriasInsumo).orderBy(asc(categoriasInsumo.nombre))),
     safe(db.select().from(empresas).orderBy(asc(empresas.razonSocial))),
     safe(db.select().from(servicios).orderBy(asc(servicios.nombre))),
     safe(db.select().from(horariosAgenda).orderBy(asc(horariosAgenda.diaSemana))),
@@ -640,6 +788,9 @@ export async function loadAll(): Promise<AppData> {
     safe(db.select().from(config).limit(1)),
     safe(db.select().from(cartolaMovimientos).orderBy(desc(cartolaMovimientos.fecha))),
     safe(db.select().from(reglasConciliacion).orderBy(asc(reglasConciliacion.id))),
+    safe(db.select().from(proveedores).orderBy(asc(proveedores.nombre))),
+    safe(db.select().from(productos).orderBy(asc(productos.sku))),
+    safe(db.select().from(insumos).orderBy(asc(insumos.nombre))),
   ]);
 
   const perfilesData = perfilesRows.length ? perfilesRows.map(perfilPublicoFromRow) : PERFILES_DEFAULT;
@@ -691,6 +842,7 @@ export async function loadAll(): Promise<AppData> {
     precios: preciosData,
     categoriasGasto: categoriasGastoData,
     categoriasIngreso: categoriasIngresoData,
+    categoriasProducto: categoriasProductoRows.map(categoriaProductoFromRow),
     cupones: cuponesRows.map(cuponFromRow),
     movimientosContables: movimientosRows.map(movimientoFromRow),
     empresas: empresasRows.map(empresaFromRow),
@@ -701,6 +853,10 @@ export async function loadAll(): Promise<AppData> {
     config: configData,
     cartolaMovimientos: cartolaMovimientosRows.map(cartolaMovimientoFromRow),
     reglasConciliacion: reglasConciliacionRows.map(reglaConciliacionFromRow),
+    proveedores: proveedoresRows.map(proveedorFromRow),
+    productos: productosRows.map(productoFromRow),
+    insumos: insumosRows.map(insumoFromRow),
+    categoriasInsumo: categoriasInsumoRows.map(categoriaInsumoFromRow),
   };
 }
 
@@ -965,6 +1121,28 @@ export async function upsertCategoriasIngreso(rows: CategoriaIngreso[]): Promise
   }
 }
 
+export async function upsertCategoriasProducto(rows: CategoriaProducto[]): Promise<boolean> {
+  if (!rows.length) return true;
+  try {
+    await upsertRows(categoriasProducto, categoriasProducto.id, rows.map(categoriaProductoToRow));
+    return true;
+  } catch (error) {
+    console.error("Error guardando categorías de producto", error);
+    return false;
+  }
+}
+
+export async function upsertCategoriasInsumo(rows: CategoriaInsumo[]): Promise<boolean> {
+  if (!rows.length) return true;
+  try {
+    await upsertRows(categoriasInsumo, categoriasInsumo.id, rows.map(categoriaInsumoToRow));
+    return true;
+  } catch (error) {
+    console.error("Error guardando categorías de insumo", error);
+    return false;
+  }
+}
+
 export async function upsertEmpresas(rows: Empresa[]): Promise<boolean> {
   if (!rows.length) return true;
   try {
@@ -983,6 +1161,72 @@ export async function deleteEmpresas(ids: string[]): Promise<boolean> {
     return true;
   } catch (error) {
     console.error("Error eliminando empresas", error);
+    return false;
+  }
+}
+
+export async function upsertProveedores(rows: Proveedor[]): Promise<boolean> {
+  if (!rows.length) return true;
+  try {
+    await upsertRows(proveedores, proveedores.id, rows.map(proveedorToRow));
+    return true;
+  } catch (error) {
+    console.error("Error guardando proveedores", error);
+    return false;
+  }
+}
+
+export async function deleteProveedores(ids: string[]): Promise<boolean> {
+  if (!ids.length) return true;
+  try {
+    await getDb().delete(proveedores).where(inArray(proveedores.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error eliminando proveedores", error);
+    return false;
+  }
+}
+
+export async function upsertProductos(rows: Producto[]): Promise<boolean> {
+  if (!rows.length) return true;
+  try {
+    await upsertRows(productos, productos.id, rows.map(productoToRow));
+    return true;
+  } catch (error) {
+    console.error("Error guardando productos", error);
+    return false;
+  }
+}
+
+export async function deleteProductos(ids: string[]): Promise<boolean> {
+  if (!ids.length) return true;
+  try {
+    await getDb().delete(productos).where(inArray(productos.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error eliminando productos", error);
+    return false;
+  }
+}
+
+export async function upsertInsumos(rows: Insumo[]): Promise<boolean> {
+  if (!rows.length) return true;
+  try {
+    await upsertRows(insumos, insumos.id, rows.map(insumoToRow));
+    return true;
+  } catch (error) {
+    console.error("Error guardando insumos", error);
+    return false;
+  }
+}
+
+export async function deleteInsumos(ids: string[]): Promise<boolean> {
+  if (!ids.length) return true;
+  try {
+    await getDb().delete(insumos).where(inArray(insumos.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error eliminando insumos", error);
     return false;
   }
 }

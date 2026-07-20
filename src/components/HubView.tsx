@@ -44,6 +44,13 @@ export default function HubView() {
             <div className="desc">Ingresos, egresos, cuentas por cobrar y por pagar</div>
           </button>
         )}
+        {modulos.includes("inventario") && (
+          <button className="role-btn" onClick={() => patchUi({ view: "inventario" })}>
+            <div className="icon">📦</div>
+            <div className="label">Inventario</div>
+            <div className="desc">Productos, SKUs, stock y proveedores</div>
+          </button>
+        )}
         {modulos.includes("web_settings") && (
           <button className="role-btn" onClick={() => patchUi({ view: "web_settings" })}>
             <div className="icon">🌐</div>

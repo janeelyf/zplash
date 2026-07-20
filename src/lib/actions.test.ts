@@ -22,6 +22,7 @@ function appDataVacia(): AppData {
     movimientosContables: [],
     categoriasGasto: [],
     categoriasIngreso: [],
+    categoriasProducto: [],
     empresas: [],
     servicios: [],
     horariosAgenda: [],
@@ -30,6 +31,10 @@ function appDataVacia(): AppData {
     config: CONFIG_DEFAULT,
     cartolaMovimientos: [],
     reglasConciliacion: [],
+    proveedores: [],
+    productos: [],
+    insumos: [],
+    categoriasInsumo: [],
   };
 }
 

@@ -26,6 +26,8 @@ import type {
   CartolaMovimiento,
   CategoriaGasto,
   CategoriaIngreso,
+  CategoriaInsumo,
+  CategoriaProducto,
   Cita,
   Cliente,
   ConfigGlobal,
@@ -33,9 +35,12 @@ import type {
   Empresa,
   HorarioAgenda,
   Ingreso,
+  Insumo,
   MovimientoContable,
   PerfilPublico,
   Precios,
+  Producto,
+  Proveedor,
   ReglaConciliacion,
   Servicio,
   Venta,
@@ -198,6 +203,46 @@ export async function upsertEmpresas(rows: Empresa[]): Promise<boolean> {
 export async function deleteEmpresas(ids: string[]): Promise<boolean> {
   if (!(await tieneSesionValida())) return false;
   return dataAccess.deleteEmpresas(ids);
+}
+
+export async function upsertProveedores(rows: Proveedor[]): Promise<boolean> {
+  if (!(await tieneModulo("inventario"))) return false;
+  return dataAccess.upsertProveedores(rows);
+}
+
+export async function deleteProveedores(ids: string[]): Promise<boolean> {
+  if (!(await tieneModulo("inventario"))) return false;
+  return dataAccess.deleteProveedores(ids);
+}
+
+export async function upsertProductos(rows: Producto[]): Promise<boolean> {
+  if (!(await tieneModulo("inventario"))) return false;
+  return dataAccess.upsertProductos(rows);
+}
+
+export async function deleteProductos(ids: string[]): Promise<boolean> {
+  if (!(await tieneModulo("inventario"))) return false;
+  return dataAccess.deleteProductos(ids);
+}
+
+export async function upsertCategoriasProducto(rows: CategoriaProducto[]): Promise<boolean> {
+  if (!(await tieneModulo("inventario"))) return false;
+  return dataAccess.upsertCategoriasProducto(rows);
+}
+
+export async function upsertCategoriasInsumo(rows: CategoriaInsumo[]): Promise<boolean> {
+  if (!(await tieneModulo("inventario"))) return false;
+  return dataAccess.upsertCategoriasInsumo(rows);
+}
+
+export async function upsertInsumos(rows: Insumo[]): Promise<boolean> {
+  if (!(await tieneModulo("inventario"))) return false;
+  return dataAccess.upsertInsumos(rows);
+}
+
+export async function deleteInsumos(ids: string[]): Promise<boolean> {
+  if (!(await tieneModulo("inventario"))) return false;
+  return dataAccess.deleteInsumos(ids);
 }
 
 // El catálogo de servicios lo tocan dos pestañas con audiencias distintas:

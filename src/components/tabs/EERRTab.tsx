@@ -52,7 +52,8 @@ export default function EERRTab() {
       totalesPorGrupo[grupo] = (totalesPorGrupo[grupo] || 0) + m.monto;
     }
 
-    const ingresosExplotacion = ingresos.reduce((s, m) => s + m.monto, 0);
+    // Los ingresos se registran con IVA incluido (precio de venta al público); el EERR reporta ingresos netos.
+    const ingresosExplotacion = ingresos.reduce((s, m) => s + m.monto, 0) / 1.19;
 
     return { ingresosExplotacion, totalesPorCategoria, totalesPorGrupo };
   }, [data.movimientosContables, data.categoriasGasto, mes]);
@@ -83,8 +84,9 @@ export default function EERRTab() {
         </label>
       </div>
       <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, margin: "0 0 14px" }}>
-        Se calcula a partir de los movimientos registrados en Ingresos y Egresos/Gastos para {nombreMes}. Los ingresos no
-        operacionales (venta de activos fijos, etc.) aún no tienen un formulario propio, por lo que se muestran en $0.
+        Se calcula a partir de los movimientos registrados en Ingresos y Egresos/Gastos para {nombreMes}. Los ingresos de
+        explotación se muestran netos de IVA (monto registrado / 1,19). Los ingresos no operacionales (venta de activos
+        fijos, etc.) aún no tienen un formulario propio, por lo que se muestran en $0.
       </div>
       <div className="table-scroll">
         <table>

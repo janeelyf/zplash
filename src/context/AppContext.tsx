@@ -8,14 +8,19 @@ import type {
   CartolaMovimiento,
   CategoriaGasto,
   CategoriaIngreso,
+  CategoriaInsumo,
+  CategoriaProducto,
   Cita,
   Cliente,
   Cupon,
   Empresa,
   HorarioAgenda,
   Ingreso,
+  Insumo,
   MovimientoContable,
   PerfilPublico,
+  Producto,
+  Proveedor,
   ReglaConciliacion,
   Servicio,
   TablaAuditada,
@@ -26,6 +31,7 @@ import {
   CATEGORIAS_GASTO_DEFAULT,
   CATEGORIAS_INGRESO_DEFAULT,
   CONFIG_DEFAULT,
+  movimientoContableDesdeVenta,
   PERFILES_DEFAULT,
   PRECIOS_DEFAULT,
   SERVICIOS_DEFAULT,
@@ -38,8 +44,11 @@ import {
   deleteCupones,
   deleteEmpresas,
   deleteHorariosAgenda,
+  deleteInsumos,
   deleteMovimientosContables,
   deletePerfiles,
+  deleteProductos,
+  deleteProveedores,
   deleteServicios,
   deleteVentas,
   insertAuditoria,
@@ -50,15 +59,20 @@ import {
   upsertCartolaMovimientos,
   upsertCategoriasGasto,
   upsertCategoriasIngreso,
+  upsertCategoriasInsumo,
+  upsertCategoriasProducto,
   upsertCitas,
   upsertClientes,
   upsertConfig,
   upsertCupones,
   upsertEmpresas,
   upsertHorariosAgenda,
+  upsertInsumos,
   upsertMovimientosContables,
   upsertPerfiles,
   upsertPrecios,
+  upsertProductos,
+  upsertProveedores,
   upsertReglasConciliacion,
   upsertServicios,
   upsertVentas,
@@ -75,6 +89,7 @@ const initialData: AppData = {
   movimientosContables: [],
   categoriasGasto: JSON.parse(JSON.stringify(CATEGORIAS_GASTO_DEFAULT)),
   categoriasIngreso: JSON.parse(JSON.stringify(CATEGORIAS_INGRESO_DEFAULT)),
+  categoriasProducto: [],
   empresas: [],
   servicios: JSON.parse(JSON.stringify(SERVICIOS_DEFAULT)),
   horariosAgenda: [],
@@ -83,6 +98,10 @@ const initialData: AppData = {
   config: JSON.parse(JSON.stringify(CONFIG_DEFAULT)),
   cartolaMovimientos: [],
   reglasConciliacion: [],
+  proveedores: [],
+  productos: [],
+  insumos: [],
+  categoriasInsumo: [],
 };
 
 const initialUI: UIState = {
@@ -91,6 +110,7 @@ const initialUI: UIState = {
   adminTab: "clientes",
   contabilidadTab: "egreso",
   webSettingsTab: "precios",
+  inventarioTab: "productos",
   search: "",
   modal: null,
   loginErr: "",
@@ -211,6 +231,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   async function commit(patch: Partial<AppData>): Promise<boolean> {
     const previous = dataRef.current;
+
+    // Cada Venta nueva o editada genera (o actualiza) su propio movimiento
+    // contable de ingreso automáticamente, para que el EERR y Contabilidad →
+    // Ingresos no dependan de que alguien la vuelva a tipear a mano (ver
+    // movimientoContableDesdeVenta en @/lib/helpers). Se resuelve acá, antes
+    // de construir `next`, para que quede reflejado en el mismo commit tanto
+    // en el estado local como en lo que se guarda más abajo.
+    if (patch.ventas) {
+      const { cambiados: ventasCambiadas } = diffPorId<Venta>(previous.ventas, patch.ventas);
+      if (ventasCambiadas.length) {
+        const derivados = ventasCambiadas.map(movimientoContableDesdeVenta);
+        const baseMovimientos = patch.movimientosContables || previous.movimientosContables;
+        const porId = new Map(baseMovimientos.map((m) => [m.id, m]));
+        for (const d of derivados) porId.set(d.id, d);
+        patch = { ...patch, movimientosContables: Array.from(porId.values()) };
+      }
+    }
+
     const next = { ...previous, ...patch };
     dataRef.current = next;
     setData(next);
@@ -295,6 +333,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const { cambiados } = diffPorId<CategoriaIngreso>(previous.categoriasIngreso, patch.categoriasIngreso);
       if (cambiados.length) ops.push(upsertCategoriasIngreso(cambiados));
     }
+    if (patch.categoriasProducto) {
+      const { cambiados } = diffPorId<CategoriaProducto>(previous.categoriasProducto, patch.categoriasProducto);
+      if (cambiados.length) ops.push(upsertCategoriasProducto(cambiados));
+    }
+    if (patch.categoriasInsumo) {
+      const { cambiados } = diffPorId<CategoriaInsumo>(previous.categoriasInsumo, patch.categoriasInsumo);
+      if (cambiados.length) ops.push(upsertCategoriasInsumo(cambiados));
+    }
     if (patch.cartolaMovimientos) {
       const { cambiados, eliminados } = diffPorId<CartolaMovimiento>(previous.cartolaMovimientos, patch.cartolaMovimientos);
       if (cambiados.length) ops.push(upsertCartolaMovimientos(cambiados));
@@ -330,6 +376,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     if (patch.config) {
       ops.push(upsertConfig(patch.config));
+    }
+    if (patch.proveedores) {
+      const { cambiados, eliminados } = diffPorId<Proveedor>(previous.proveedores, patch.proveedores);
+      if (cambiados.length) ops.push(upsertProveedores(cambiados));
+      if (eliminados.length) ops.push(deleteProveedores(eliminados));
+    }
+    if (patch.productos) {
+      const { cambiados, eliminados } = diffPorId<Producto>(previous.productos, patch.productos);
+      if (cambiados.length) ops.push(upsertProductos(cambiados));
+      if (eliminados.length) ops.push(deleteProductos(eliminados));
+    }
+    if (patch.insumos) {
+      const { cambiados, eliminados } = diffPorId<Insumo>(previous.insumos, patch.insumos);
+      if (cambiados.length) ops.push(upsertInsumos(cambiados));
+      if (eliminados.length) ops.push(deleteInsumos(eliminados));
     }
     let results: boolean[];
     try {

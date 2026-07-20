@@ -178,6 +178,11 @@ export const movimientosContables = pgTable("movimientos_contables", {
   notas: text("notas"),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
   creadoPor: text("creado_por"),
+  fechaPago: timestamptz("fecha_pago"),
+  // Solo presente en filas generadas automáticamente desde una Venta (ver
+  // movimientoContableDesdeVenta en @/lib/helpers). Sin FK estricta a
+  // ventas.id para no bloquear el insert si algún día se borra la venta.
+  ventaId: text("venta_id"),
 });
 
 // Línea individual importada de una cartola bancaria (hoy solo Santander
@@ -215,6 +220,91 @@ export const reglasConciliacion = pgTable("reglas_conciliacion", {
   id: text("id").primaryKey(),
   categoria: text("categoria").notNull(),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+});
+
+// Proveedor de productos de inventario, distinto de `empresas` (esa es para
+// facturación de compra/venta) — catálogo simple referenciado desde
+// `productos.proveedor_id` como proveedor preferente.
+export const proveedores = pgTable("proveedores", {
+  id: text("id").primaryKey(),
+  nombre: text("nombre").notNull(),
+  rut: text("rut"),
+  telefono: text("telefono"),
+  email: text("email"),
+  direccion: text("direccion"),
+  contacto: text("contacto"),
+  emailVendedor: text("email_vendedor"),
+  telefonoVendedor: text("telefono_vendedor"),
+  emailComprobantes: text("email_comprobantes"),
+  creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+  creadoPor: text("creado_por"),
+});
+
+// Categoría seleccionable en el formulario de Producto (ver CategoriaProducto
+// en @/types) — administrable desde Inventario → Categorías, mismo patrón que
+// categorias_ingreso (sin "grupo": el inventario no tiene una estructura fija
+// equivalente al EERR).
+export const categoriasProducto = pgTable("categorias_producto", {
+  id: text("id").primaryKey(),
+  nombre: text("nombre").notNull().unique(),
+  activa: boolean("activa").notNull().default(true),
+  creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+});
+
+// Ítem de inventario. `codigo` es un identificador corto de 6 dígitos que
+// asigna el sistema al crear el producto (ver generarCodigoProducto en
+// helpers.ts) — no lo edita el usuario, a diferencia de `sku`, que es el
+// nombre de fantasía con el que el producto se vende en la web/vending.
+// `empaque_minimo` es la cantidad por caja/paquete del proveedor: las OC de
+// reposición que se generen cuando el stock caiga bajo `stock_min` deben
+// pedirse en múltiplos de este valor. `stock` es un valor editable a mano
+// (sin historial de movimientos ni integración automática con Ventas
+// todavía); stock_min/stock_max son la regla de reposición usada para
+// alertar en InventarioTab cuando el stock actual cae bajo el mínimo.
+export const productos = pgTable("productos", {
+  id: text("id").primaryKey(),
+  codigo: text("codigo").notNull().unique(),
+  sku: text("sku").notNull().unique(),
+  detalle: text("detalle").notNull(),
+  categoriaId: text("categoria_id").references(() => categoriasProducto.id, { onDelete: "set null" }),
+  valorCompra: numeric("valor_compra", { mode: "number" }).notNull().default(0),
+  valorVenta: numeric("valor_venta", { mode: "number" }).notNull().default(0),
+  stock: integer("stock").notNull().default(0),
+  stockMin: integer("stock_min").notNull().default(0),
+  stockMax: integer("stock_max").notNull().default(0),
+  empaqueMinimo: integer("empaque_minimo").notNull().default(1),
+  proveedorId: text("proveedor_id").references(() => proveedores.id, { onDelete: "set null" }),
+  activo: boolean("activo").notNull().default(true),
+  creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+  creadoPor: text("creado_por"),
+});
+
+// Categoría seleccionable en el formulario de Insumo (ver CategoriaInsumo en
+// @/types) — administrable desde Inventario → Categorías, mismo patrón que
+// categorias_producto.
+export const categoriasInsumo = pgTable("categorias_insumo", {
+  id: text("id").primaryKey(),
+  nombre: text("nombre").notNull().unique(),
+  activa: boolean("activa").notNull().default(true),
+  creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+});
+
+// Insumo de consumo interno (limpieza/baño-aseo/oficina): a diferencia de
+// `productos` (que se venden por web/vending, con valor_venta), un insumo
+// nunca se vende — solo se gasta para prestar el servicio o para operar la
+// oficina, por eso no tiene valor_venta ni sku/código de vending.
+export const insumos = pgTable("insumos", {
+  id: text("id").primaryKey(),
+  nombre: text("nombre").notNull(),
+  categoriaId: text("categoria_id").references(() => categoriasInsumo.id, { onDelete: "set null" }),
+  valorCompra: numeric("valor_compra", { mode: "number" }).notNull().default(0),
+  stock: integer("stock").notNull().default(0),
+  stockMin: integer("stock_min").notNull().default(0),
+  stockMax: integer("stock_max").notNull().default(0),
+  proveedorId: text("proveedor_id").references(() => proveedores.id, { onDelete: "set null" }),
+  activo: boolean("activo").notNull().default(true),
+  creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+  creadoPor: text("creado_por"),
 });
 
 export const categoriasGasto = pgTable("categorias_gasto", {

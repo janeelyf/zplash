@@ -4,6 +4,7 @@ import {
   dentroDeHorarioOperador,
   esExentoFormatoCliente,
   esExentoHorarioOperador,
+  esExentoValidacionRegistroOperador,
   esFinDeSemanaOFestivo,
   fmtCLP,
   formatRut,
@@ -359,6 +360,20 @@ describe("esExentoFormatoCliente", () => {
   it("otros perfiles, incluido Administración, no están exentos", () => {
     expect(esExentoFormatoCliente("Administración")).toBe(false);
     expect(esExentoFormatoCliente(undefined)).toBe(false);
+  });
+});
+
+describe("esExentoValidacionRegistroOperador", () => {
+  it("Gerencia (con acceso a Configuración) está exenta de validar teléfono/email al registrar un ingreso", () => {
+    expect(esExentoValidacionRegistroOperador(["operador", "config"], "Gerencia")).toBe(true);
+  });
+
+  it("Administración está exenta aunque no tenga acceso a Configuración", () => {
+    expect(esExentoValidacionRegistroOperador(["operador", "servicios"], "Administración")).toBe(true);
+  });
+
+  it("un operador estándar no está exento", () => {
+    expect(esExentoValidacionRegistroOperador(["operador", "servicios"], "Christian")).toBe(false);
   });
 });
 

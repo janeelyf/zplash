@@ -1,0 +1,1 @@
+ALTER TABLE "movimientos_contables" ADD COLUMN "venta_id" text;

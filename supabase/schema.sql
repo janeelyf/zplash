@@ -153,7 +153,11 @@ create table if not exists movimientos_contables (
   estado text not null default 'pendiente',
   notas text,
   creado_en timestamptz not null default now(),
-  creado_por text
+  creado_por text,
+  -- Solo presente en filas generadas automáticamente desde una Venta (ver
+  -- movimientoContableDesdeVenta en src/lib/helpers.ts). Sin FK a ventas.id
+  -- a propósito, para no bloquear el insert si algún día se borra la venta.
+  venta_id text
 );
 create index if not exists movimientos_contables_fecha_idx on movimientos_contables (fecha desc);
 create index if not exists movimientos_contables_tipo_idx on movimientos_contables (tipo);
@@ -169,7 +173,7 @@ alter table movimientos_contables add constraint movimientos_contables_tipo_chec
 alter table movimientos_contables drop constraint if exists movimientos_contables_estado_check;
 alter table movimientos_contables add constraint movimientos_contables_estado_check
   check (
-    (tipo = 'egreso' and estado in ('pagado_cc', 'x_rendir', 'pendiente_pago'))
+    (tipo = 'egreso' and estado in ('pagado_cc', 'pagado_efectivo', 'x_rendir', 'pendiente_pago'))
     or (tipo <> 'egreso' and estado in ('pagado', 'pendiente'))
   );
 
@@ -340,6 +344,89 @@ create table if not exists cita_servicios (
   servicio_id text not null references servicios(id) on delete cascade
 );
 
+-- Proveedor de productos de inventario, distinto de `empresas` (esa es para
+-- facturación de compra/venta) — catálogo simple referenciado desde
+-- productos.proveedor_id como proveedor preferente.
+create table if not exists proveedores (
+  id text primary key,
+  nombre text not null,
+  rut text,
+  telefono text,
+  email text,
+  direccion text,
+  contacto text,
+  email_vendedor text,
+  telefono_vendedor text,
+  email_comprobantes text,
+  creado_en timestamptz not null default now(),
+  creado_por text
+);
+
+-- Categoría editable para Producto (Inventario → Categorías): mismo patrón
+-- que categorias_ingreso, sin "grupo" (el inventario no tiene una estructura
+-- fija equivalente al EERR).
+create table if not exists categorias_producto (
+  id text primary key,
+  nombre text not null unique,
+  activa boolean not null default true,
+  creado_en timestamptz not null default now()
+);
+
+-- Ítem de inventario. `codigo` es un identificador corto de 6 dígitos que
+-- asigna el sistema al crear el producto (ver generarCodigoProducto en
+-- @/lib/helpers) — no lo edita el usuario, a diferencia de `sku`, que es el
+-- nombre de fantasía con el que el producto se vende en la web/vending.
+-- `empaque_minimo` es la cantidad por caja/paquete del proveedor: las OC de
+-- reposición que se generen cuando el stock caiga bajo `stock_min` deben
+-- pedirse en múltiplos de este valor. stock es un valor editable a mano (sin
+-- historial de movimientos ni integración automática con Ventas todavía);
+-- stock_min/stock_max son la regla de reposición usada para alertar en
+-- InventarioTab cuando el stock actual cae bajo el mínimo.
+create table if not exists productos (
+  id text primary key,
+  codigo text not null unique,
+  sku text not null unique,
+  detalle text not null,
+  categoria_id text references categorias_producto(id) on delete set null,
+  valor_compra numeric not null default 0,
+  valor_venta numeric not null default 0,
+  stock integer not null default 0,
+  stock_min integer not null default 0,
+  stock_max integer not null default 0,
+  empaque_minimo integer not null default 1,
+  proveedor_id text references proveedores(id) on delete set null,
+  activo boolean not null default true,
+  creado_en timestamptz not null default now(),
+  creado_por text
+);
+
+-- Categoría editable para Insumo (Inventario → Categorías): mismo patrón que
+-- categorias_producto.
+create table if not exists categorias_insumo (
+  id text primary key,
+  nombre text not null unique,
+  activa boolean not null default true,
+  creado_en timestamptz not null default now()
+);
+
+-- Insumo de consumo interno (limpieza/baño-aseo/oficina): a diferencia de
+-- `productos` (que se venden por web/vending, con valor_venta), un insumo
+-- nunca se vende — solo se gasta para prestar el servicio o para operar la
+-- oficina, por eso no tiene valor_venta ni sku/código de vending.
+create table if not exists insumos (
+  id text primary key,
+  nombre text not null,
+  categoria_id text references categorias_insumo(id) on delete set null,
+  valor_compra numeric not null default 0,
+  stock integer not null default 0,
+  stock_min integer not null default 0,
+  stock_max integer not null default 0,
+  proveedor_id text references proveedores(id) on delete set null,
+  activo boolean not null default true,
+  creado_en timestamptz not null default now(),
+  creado_por text
+);
+
 -- Foreign keys: solo en las relaciones donde se verificó que no hay filas
 -- huérfanas irreconciliables (ver evaluación en supabase/add-foreign-keys.sql
 -- para bases ya existentes). ingresos/ventas/citas.cliente_id usan ON DELETE
@@ -405,6 +492,11 @@ alter table horarios_agenda enable row level security;
 alter table bloqueos_agenda enable row level security;
 alter table citas enable row level security;
 alter table cita_servicios enable row level security;
+alter table proveedores enable row level security;
+alter table productos enable row level security;
+alter table categorias_producto enable row level security;
+alter table categorias_insumo enable row level security;
+alter table insumos enable row level security;
 
 -- Sin políticas para anon en ninguna de estas tablas (ver comentario
 -- arriba). Se dropean explícitamente por si el proyecto ya tenía las

@@ -343,6 +343,7 @@ export default function ConciliacionBancariaTab() {
       estado: "pagado_cc",
       creadoEn: new Date().toISOString(),
       creadoPor: "Conciliación Bancaria",
+      fechaPago: m.fecha,
     };
     return commit({
       movimientosContables: [nuevo, ...data.movimientosContables],

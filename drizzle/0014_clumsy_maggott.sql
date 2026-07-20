@@ -1,0 +1,1 @@
+ALTER TABLE "movimientos_contables" ADD COLUMN "fecha_pago" timestamp with time zone;

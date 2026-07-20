@@ -99,6 +99,69 @@
       "when": 1784515110346,
       "tag": "0013_condemned_sentinel",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1784564704958,
+      "tag": "0014_clumsy_maggott",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1784575825752,
+      "tag": "0015_busy_redwing",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1784576866361,
+      "tag": "0016_majestic_hobgoblin",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1784577338944,
+      "tag": "0017_gifted_krista_starr",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1784577892101,
+      "tag": "0018_left_freak",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1784582324761,
+      "tag": "0019_fixed_ultimates",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1784587783942,
+      "tag": "0020_add_categorias_insumo",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1784587794044,
+      "tag": "0021_seed_categorias_insumo",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1784587818135,
+      "tag": "0022_drop_insumos_categoria",
+      "breakpoints": true
     }
   ]
 }

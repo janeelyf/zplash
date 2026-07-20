@@ -9,6 +9,7 @@ import {
   PLANES,
   RUT_FORMATO_MSG,
   TELEFONO_FORMATO_MSG,
+  esExentoValidacionRegistroOperador,
   esNombreVacio,
   estadoReingresoPlan,
   fmtCLP,
@@ -54,7 +55,9 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
   const [guardarErr, setGuardarErr] = useState("");
 
   const c = cliente;
-  const registroIncompleto = esNombreVacio(c.nombre) || !c.telefono || !isValidTelefono(c.telefono) || !c.email;
+  const exentoValidacion = esExentoValidacionRegistroOperador(ui.perfilActual?.modulos || [], ui.perfilActual?.nombre);
+  const registroIncompleto =
+    esNombreVacio(c.nombre) || (!exentoValidacion && (!c.telefono || !isValidTelefono(c.telefono) || !c.email));
   const st = planStatus(c);
   const pNormal = precioNormal(data.precios, c.plan || "");
   const pPromo = precioRenovacionLocal(data.config, data.precios, c.plan || "", c.visitas || 0);
@@ -685,21 +688,23 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
     if (qGiroRef.current) qGiroRef.current.value = empresa.giro || "";
   };
 
+  const exentoValidacion = esExentoValidacionRegistroOperador(ui.perfilActual?.modulos || [], ui.perfilActual?.nombre);
+
   const quickAdd = () => {
     const nombre = (qNombreRef.current?.value.trim() || "").toUpperCase();
     const telefonoRaw = qTelefonoRef.current?.value.trim() || "";
     const telefono = telefonoRaw ? formatTelefono(telefonoRaw) : "";
     const email = qEmailRef.current?.value.trim() || "";
     const vehiculo = qVehiculoRef.current?.value.trim() || "";
-    if (!nombre || !telefonoRaw || !email) {
+    if (!nombre || (!exentoValidacion && (!telefonoRaw || !email))) {
       setErr("Completa Nombre, Teléfono y Correo electrónico para registrar al cliente");
       return;
     }
-    if (!isValidTelefono(telefono)) {
+    if (!exentoValidacion && !isValidTelefono(telefono)) {
       setErr(TELEFONO_FORMATO_MSG);
       return;
     }
-    if (!isValidEmail(email)) {
+    if (!exentoValidacion && !isValidEmail(email)) {
       setErr("Ingresa un email válido");
       return;
     }

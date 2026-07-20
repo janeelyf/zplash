@@ -169,7 +169,8 @@ export type Modulo =
   | "contabilidad"
   | "permisos"
   | "agenda"
-  | "web_settings";
+  | "web_settings"
+  | "inventario";
 
 // Lo que el cliente sí puede cargar: nombre y módulos permitidos, nunca la
 // contraseña. La clave solo se consulta/valida server-side, dentro de las
@@ -205,7 +206,7 @@ export interface MovimientoContable {
   // propósito de Venta.estadoPago: no se unifican porque describen cosas
   // distintas (aquí no existe un equivalente a "abono50", allá no existe
   // "x_rendir"/"pagado_cc"). Ver evaluación en supabase/schema.sql.
-  estado: "pagado" | "pendiente" | "pagado_cc" | "x_rendir" | "pendiente_pago";
+  estado: "pagado" | "pendiente" | "pagado_cc" | "pagado_efectivo" | "x_rendir" | "pendiente_pago";
   // Solo aplica a tipo "ingreso" con estado "pagado": Cuentas por Cobrar
   // (ver CuentasPorCobrarTab) se deriva de los ingresos con estado
   // "pendiente", así que ahí siempre queda undefined hasta que se cobran.
@@ -213,6 +214,13 @@ export interface MovimientoContable {
   notas?: string;
   creadoEn: string;
   creadoPor?: string;
+  // Se fija automáticamente al pasar a un estado "pagado*" (nunca manual).
+  fechaPago?: string;
+  // Presente solo en movimientos "ingreso" generados automáticamente a
+  // partir de una Venta (ver movimientoContableDesdeVenta en helpers.ts) —
+  // permite que CierreTab excluya estas filas de su bucket manual sin
+  // duplicar el monto que ya cuenta directo desde `Venta`.
+  ventaId?: string;
 }
 
 // Línea individual importada de una cartola bancaria (ver
@@ -265,6 +273,16 @@ export interface CategoriaGasto {
 // CategoriaGasto no tiene "grupo": el EERR hoy no desglosa los ingresos de
 // explotación por canal (ver EERRTab.tsx), solo los suma.
 export interface CategoriaIngreso {
+  id: string;
+  nombre: string;
+  activa: boolean;
+}
+
+// Categoría seleccionable en el formulario de Producto (ver Producto.categoriaId
+// más abajo) — administrable desde Inventario → Categorías, mismo patrón que
+// CategoriaIngreso (sin "grupo": el inventario no tiene una estructura fija
+// equivalente al EERR).
+export interface CategoriaProducto {
   id: string;
   nombre: string;
   activa: boolean;
@@ -333,6 +351,82 @@ export interface Cita {
   creadoEn: string;
 }
 
+// Proveedor de productos de inventario (independiente de Empresa, que es
+// para facturación de compra/venta) — catálogo simple referenciado desde
+// Producto.proveedorId como proveedor preferente.
+export interface Proveedor {
+  id: string;
+  nombre: string;
+  rut?: string;
+  telefono?: string;
+  email?: string;
+  direccion?: string;
+  contacto?: string;
+  emailVendedor?: string;
+  telefonoVendedor?: string;
+  emailComprobantes?: string;
+  creadoEn: string;
+  creadoPor?: string;
+}
+
+// Ítem de inventario. `codigo` es un identificador corto de 6 dígitos que
+// asigna el sistema al crear el producto (ver generarCodigoProducto en
+// helpers.ts) — no lo edita el usuario, a diferencia de `sku`, que es el
+// nombre de fantasía con el que el producto se vende en la web/vending.
+// `categoriaId` referencia una CategoriaProducto administrable (Inventario →
+// Categorías), igual que `proveedorId` referencia un Proveedor.
+// `empaqueMinimo` es la cantidad por caja/paquete del proveedor: las OC de
+// reposición que se generen cuando el stock caiga bajo `stockMin` deben
+// pedirse en múltiplos de este valor. stock es un valor editable a mano (sin
+// historial de movimientos ni integración automática con Ventas todavía);
+// stockMin/stockMax son la regla de reposición usada para alertar en
+// InventarioTab cuando el stock actual cae bajo el mínimo.
+export interface Producto {
+  id: string;
+  codigo: string;
+  sku: string;
+  detalle: string;
+  categoriaId?: string;
+  valorCompra: number;
+  valorVenta: number;
+  stock: number;
+  stockMin: number;
+  stockMax: number;
+  empaqueMinimo: number;
+  proveedorId?: string;
+  activo: boolean;
+  creadoEn: string;
+  creadoPor?: string;
+}
+
+// Categoría seleccionable en el formulario de Insumo (ver Insumo.categoriaId
+// más abajo) — administrable desde Inventario → Categorías, mismo patrón que
+// CategoriaProducto.
+export interface CategoriaInsumo {
+  id: string;
+  nombre: string;
+  activa: boolean;
+}
+
+// Ítem de consumo interno (Inventario → Insumos): a diferencia de Producto,
+// nunca se vende (sin valorVenta ni sku/código de vending) — solo se
+// consume para prestar el servicio de limpieza o para operar la oficina.
+// Mismo patrón de reposición que Producto: stockMin/stockMax alertan cuando
+// el stock cae bajo el mínimo.
+export interface Insumo {
+  id: string;
+  nombre: string;
+  categoriaId?: string;
+  valorCompra: number;
+  stock: number;
+  stockMin: number;
+  stockMax: number;
+  proveedorId?: string;
+  activo: boolean;
+  creadoEn: string;
+  creadoPor?: string;
+}
+
 // Tablas cubiertas por el log de auditoría (las que mueven dinero o datos de
 // clientes). Perfiles/precios/categoriasGasto/config quedan fuera a
 // propósito: bajo riesgo/volumen, ver evaluación en supabase/add-auditoria.sql.
@@ -396,6 +490,7 @@ export interface AppData {
   movimientosContables: MovimientoContable[];
   categoriasGasto: CategoriaGasto[];
   categoriasIngreso: CategoriaIngreso[];
+  categoriasProducto: CategoriaProducto[];
   empresas: Empresa[];
   servicios: Servicio[];
   horariosAgenda: HorarioAgenda[];
@@ -404,6 +499,10 @@ export interface AppData {
   config: ConfigGlobal;
   cartolaMovimientos: CartolaMovimiento[];
   reglasConciliacion: ReglaConciliacion[];
+  proveedores: Proveedor[];
+  productos: Producto[];
+  insumos: Insumo[];
+  categoriasInsumo: CategoriaInsumo[];
 }
 
 export type PlanStatusCls = "ok" | "warn" | "bad";
@@ -427,14 +526,18 @@ export type ModalState =
   | { type: "pago"; monto: number; descripcion: string; onConfirm: (pago: PagoInfo) => void }
   | { type: "clienteInfo"; data: Cliente }
   | { type: "empresa"; data: Empresa | null }
+  | { type: "producto"; data: Producto | null }
+  | { type: "proveedor"; data: Proveedor | null }
+  | { type: "insumo"; data: Insumo | null }
   | null;
 
 export interface UIState {
-  view: "login" | "hub" | "operador" | "admin" | "servicios" | "contabilidad" | "web_settings";
+  view: "login" | "hub" | "operador" | "admin" | "servicios" | "contabilidad" | "web_settings" | "inventario";
   operResult: OperResult;
   adminTab: string;
   contabilidadTab: string;
   webSettingsTab: string;
+  inventarioTab: string;
   search: string;
   modal: ModalState;
   loginErr: string;

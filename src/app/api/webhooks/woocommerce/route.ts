@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { eq, ilike } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, ventas } from "@/db/schema";
-import { PLANES, formatTelefono, normPlate } from "@/lib/helpers";
+import { clientes, movimientosContables, ventas } from "@/db/schema";
+import { movimientoToRow } from "@/lib/dataAccess";
+import { PLANES, formatTelefono, movimientoContableDesdeVenta, normPlate } from "@/lib/helpers";
 
 export const runtime = "nodejs";
 
@@ -172,13 +173,14 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  const tipoVenta = existente ? "Renovación (Web)" : "Plan nuevo (Web)";
   const ventaData = {
     clienteId,
     patente: patente || "",
     nombre,
     plan: PLANES[0],
     precio: monto,
-    tipo: existente ? "Renovación (Web)" : "Plan nuevo (Web)",
+    tipo: tipoVenta,
     fecha: fechaOrden,
     creadoPor: "Automático (Web)",
     metodoPago: "tarjeta",
@@ -189,6 +191,25 @@ export async function POST(request: NextRequest) {
       .insert(ventas)
       .values({ id: ventaId, ...ventaData })
       .onConflictDoUpdate({ target: ventas.id, set: ventaData });
+
+    // Genera/actualiza el movimiento contable de ingreso ligado a esta venta
+    // — ver movimientoContableDesdeVenta en @/lib/helpers.
+    const movimientoRow = movimientoToRow(
+      movimientoContableDesdeVenta({
+        id: ventaId,
+        tipo: tipoVenta,
+        precio: monto,
+        fecha: fechaOrden,
+        patente: patente || "",
+        nombre,
+        metodoPago: "tarjeta",
+        creadoPor: "Automático (Web)",
+      })
+    );
+    await db
+      .insert(movimientosContables)
+      .values(movimientoRow)
+      .onConflictDoUpdate({ target: movimientosContables.id, set: movimientoRow });
   } catch (error) {
     console.error("Error guardando venta desde webhook WooCommerce", error);
     return NextResponse.json({ error: "Error guardando venta" }, { status: 500 });

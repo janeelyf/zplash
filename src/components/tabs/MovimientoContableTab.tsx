@@ -5,7 +5,16 @@ import { Buscador } from "@/components/Buscador";
 import PriceInput from "@/components/PriceInput";
 import { useApp } from "@/context/AppContext";
 import { subirComprobanteGasto } from "@/lib/db";
-import { CANAL_INGRESO_OTROS, CANAL_INGRESO_TUNEL, RUT_FORMATO_MSG, fmtCLP, formatRut, isValidRut, todayYMD } from "@/lib/helpers";
+import {
+  CANAL_INGRESO_OTROS,
+  CANAL_INGRESO_TUNEL,
+  RUT_FORMATO_MSG,
+  esEstadoPagadoEgreso,
+  fmtCLP,
+  formatRut,
+  isValidRut,
+  todayYMD,
+} from "@/lib/helpers";
 import type { MovimientoContable, PagoInfo } from "@/types";
 
 const CONTRAPARTE_LABEL: Record<MovimientoContable["tipo"], string> = {
@@ -16,12 +25,14 @@ const CONTRAPARTE_LABEL: Record<MovimientoContable["tipo"], string> = {
 
 const ESTADO_EGRESO_LABEL: Record<string, string> = {
   pagado_cc: "Pagado desde CC",
+  pagado_efectivo: "Pagado en Efectivo",
   x_rendir: "X Rendir",
   pendiente_pago: "Pendiente de Pago",
 };
 
 const ESTADO_EGRESO_CLASE: Record<string, "ok" | "warn" | "bad"> = {
   pagado_cc: "ok",
+  pagado_efectivo: "ok",
   x_rendir: "warn",
   pendiente_pago: "bad",
 };
@@ -71,7 +82,9 @@ export default function MovimientoContableTab({
   const estadoBloqueadoPagado = tipo === "ingreso" && categoriaIngreso === CANAL_INGRESO_TUNEL;
 
   const total = items.reduce((s, m) => s + m.monto, 0);
-  const totalPagado = items.filter((m) => m.estado === (tipo === "egreso" ? "pagado_cc" : "pagado")).reduce((s, m) => s + m.monto, 0);
+  const totalPagado = items
+    .filter((m) => (tipo === "egreso" ? m.estado === "pagado_cc" || m.estado === "pagado_efectivo" : m.estado === "pagado"))
+    .reduce((s, m) => s + m.monto, 0);
   const totalXRendir = items.filter((m) => m.estado === "x_rendir").reduce((s, m) => s + m.monto, 0);
   const totalPendiente = items
     .filter((m) => m.estado === (tipo === "egreso" ? "pendiente_pago" : "pendiente"))
@@ -180,6 +193,7 @@ export default function MovimientoContableTab({
       notas: notas || undefined,
       creadoEn: new Date().toISOString(),
       creadoPor: "Administración",
+      fechaPago: tipo === "egreso" && esEstadoPagadoEgreso(estado) ? new Date().toISOString() : undefined,
     };
 
     const ok = await commit({ movimientosContables: [nuevo, ...data.movimientosContables] });
@@ -225,7 +239,8 @@ export default function MovimientoContableTab({
   };
 
   const cambiarEstadoEgreso = (m: MovimientoContable, nuevoEstado: MovimientoContable["estado"]) => {
-    commit({ movimientosContables: data.movimientosContables.map((x) => (x.id === m.id ? { ...x, estado: nuevoEstado } : x)) });
+    const fechaPago = esEstadoPagadoEgreso(nuevoEstado) ? new Date().toISOString() : undefined;
+    commit({ movimientosContables: data.movimientosContables.map((x) => (x.id === m.id ? { ...x, estado: nuevoEstado, fechaPago } : x)) });
   };
 
   const eliminar = (m: MovimientoContable) => {
@@ -237,7 +252,7 @@ export default function MovimientoContableTab({
       <div className="modal" style={{ maxWidth: 520, margin: "0 0 24px 0" }}>
         <h3>Registrar {titulo.toLowerCase()}</h3>
         <div className="field">
-          <label>Fecha</label>
+          <label>{tipo === "egreso" ? "Fecha de Emisión" : "Fecha"}</label>
           <input ref={fechaRef} type="date" defaultValue={todayYMD()} />
         </div>
         {tipo === "egreso" && (
@@ -359,6 +374,14 @@ export default function MovimientoContableTab({
                 </button>
                 <button
                   type="button"
+                  className={estado === "pagado_efectivo" ? "btn" : "btn ghost"}
+                  style={{ flex: 1, marginTop: 0 }}
+                  onClick={() => setEstado("pagado_efectivo")}
+                >
+                  Efectivo
+                </button>
+                <button
+                  type="button"
                   className={estado === "x_rendir" ? "btn" : "btn ghost"}
                   style={{ flex: 1, marginTop: 0 }}
                   onClick={() => setEstado("x_rendir")}
@@ -456,7 +479,7 @@ export default function MovimientoContableTab({
         </div>
         <div className="stat-card ok">
           <div className="num">{fmtCLP(totalPagado)}</div>
-          <div className="lbl">{tipo === "egreso" ? "Pagado desde CC" : "Pagado"}</div>
+          <div className="lbl">Pagado</div>
         </div>
         {tipo === "egreso" && (
           <div className="stat-card warn">
@@ -525,7 +548,9 @@ export default function MovimientoContableTab({
         <table>
           <thead>
             <tr>
-              <th>Fecha</th>
+              <th>{tipo === "egreso" ? "Fecha Emisión" : "Fecha"}</th>
+              {tipo === "egreso" && <th>Fecha Registro</th>}
+              {tipo === "egreso" && <th>Fecha Pago</th>}
               <th>Descripción</th>
               <th>Categoría</th>
               {tipo === "egreso" && <th>RUT</th>}
@@ -542,7 +567,7 @@ export default function MovimientoContableTab({
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={tipo === "egreso" ? 11 : 8}>
+                <td colSpan={tipo === "egreso" ? 13 : 8}>
                   <div className="empty">Sin registros</div>
                 </td>
               </tr>
@@ -550,6 +575,8 @@ export default function MovimientoContableTab({
               items.map((m) => (
                 <tr key={m.id}>
                   <td>{new Date(m.fecha).toLocaleDateString("es-CL")}</td>
+                  {tipo === "egreso" && <td>{new Date(m.creadoEn).toLocaleDateString("es-CL")}</td>}
+                  {tipo === "egreso" && <td>{m.fechaPago ? new Date(m.fechaPago).toLocaleDateString("es-CL") : "-"}</td>}
                   <td>{m.descripcion}</td>
                   <td>{m.categoria || "-"}</td>
                   {tipo === "egreso" && <td>{m.rutProveedor ? formatRut(m.rutProveedor) : "-"}</td>}
@@ -597,6 +624,7 @@ export default function MovimientoContableTab({
                         onChange={(e) => cambiarEstadoEgreso(m, e.target.value as MovimientoContable["estado"])}
                       >
                         <option value="pagado_cc">Pagado desde CC</option>
+                        <option value="pagado_efectivo">Pagado en Efectivo</option>
                         <option value="x_rendir">X Rendir</option>
                         <option value="pendiente_pago">Pendiente de Pago</option>
                       </select>

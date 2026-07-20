@@ -2,8 +2,20 @@ import "server-only";
 import { TransactionDetail } from "transbank-sdk";
 import { and, eq, sql } from "drizzle-orm";
 import { getDb, type DbOrTx } from "@/db";
-import { clientes, cobrosOneclick, config, cupones, empresas, pagosWebpayItems, precios, suscripcionesOneclick, ventas } from "@/db/schema";
-import { PLAN_ONECLICK_KEY, PLANES, generarCodigoCupon, mesActualKey, precioPlanOneclick, uid } from "@/lib/helpers";
+import {
+  clientes,
+  cobrosOneclick,
+  config,
+  cupones,
+  empresas,
+  movimientosContables,
+  pagosWebpayItems,
+  precios,
+  suscripcionesOneclick,
+  ventas,
+} from "@/db/schema";
+import { movimientoToRow } from "@/lib/dataAccess";
+import { PLAN_ONECLICK_KEY, PLANES, generarCodigoCupon, mesActualKey, movimientoContableDesdeVenta, precioPlanOneclick, uid } from "@/lib/helpers";
 import { oneclickChildCommerceCode, oneclickTransaction } from "@/lib/transbank";
 import type { Precios } from "@/types";
 
@@ -97,18 +109,39 @@ export async function aplicarPagoAprobado(p: AplicarPagoParams, db: DbOrTx = get
     });
   }
 
+  const tipo = existente ? p.tipoVentaExistente : p.tipoVentaNuevo;
+  const nombre = existente?.nombre || "Cliente Web";
   await db.insert(ventas).values({
     id: p.ventaId,
     clienteId,
     patente: p.patente,
-    nombre: existente?.nombre || "Cliente Web",
+    nombre,
     plan: p.esServicioAdicional ? "" : PLANES[0],
     precio: p.monto,
-    tipo: existente ? p.tipoVentaExistente : p.tipoVentaNuevo,
+    tipo,
     metodoPago: p.metodoPago,
     esServicioAdicional: p.esServicioAdicional,
     creadoPor: p.creadoPor,
   });
+
+  // Genera/actualiza el movimiento contable de ingreso ligado a esta venta
+  // en la misma transacción — ver movimientoContableDesdeVenta en helpers.ts.
+  const movimientoRow = movimientoToRow(
+    movimientoContableDesdeVenta({
+      id: p.ventaId,
+      tipo,
+      precio: p.monto,
+      fecha: new Date().toISOString(),
+      patente: p.patente,
+      nombre,
+      metodoPago: p.metodoPago,
+      creadoPor: p.creadoPor,
+    })
+  );
+  await db
+    .insert(movimientosContables)
+    .values(movimientoRow)
+    .onConflictDoUpdate({ target: movimientosContables.id, set: movimientoRow });
 
   return { clienteId };
 }
@@ -183,14 +216,16 @@ export async function aplicarPagoPackEmpresa(
   });
   await db.insert(cupones).values(nuevosCupones);
 
+  const nombreVenta = `Venta Empresa Web · ${item.nombreLote || item.razonSocial || "Cliente"}`;
+  const tipoVenta = `${item.nombre} (Web)`;
   await db.insert(ventas).values({
     id: p.ventaId,
     clienteId,
     patente: "",
-    nombre: `Venta Empresa Web · ${item.nombreLote || item.razonSocial || "Cliente"}`,
+    nombre: nombreVenta,
     plan: "",
     precio: item.monto,
-    tipo: `${item.nombre} (Web)`,
+    tipo: tipoVenta,
     metodoPago: "tarjeta",
     estadoPago: "pagado",
     cantidadItems: cantidad,
@@ -202,6 +237,26 @@ export async function aplicarPagoPackEmpresa(
     email: item.email,
     creadoPor: p.creadoPor,
   });
+
+  // Genera/actualiza el movimiento contable de ingreso ligado a esta venta
+  // en la misma transacción — ver movimientoContableDesdeVenta en helpers.ts.
+  const movimientoRow = movimientoToRow(
+    movimientoContableDesdeVenta({
+      id: p.ventaId,
+      tipo: tipoVenta,
+      precio: item.monto,
+      fecha: new Date().toISOString(),
+      patente: "",
+      nombre: nombreVenta,
+      metodoPago: "tarjeta",
+      estadoPago: "pagado",
+      creadoPor: p.creadoPor,
+    })
+  );
+  await db
+    .insert(movimientosContables)
+    .values(movimientoRow)
+    .onConflictDoUpdate({ target: movimientosContables.id, set: movimientoRow });
 
   // El RUT manda (mismo criterio que VentaEmpresaTab.generar() en el panel
   // admin): si es Factura y ese RUT no pertenece a ninguna empresa ya

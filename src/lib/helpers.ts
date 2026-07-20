@@ -1,4 +1,4 @@
-import type { Cliente, ConfigGlobal, Cupon, Ingreso, Modulo, PerfilPublico, PlanStatus, Precios, Servicio, Venta } from "@/types";
+import type { Cliente, ConfigGlobal, Cupon, Ingreso, Modulo, MovimientoContable, PerfilPublico, PlanStatus, Precios, Servicio, Venta } from "@/types";
 
 export const PLANES = ["Plan Ilimitado Mensual"];
 export const DIAS_AVISO_VENCIMIENTO = 7;
@@ -185,6 +185,7 @@ export const TODOS_LOS_MODULOS: Modulo[] = [
   "contabilidad",
   "permisos",
   "web_settings",
+  "inventario",
 ];
 
 export const MODULO_LABELS: Record<Modulo, string> = {
@@ -203,6 +204,7 @@ export const MODULO_LABELS: Record<Modulo, string> = {
   permisos: "Permisos (asignar módulos)",
   agenda: "Agenda",
   web_settings: "Web Settings (precios de venta web)",
+  inventario: "Inventario",
 };
 
 /** Identidades por defecto para un entorno nuevo sin filas en `perfiles`
@@ -238,6 +240,16 @@ export function esExentoHorarioOperador(modulos: Modulo[], nombre?: string): boo
  * perfil, mismo criterio que esExentoHorarioOperador. */
 export function esExentoFormatoCliente(nombre?: string): boolean {
   return nombre === "Gerencia";
+}
+
+/** "Administración" y "Gerencia" pueden dar ingreso a un cliente desde el
+ * módulo Operador aunque el teléfono o el email no estén completos/válidos
+ * (ver registroIncompleto en OperadorResult): el resto de los perfiles
+ * necesita esos datos completos antes de poder registrar el lavado. Nombre
+ * no vacío sigue siendo obligatorio porque es columna NOT NULL de
+ * "clientes". Mismo criterio de perfiles que esExentoHorarioOperador. */
+export function esExentoValidacionRegistroOperador(modulos: Modulo[], nombre?: string): boolean {
+  return esExentoHorarioOperador(modulos, nombre);
 }
 
 /**
@@ -326,6 +338,48 @@ export const CATEGORIAS_INGRESO_DEFAULT: { id: string; nombre: string; activa: b
   { id: "ci-tunel", nombre: CANAL_INGRESO_TUNEL, activa: true },
   { id: "ci-otros", nombre: CANAL_INGRESO_OTROS, activa: true },
 ];
+
+/** Id determinístico para el MovimientoContable derivado de una Venta: como
+ * upsertMovimientosContables hace upsert por id, volver a llamar a esta
+ * función para la misma venta (p. ej. al cobrar un saldo pendiente)
+ * simplemente sobreescribe la misma fila en vez de duplicarla. */
+export function idMovimientoContableDeVenta(ventaId: string): string {
+  return "mc-venta-" + ventaId;
+}
+
+/** Deriva el movimiento contable (ingreso) que corresponde a una Venta, para
+ * que el EERR y Contabilidad → Ingresos se completen solos sin que alguien
+ * tenga que volver a tipear cada venta a mano (ver EERRTab/MovimientoContableTab).
+ * "estadoPago" sin definir siempre significó "pagado al momento" en los
+ * flujos existentes (ver OperadorResult), así que solo "pendiente"/"abono50"
+ * cuentan como no cobrado todavía. */
+export function movimientoContableDesdeVenta(venta: {
+  id: string;
+  tipo: string;
+  precio: number;
+  fecha: string;
+  patente: string;
+  nombre: string;
+  metodoPago?: string | null;
+  estadoPago?: string | null;
+  creadoPor?: string | null;
+}): MovimientoContable {
+  const pagado = venta.estadoPago !== "pendiente" && venta.estadoPago !== "abono50";
+  return {
+    id: idMovimientoContableDeVenta(venta.id),
+    tipo: "ingreso",
+    fecha: venta.fecha,
+    descripcion: `${venta.tipo} – ${venta.nombre} (${venta.patente})`,
+    categoria: CANAL_INGRESO_TUNEL,
+    contraparte: venta.nombre,
+    monto: venta.precio,
+    estado: pagado ? "pagado" : "pendiente",
+    metodoPago: pagado ? (venta.metodoPago as MovimientoContable["metodoPago"]) || undefined : undefined,
+    creadoEn: new Date().toISOString(),
+    creadoPor: venta.creadoPor || undefined,
+    ventaId: venta.id,
+  };
+}
 
 /** Clave "YYYY-MM" de una fecha ISO, usada para filtrar movimientos por mes. */
 export function mesKey(fecha: string): string {
@@ -755,6 +809,23 @@ export function uidVenta(): string {
 /** Mismo esquema de id usado para movimientos contables ("mc" + timestamp + random), envuelto en una función por el mismo motivo que uidIngreso() — necesario acá porque ConciliacionBancariaTab crea el movimiento dentro del cuerpo del componente, no en un módulo aparte como MovimientoContableTab. */
 export function uidMovimientoContable(): string {
   return "mc" + Date.now() + Math.floor(Math.random() * 1000);
+}
+
+/** Código de 6 dígitos numéricos, asignado por el sistema (no editable) al
+ * crear un Producto — identificador corto de inventario, distinto del SKU
+ * (que es el nombre de fantasía usado en la web/vending). Reintenta contra
+ * `existentes` para no colisionar con un código ya asignado. */
+export function generarCodigoProducto(existentes: string[]): string {
+  const usados = new Set(existentes);
+  let codigo: string;
+  do {
+    codigo = String(Math.floor(100000 + Math.random() * 900000));
+  } while (usados.has(codigo));
+  return codigo;
+}
+
+export function esEstadoPagadoEgreso(estado: string): boolean {
+  return estado === "pagado_cc" || estado === "pagado_efectivo";
 }
 
 /** 30 days from now, as an ISO string. Kept outside component bodies since it is not a pure computation. */

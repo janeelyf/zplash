@@ -8,6 +8,9 @@ import BulkModal from "@/components/modals/BulkModal";
 import PagoModal from "@/components/modals/PagoModal";
 import ClienteInfoModal from "@/components/modals/ClienteInfoModal";
 import EmpresaModal from "@/components/modals/EmpresaModal";
+import ProductoModal from "@/components/modals/ProductoModal";
+import ProveedorModal from "@/components/modals/ProveedorModal";
+import InsumoModal from "@/components/modals/InsumoModal";
 
 export default function ModalRoot() {
   const { ui } = useApp();
@@ -25,6 +28,9 @@ export default function ModalRoot() {
       {m.type === "pago" && <PagoModal monto={m.monto} descripcion={m.descripcion} onConfirm={m.onConfirm} />}
       {m.type === "clienteInfo" && <ClienteInfoModal data={m.data} />}
       {m.type === "empresa" && <EmpresaModal data={m.data} />}
+      {m.type === "producto" && <ProductoModal data={m.data} />}
+      {m.type === "proveedor" && <ProveedorModal data={m.data} />}
+      {m.type === "insumo" && <InsumoModal data={m.data} />}
     </div>
   );
 }

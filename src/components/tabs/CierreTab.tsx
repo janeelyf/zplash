@@ -160,8 +160,14 @@ export default function CierreTab() {
     items: serviciosAdicionalesItems,
   };
 
+  // Los movimientos con `ventaId` se generaron automáticamente desde una
+  // Venta (ver movimientoContableDesdeVenta en helpers.ts) y esa Venta ya se
+  // cuenta en "Detalle de venta del período" más arriba — incluirlos acá
+  // también los duplicaría. Esta fila queda solo para ingresos genuinamente
+  // manuales (carga directa en Contabilidad → Ingresos, o "Crear ingreso"
+  // desde conciliación bancaria para abonos sin venta asociada).
   const ingresosContablesPeriodo = movimientosContables.filter(
-    (m) => m.tipo === "ingreso" && inRange(m.fecha, desde, hasta)
+    (m) => m.tipo === "ingreso" && inRange(m.fecha, desde, hasta) && !m.ventaId
   );
   const ingresoModuloContabilidadRow = {
     tipo: "ingreso-modulo-contabilidad",
