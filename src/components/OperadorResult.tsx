@@ -96,6 +96,19 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
 
   const updateResult = (updated: Cliente) => patchUi({ operResult: { found: true, cliente: updated } });
 
+  // Teléfono/Correo/Vehículo se guardan cada uno con su propio botón, pero
+  // el Server Action rechaza el upsert completo si el nombre queda vacío
+  // (columna NOT NULL, ver comentario en upsertClientes en @/lib/db) — sin
+  // esto, guardar cualquiera de esos campos mientras el nombre sigue sin
+  // completar fallaba en silencio con un mensaje de "sin conexión" engañoso.
+  // Acá se toma el nombre ya guardado o, si el operador ya lo tipeó pero no
+  // ha tocado su botón "Guardar", el valor pendiente en el input.
+  const nombreParaGuardar = (): string | null => {
+    if (!esNombreVacio(c.nombre)) return c.nombre;
+    const val = nombreRef.current?.value.trim();
+    return val ? val.toUpperCase() : null;
+  };
+
   const pedirPago = (monto: number, descripcion: string, onConfirm: (pago: PagoInfo) => void) => {
     patchUi({ modal: { type: "pago", monto, descripcion, onConfirm } });
   };
@@ -200,7 +213,12 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
   const guardarVehiculo = async () => {
     const val = vehiculoRef.current?.value.trim();
     if (!val) return;
-    const updated = { ...c, vehiculo: val };
+    const nombre = nombreParaGuardar();
+    if (!nombre) {
+      setGuardarErr("Ingresa el nombre del cliente antes de guardar.");
+      return;
+    }
+    const updated = { ...c, nombre, vehiculo: val };
     const ok = await commit({ clientes: data.clientes.map((x) => (x.id === c.id ? updated : x)) });
     if (!ok) {
       setGuardarErr(ERROR_GUARDADO);
@@ -224,7 +242,12 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
       setGuardarErr(TELEFONO_FORMATO_MSG);
       return;
     }
-    const updated = { ...c, telefono };
+    const nombre = nombreParaGuardar();
+    if (!nombre) {
+      setGuardarErr("Ingresa el nombre del cliente antes de guardar.");
+      return;
+    }
+    const updated = { ...c, nombre, telefono };
     const ok = await commit({ clientes: data.clientes.map((x) => (x.id === c.id ? updated : x)) });
     if (!ok) {
       setGuardarErr(ERROR_GUARDADO);
@@ -241,7 +264,12 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
       setGuardarErr("Ingresa un email válido");
       return;
     }
-    const updated = { ...c, email: val };
+    const nombre = nombreParaGuardar();
+    if (!nombre) {
+      setGuardarErr("Ingresa el nombre del cliente antes de guardar.");
+      return;
+    }
+    const updated = { ...c, nombre, email: val };
     const ok = await commit({ clientes: data.clientes.map((x) => (x.id === c.id ? updated : x)) });
     if (!ok) {
       setGuardarErr(ERROR_GUARDADO);
