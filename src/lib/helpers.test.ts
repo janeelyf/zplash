@@ -22,6 +22,7 @@ import {
   ordenarPerfiles,
   planStatus,
   proximoIngresoPermitido,
+  puedeBorrarCategoriaInventario,
   resolverDescuento,
   vencimientoAnclado,
 } from "./helpers";
@@ -360,6 +361,17 @@ describe("esExentoFormatoCliente", () => {
   it("otros perfiles, incluido Administración, no están exentos", () => {
     expect(esExentoFormatoCliente("Administración")).toBe(false);
     expect(esExentoFormatoCliente(undefined)).toBe(false);
+  });
+});
+
+describe("puedeBorrarCategoriaInventario", () => {
+  it("el perfil Gerencia puede borrar categorías de inventario", () => {
+    expect(puedeBorrarCategoriaInventario("Gerencia")).toBe(true);
+  });
+
+  it("otros perfiles, incluido Administración, no pueden", () => {
+    expect(puedeBorrarCategoriaInventario("Administración")).toBe(false);
+    expect(puedeBorrarCategoriaInventario(undefined)).toBe(false);
   });
 });
 

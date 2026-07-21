@@ -1,4 +1,19 @@
-import type { Cliente, ConfigGlobal, Cupon, Ingreso, Modulo, MovimientoContable, PerfilPublico, PlanStatus, Precios, Servicio, Venta } from "@/types";
+import type {
+  Cliente,
+  ConfigGlobal,
+  Cupon,
+  DestinoInventario,
+  Ingreso,
+  Modulo,
+  MovimientoContable,
+  MovimientoInventario,
+  PerfilPublico,
+  PlanStatus,
+  Precios,
+  Producto,
+  Servicio,
+  Venta,
+} from "@/types";
 
 export const PLANES = ["Plan Ilimitado Mensual"];
 export const DIAS_AVISO_VENCIMIENTO = 7;
@@ -239,6 +254,15 @@ export function esExentoHorarioOperador(modulos: Modulo[], nombre?: string): boo
  * fallaría igual a nivel de base de datos. Se matchea por nombre exacto de
  * perfil, mismo criterio que esExentoHorarioOperador. */
 export function esExentoFormatoCliente(nombre?: string): boolean {
+  return nombre === "Gerencia";
+}
+
+/** Solo el perfil "Gerencia" puede borrar una categoría de producto o de
+ * insumo (ver CategoriasProductoTab/CategoriasInsumoTab y el backstop en
+ * deleteCategoriasProducto/deleteCategoriasInsumo en @/lib/db) — el resto de
+ * los perfiles con acceso a Inventario solo puede desactivarlas. Se matchea
+ * por nombre exacto de perfil, mismo criterio que esExentoFormatoCliente. */
+export function puedeBorrarCategoriaInventario(nombre?: string): boolean {
   return nombre === "Gerencia";
 }
 
@@ -822,6 +846,28 @@ export function generarCodigoProducto(existentes: string[]): string {
     codigo = String(Math.floor(100000 + Math.random() * 900000));
   } while (usados.has(codigo));
   return codigo;
+}
+
+/** Cantidad de `producto` disponible en cada destino (Bodega + vending), a
+ * partir de los traspasos registrados en `movimientos`. No hay una columna de
+ * "cantidad actual por destino" guardada: cada traspaso suma al destino y
+ * resta al origen, y Bodega (el destino con `esBodega`) además arranca con
+ * `producto.stock` completo — así el total repartido entre todos los
+ * destinos siempre cuadra con el stock general del producto, sin importar
+ * cuántos traspasos haya entre destinos que no sean Bodega. */
+export function stockPorDestino(
+  producto: Pick<Producto, "id" | "stock">,
+  destinos: DestinoInventario[],
+  movimientos: MovimientoInventario[]
+): Map<string, number> {
+  const porDestino = new Map<string, number>();
+  for (const d of destinos) porDestino.set(d.id, d.esBodega ? producto.stock : 0);
+  for (const m of movimientos) {
+    if (m.productoId !== producto.id) continue;
+    porDestino.set(m.origenId, (porDestino.get(m.origenId) ?? 0) - m.cantidad);
+    porDestino.set(m.destinoId, (porDestino.get(m.destinoId) ?? 0) + m.cantidad);
+  }
+  return porDestino;
 }
 
 export function esEstadoPagadoEgreso(estado: string): boolean {

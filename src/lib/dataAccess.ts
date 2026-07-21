@@ -12,7 +12,7 @@ import "server-only";
 // estas funciones queda expuesta como endpoint invocable directamente desde
 // el navegador, sin importar quién la importe.
 
-import { asc, desc, eq, getTableColumns, inArray, sql, type SQL } from "drizzle-orm";
+import { asc, desc, eq, getTableColumns, inArray, or, sql, type SQL } from "drizzle-orm";
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import { getDb } from "@/db";
 import {
@@ -29,11 +29,13 @@ import {
   cobrosOneclick,
   config,
   cupones,
+  destinosInventario,
   empresas,
   horariosAgenda,
   ingresos,
   insumos,
   movimientosContables,
+  movimientosInventario,
   pagosWebpay,
   pagosWebpayItems,
   perfiles,
@@ -68,11 +70,13 @@ import type {
   Cliente,
   ConfigGlobal,
   Cupon,
+  DestinoInventario,
   Empresa,
   HorarioAgenda,
   Ingreso,
   Insumo,
   MovimientoContable,
+  MovimientoInventario,
   PerfilPublico,
   Precios,
   Producto,
@@ -104,6 +108,8 @@ type ReglaConciliacionRow = typeof reglasConciliacion.$inferSelect;
 type ProveedorRow = typeof proveedores.$inferSelect;
 type ProductoRow = typeof productos.$inferSelect;
 type InsumoRow = typeof insumos.$inferSelect;
+type DestinoInventarioRow = typeof destinosInventario.$inferSelect;
+type MovimientoInventarioRow = typeof movimientosInventario.$inferSelect;
 
 function clienteToRow(c: Cliente): typeof clientes.$inferInsert {
   return {
@@ -587,6 +593,40 @@ function insumoFromRow(r: InsumoRow): Insumo {
   };
 }
 
+function destinoInventarioToRow(d: DestinoInventario): typeof destinosInventario.$inferInsert {
+  return { id: d.id, nombre: d.nombre, esBodega: d.esBodega, activo: d.activo };
+}
+
+function destinoInventarioFromRow(r: DestinoInventarioRow): DestinoInventario {
+  return { id: r.id, nombre: r.nombre, esBodega: r.esBodega, activo: r.activo };
+}
+
+function movimientoInventarioToRow(m: MovimientoInventario): typeof movimientosInventario.$inferInsert {
+  return {
+    id: m.id,
+    productoId: m.productoId,
+    origenId: m.origenId,
+    destinoId: m.destinoId,
+    cantidad: m.cantidad,
+    fecha: m.fecha,
+    notas: m.notas || null,
+    creadoPor: m.creadoPor || null,
+  };
+}
+
+function movimientoInventarioFromRow(r: MovimientoInventarioRow): MovimientoInventario {
+  return {
+    id: r.id,
+    productoId: r.productoId,
+    origenId: r.origenId,
+    destinoId: r.destinoId,
+    cantidad: r.cantidad,
+    fecha: r.fecha,
+    notas: r.notas || undefined,
+    creadoPor: r.creadoPor || undefined,
+  };
+}
+
 function servicioToRow(s: Servicio): typeof servicios.$inferInsert {
   return { id: s.id, nombre: s.nombre, categoria: s.categoria || null, duracionMinutos: s.duracionMinutos, activo: s.activo };
 }
@@ -767,6 +807,8 @@ export async function loadAll(): Promise<AppData> {
     proveedoresRows,
     productosRows,
     insumosRows,
+    destinosInventarioRows,
+    movimientosInventarioRows,
   ] = await Promise.all([
     safe(db.select().from(clientes)),
     safe(db.select().from(ingresos).orderBy(desc(ingresos.fecha))),
@@ -791,6 +833,8 @@ export async function loadAll(): Promise<AppData> {
     safe(db.select().from(proveedores).orderBy(asc(proveedores.nombre))),
     safe(db.select().from(productos).orderBy(asc(productos.sku))),
     safe(db.select().from(insumos).orderBy(asc(insumos.nombre))),
+    safe(db.select().from(destinosInventario).orderBy(asc(destinosInventario.nombre))),
+    safe(db.select().from(movimientosInventario).orderBy(desc(movimientosInventario.fecha))),
   ]);
 
   const perfilesData = perfilesRows.length ? perfilesRows.map(perfilPublicoFromRow) : PERFILES_DEFAULT;
@@ -857,6 +901,8 @@ export async function loadAll(): Promise<AppData> {
     productos: productosRows.map(productoFromRow),
     insumos: insumosRows.map(insumoFromRow),
     categoriasInsumo: categoriasInsumoRows.map(categoriaInsumoFromRow),
+    destinosInventario: destinosInventarioRows.map(destinoInventarioFromRow),
+    movimientosInventario: movimientosInventarioRows.map(movimientoInventarioFromRow),
   };
 }
 
@@ -1143,6 +1189,39 @@ export async function upsertCategoriasInsumo(rows: CategoriaInsumo[]): Promise<b
   }
 }
 
+// A diferencia de deleteProductos/deleteInsumos, acá no basta con borrar la
+// fila: productos.categoria_id/insumos.categoria_id apuntan a estas tablas
+// con onDelete "set null" (ver src/db/schema.ts), así que un borrado sin
+// aviso dejaría productos/insumos existentes sin categoría en silencio. Se
+// rechaza el borrado si todavía hay algún producto/insumo usando la
+// categoría; la UI (ver CategoriasProductoTab/CategoriasInsumoTab) ya avisa
+// antes de llamar acá, pero esto es lo que de verdad lo impide.
+export async function deleteCategoriasProducto(ids: string[]): Promise<boolean> {
+  if (!ids.length) return true;
+  try {
+    const enUso = await getDb().select({ id: productos.id }).from(productos).where(inArray(productos.categoriaId, ids)).limit(1);
+    if (enUso.length) return false;
+    await getDb().delete(categoriasProducto).where(inArray(categoriasProducto.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error eliminando categorías de producto", error);
+    return false;
+  }
+}
+
+export async function deleteCategoriasInsumo(ids: string[]): Promise<boolean> {
+  if (!ids.length) return true;
+  try {
+    const enUso = await getDb().select({ id: insumos.id }).from(insumos).where(inArray(insumos.categoriaId, ids)).limit(1);
+    if (enUso.length) return false;
+    await getDb().delete(categoriasInsumo).where(inArray(categoriasInsumo.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error eliminando categorías de insumo", error);
+    return false;
+  }
+}
+
 export async function upsertEmpresas(rows: Empresa[]): Promise<boolean> {
   if (!rows.length) return true;
   try {
@@ -1227,6 +1306,69 @@ export async function deleteInsumos(ids: string[]): Promise<boolean> {
     return true;
   } catch (error) {
     console.error("Error eliminando insumos", error);
+    return false;
+  }
+}
+
+export async function upsertDestinosInventario(rows: DestinoInventario[]): Promise<boolean> {
+  if (!rows.length) return true;
+  try {
+    await upsertRows(destinosInventario, destinosInventario.id, rows.map(destinoInventarioToRow));
+    return true;
+  } catch (error) {
+    console.error("Error guardando destinos de inventario", error);
+    return false;
+  }
+}
+
+// A diferencia de deleteProductos, acá hay dos motivos para rechazar el
+// borrado: 1) el destino "Bodega" (esBodega) es el origen implícito de todo
+// Producto.stock (ver stockPorDestino en helpers.ts) — borrarlo dejaría ese
+// cálculo sin dónde anclar; 2) movimientos_inventario.origen_id/destino_id
+// apuntan acá con onDelete "restrict" (ver src/db/schema.ts), así que un
+// destino con traspasos en su historial no se puede borrar sin perder ese
+// registro. La UI (ver DestinosInventarioTab) ya avisa antes de llamar acá,
+// pero esto es lo que de verdad lo impide.
+export async function deleteDestinosInventario(ids: string[]): Promise<boolean> {
+  if (!ids.length) return true;
+  try {
+    const seleccionados = await getDb()
+      .select({ id: destinosInventario.id, esBodega: destinosInventario.esBodega })
+      .from(destinosInventario)
+      .where(inArray(destinosInventario.id, ids));
+    if (seleccionados.some((d) => d.esBodega)) return false;
+    const enUso = await getDb()
+      .select({ id: movimientosInventario.id })
+      .from(movimientosInventario)
+      .where(or(inArray(movimientosInventario.origenId, ids), inArray(movimientosInventario.destinoId, ids)))
+      .limit(1);
+    if (enUso.length) return false;
+    await getDb().delete(destinosInventario).where(inArray(destinosInventario.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error eliminando destinos de inventario", error);
+    return false;
+  }
+}
+
+export async function upsertMovimientosInventario(rows: MovimientoInventario[]): Promise<boolean> {
+  if (!rows.length) return true;
+  try {
+    await upsertRows(movimientosInventario, movimientosInventario.id, rows.map(movimientoInventarioToRow));
+    return true;
+  } catch (error) {
+    console.error("Error guardando movimientos de inventario", error);
+    return false;
+  }
+}
+
+export async function deleteMovimientosInventario(ids: string[]): Promise<boolean> {
+  if (!ids.length) return true;
+  try {
+    await getDb().delete(movimientosInventario).where(inArray(movimientosInventario.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error eliminando movimientos de inventario", error);
     return false;
   }
 }

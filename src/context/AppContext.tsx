@@ -13,11 +13,13 @@ import type {
   Cita,
   Cliente,
   Cupon,
+  DestinoInventario,
   Empresa,
   HorarioAgenda,
   Ingreso,
   Insumo,
   MovimientoContable,
+  MovimientoInventario,
   PerfilPublico,
   Producto,
   Proveedor,
@@ -39,13 +41,17 @@ import {
 import {
   deleteBloqueosAgenda,
   deleteCartolaMovimientos,
+  deleteCategoriasInsumo,
+  deleteCategoriasProducto,
   deleteCitas,
   deleteClientes,
   deleteCupones,
+  deleteDestinosInventario,
   deleteEmpresas,
   deleteHorariosAgenda,
   deleteInsumos,
   deleteMovimientosContables,
+  deleteMovimientosInventario,
   deletePerfiles,
   deleteProductos,
   deleteProveedores,
@@ -65,10 +71,12 @@ import {
   upsertClientes,
   upsertConfig,
   upsertCupones,
+  upsertDestinosInventario,
   upsertEmpresas,
   upsertHorariosAgenda,
   upsertInsumos,
   upsertMovimientosContables,
+  upsertMovimientosInventario,
   upsertPerfiles,
   upsertPrecios,
   upsertProductos,
@@ -102,6 +110,8 @@ const initialData: AppData = {
   productos: [],
   insumos: [],
   categoriasInsumo: [],
+  destinosInventario: [],
+  movimientosInventario: [],
 };
 
 const initialUI: UIState = {
@@ -334,12 +344,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (cambiados.length) ops.push(upsertCategoriasIngreso(cambiados));
     }
     if (patch.categoriasProducto) {
-      const { cambiados } = diffPorId<CategoriaProducto>(previous.categoriasProducto, patch.categoriasProducto);
+      const { cambiados, eliminados } = diffPorId<CategoriaProducto>(previous.categoriasProducto, patch.categoriasProducto);
       if (cambiados.length) ops.push(upsertCategoriasProducto(cambiados));
+      if (eliminados.length) ops.push(deleteCategoriasProducto(eliminados));
     }
     if (patch.categoriasInsumo) {
-      const { cambiados } = diffPorId<CategoriaInsumo>(previous.categoriasInsumo, patch.categoriasInsumo);
+      const { cambiados, eliminados } = diffPorId<CategoriaInsumo>(previous.categoriasInsumo, patch.categoriasInsumo);
       if (cambiados.length) ops.push(upsertCategoriasInsumo(cambiados));
+      if (eliminados.length) ops.push(deleteCategoriasInsumo(eliminados));
     }
     if (patch.cartolaMovimientos) {
       const { cambiados, eliminados } = diffPorId<CartolaMovimiento>(previous.cartolaMovimientos, patch.cartolaMovimientos);
@@ -391,6 +403,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const { cambiados, eliminados } = diffPorId<Insumo>(previous.insumos, patch.insumos);
       if (cambiados.length) ops.push(upsertInsumos(cambiados));
       if (eliminados.length) ops.push(deleteInsumos(eliminados));
+    }
+    if (patch.destinosInventario) {
+      const { cambiados, eliminados } = diffPorId<DestinoInventario>(previous.destinosInventario, patch.destinosInventario);
+      if (cambiados.length) ops.push(upsertDestinosInventario(cambiados));
+      if (eliminados.length) ops.push(deleteDestinosInventario(eliminados));
+    }
+    if (patch.movimientosInventario) {
+      const { cambiados, eliminados } = diffPorId<MovimientoInventario>(previous.movimientosInventario, patch.movimientosInventario);
+      if (cambiados.length) ops.push(upsertMovimientosInventario(cambiados));
+      if (eliminados.length) ops.push(deleteMovimientosInventario(eliminados));
     }
     let results: boolean[];
     try {

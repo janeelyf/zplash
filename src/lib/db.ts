@@ -16,6 +16,7 @@ import {
   esExentoFormatoCliente,
   esExentoHorarioOperador,
   isValidPatente,
+  puedeBorrarCategoriaInventario,
 } from "@/lib/helpers";
 import { cobrarSuscripcion } from "@/lib/pagos";
 import { sesionActual, tieneModulo, tieneSesionValida } from "@/lib/session";
@@ -32,11 +33,13 @@ import type {
   Cliente,
   ConfigGlobal,
   Cupon,
+  DestinoInventario,
   Empresa,
   HorarioAgenda,
   Ingreso,
   Insumo,
   MovimientoContable,
+  MovimientoInventario,
   PerfilPublico,
   Precios,
   Producto,
@@ -230,9 +233,29 @@ export async function upsertCategoriasProducto(rows: CategoriaProducto[]): Promi
   return dataAccess.upsertCategoriasProducto(rows);
 }
 
+// Borrar una categoría (a diferencia de agregarla o desactivarla) queda
+// reservado a "Gerencia" (ver puedeBorrarCategoriaInventario en @/lib/helpers
+// y el botón "Borrar" en CategoriasProductoTab, que ya lo oculta al resto de
+// los perfiles) — este es el único lugar que de verdad puede impedirlo, ya
+// que todo Server Action queda invocable por POST directo.
+export async function deleteCategoriasProducto(ids: string[]): Promise<boolean> {
+  if (!(await tieneModulo("inventario"))) return false;
+  const sesion = await sesionActual();
+  if (!sesion || !puedeBorrarCategoriaInventario(sesion.nombre)) return false;
+  return dataAccess.deleteCategoriasProducto(ids);
+}
+
 export async function upsertCategoriasInsumo(rows: CategoriaInsumo[]): Promise<boolean> {
   if (!(await tieneModulo("inventario"))) return false;
   return dataAccess.upsertCategoriasInsumo(rows);
+}
+
+// Mismo criterio que deleteCategoriasProducto: solo "Gerencia" puede borrar.
+export async function deleteCategoriasInsumo(ids: string[]): Promise<boolean> {
+  if (!(await tieneModulo("inventario"))) return false;
+  const sesion = await sesionActual();
+  if (!sesion || !puedeBorrarCategoriaInventario(sesion.nombre)) return false;
+  return dataAccess.deleteCategoriasInsumo(ids);
 }
 
 export async function upsertInsumos(rows: Insumo[]): Promise<boolean> {
@@ -243,6 +266,37 @@ export async function upsertInsumos(rows: Insumo[]): Promise<boolean> {
 export async function deleteInsumos(ids: string[]): Promise<boolean> {
   if (!(await tieneModulo("inventario"))) return false;
   return dataAccess.deleteInsumos(ids);
+}
+
+export async function upsertDestinosInventario(rows: DestinoInventario[]): Promise<boolean> {
+  if (!(await tieneModulo("inventario"))) return false;
+  return dataAccess.upsertDestinosInventario(rows);
+}
+
+// Mismo criterio que deleteCategoriasProducto: solo "Gerencia" puede borrar
+// un destino (el catálogo lo puede editar/desactivar cualquiera con acceso a
+// Inventario, ver DestinosInventarioTab).
+export async function deleteDestinosInventario(ids: string[]): Promise<boolean> {
+  if (!(await tieneModulo("inventario"))) return false;
+  const sesion = await sesionActual();
+  if (!sesion || !puedeBorrarCategoriaInventario(sesion.nombre)) return false;
+  return dataAccess.deleteDestinosInventario(ids);
+}
+
+export async function upsertMovimientosInventario(rows: MovimientoInventario[]): Promise<boolean> {
+  if (!(await tieneModulo("inventario"))) return false;
+  return dataAccess.upsertMovimientosInventario(rows);
+}
+
+// Borrar un traspaso (corregir un error de carga) queda reservado a
+// "Gerencia", mismo criterio que borrar una categoría: cualquiera con acceso
+// a Inventario puede registrar un traspaso nuevo, pero no borrar del
+// historial ya guardado (ver TraspasoModal/StockDestinosTab).
+export async function deleteMovimientosInventario(ids: string[]): Promise<boolean> {
+  if (!(await tieneModulo("inventario"))) return false;
+  const sesion = await sesionActual();
+  if (!sesion || !puedeBorrarCategoriaInventario(sesion.nombre)) return false;
+  return dataAccess.deleteMovimientosInventario(ids);
 }
 
 // El catálogo de servicios lo tocan dos pestañas con audiencias distintas:

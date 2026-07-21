@@ -11,6 +11,7 @@ import EmpresaModal from "@/components/modals/EmpresaModal";
 import ProductoModal from "@/components/modals/ProductoModal";
 import ProveedorModal from "@/components/modals/ProveedorModal";
 import InsumoModal from "@/components/modals/InsumoModal";
+import TraspasoModal from "@/components/modals/TraspasoModal";
 
 export default function ModalRoot() {
   const { ui } = useApp();
@@ -31,6 +32,7 @@ export default function ModalRoot() {
       {m.type === "producto" && <ProductoModal data={m.data} />}
       {m.type === "proveedor" && <ProveedorModal data={m.data} />}
       {m.type === "insumo" && <InsumoModal data={m.data} />}
+      {m.type === "traspasoInventario" && <TraspasoModal productoId={m.productoId} />}
     </div>
   );
 }

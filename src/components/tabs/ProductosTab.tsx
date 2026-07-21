@@ -108,6 +108,9 @@ export default function ProductosTab() {
                     <button className="icon-btn" onClick={() => patchUi({ modal: { type: "producto", data: p } })}>
                       Editar
                     </button>
+                    <button className="icon-btn" onClick={() => patchUi({ modal: { type: "traspasoInventario", productoId: p.id } })}>
+                      Traspasar
+                    </button>
                     <button className="icon-btn" onClick={() => eliminar(p)}>
                       Eliminar
                     </button>

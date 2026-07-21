@@ -35,6 +35,8 @@ function appDataVacia(): AppData {
     productos: [],
     insumos: [],
     categoriasInsumo: [],
+    destinosInventario: [],
+    movimientosInventario: [],
   };
 }
 

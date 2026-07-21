@@ -399,6 +399,34 @@ export interface Producto {
   creadoPor?: string;
 }
 
+// Destino físico donde puede estar un Producto: Bodega (origen implícito de
+// todo Producto.stock) o una máquina vending — administrable desde
+// Inventario → Destinos, mismo patrón que CategoriaProducto. esBodega marca
+// el único destino que no necesita movimientos para tener stock (ver
+// stockPorDestino en helpers.ts).
+export interface DestinoInventario {
+  id: string;
+  nombre: string;
+  esBodega: boolean;
+  activo: boolean;
+}
+
+// Traspaso de stock de un Producto entre dos DestinoInventario (ej. sacar
+// cantidad de Bodega para reponer una máquina vending). La cantidad
+// disponible en cada destino se calcula sumando/restando estos movimientos
+// contra Producto.stock (ver stockPorDestino en helpers.ts) — no existe una
+// columna de "cantidad actual por destino" guardada aparte.
+export interface MovimientoInventario {
+  id: string;
+  productoId: string;
+  origenId: string;
+  destinoId: string;
+  cantidad: number;
+  fecha: string;
+  notas?: string;
+  creadoPor?: string;
+}
+
 // Categoría seleccionable en el formulario de Insumo (ver Insumo.categoriaId
 // más abajo) — administrable desde Inventario → Categorías, mismo patrón que
 // CategoriaProducto.
@@ -503,6 +531,8 @@ export interface AppData {
   productos: Producto[];
   insumos: Insumo[];
   categoriasInsumo: CategoriaInsumo[];
+  destinosInventario: DestinoInventario[];
+  movimientosInventario: MovimientoInventario[];
 }
 
 export type PlanStatusCls = "ok" | "warn" | "bad";
@@ -529,6 +559,7 @@ export type ModalState =
   | { type: "producto"; data: Producto | null }
   | { type: "proveedor"; data: Proveedor | null }
   | { type: "insumo"; data: Insumo | null }
+  | { type: "traspasoInventario"; productoId?: string }
   | null;
 
 export interface UIState {

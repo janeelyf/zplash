@@ -2,15 +2,17 @@
 
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
+import { puedeBorrarCategoriaInventario } from "@/lib/helpers";
 import type { CategoriaInsumo } from "@/types";
 
 export default function CategoriasInsumoTab() {
-  const { data, commit } = useApp();
+  const { data, ui, patchUi, commit } = useApp();
   const nuevaCategoriaNombreRef = useRef<HTMLInputElement>(null);
   const [err, setErr] = useState<{ msg: string; ok: boolean } | null>(null);
+  const puedeBorrar = puedeBorrarCategoriaInventario(ui.perfilActual?.nombre);
 
   const agregarCategoria = async () => {
-    const nombre = nuevaCategoriaNombreRef.current?.value.trim() || "";
+    const nombre = (nuevaCategoriaNombreRef.current?.value.trim() || "").toUpperCase();
     if (!nombre) {
       setErr({ msg: "Escribe el nombre de la categoría", ok: false });
       return;
@@ -32,6 +34,25 @@ export default function CategoriasInsumoTab() {
   const toggleActiva = (cat: CategoriaInsumo) => {
     const actualizada = { ...cat, activa: !cat.activa };
     commit({ categoriasInsumo: data.categoriasInsumo.map((c) => (c.id === cat.id ? actualizada : c)) });
+  };
+
+  const borrarCategoria = (cat: CategoriaInsumo) => {
+    const enUso = data.insumos.filter((i) => i.categoriaId === cat.id).length;
+    if (enUso > 0) {
+      setErr({ msg: `No se puede borrar: ${enUso} insumo(s) usan la categoría "${cat.nombre}".`, ok: false });
+      return;
+    }
+    patchUi({
+      modal: {
+        type: "confirm",
+        mensaje: `¿Borrar la categoría "${cat.nombre}"? Esta acción no se puede deshacer.`,
+        confirmLabel: "Borrar",
+        onConfirm: async () => {
+          const ok = await commit({ categoriasInsumo: data.categoriasInsumo.filter((c) => c.id !== cat.id) });
+          setErr(ok ? { msg: "Categoría borrada", ok: true } : { msg: "No se pudo borrar la categoría", ok: false });
+        },
+      },
+    });
   };
 
   return (
@@ -73,6 +94,11 @@ export default function CategoriasInsumoTab() {
               <button className="icon-btn" onClick={() => toggleActiva(c)}>
                 {c.activa ? "Desactivar" : "Reactivar"}
               </button>
+              {puedeBorrar && (
+                <button className="icon-btn" onClick={() => borrarCategoria(c)}>
+                  Borrar
+                </button>
+              )}
             </div>
           ))}
       </div>
