@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { stockPorDestino, uid } from "@/lib/helpers";
+import { generarFolioTraspaso, productoPermitidoEnDestino, stockPorDestino, uid } from "@/lib/helpers";
 import type { MovimientoInventario } from "@/types";
 
 export default function TraspasoModal({ productoId }: { productoId?: string }) {
@@ -21,6 +21,9 @@ export default function TraspasoModal({ productoId }: { productoId?: string }) {
 
   const producto = data.productos.find((p) => p.id === productoSel);
   const stockActual = producto ? stockPorDestino(producto, data.destinosInventario, data.movimientosInventario) : new Map<string, number>();
+  const destinosPermitidos = producto
+    ? destinosActivos.filter((d) => productoPermitidoEnDestino(producto, d.id))
+    : destinosActivos;
 
   const guardar = async () => {
     const prodId = productoRef.current?.value || "";
@@ -40,6 +43,10 @@ export default function TraspasoModal({ productoId }: { productoId?: string }) {
       setErr("El origen y el destino no pueden ser el mismo");
       return;
     }
+    if (producto && !productoPermitidoEnDestino(producto, destinoId)) {
+      setErr(`Este producto no puede estar en "${data.destinosInventario.find((d) => d.id === destinoId)?.nombre}"`);
+      return;
+    }
     if (cantidad <= 0) {
       setErr("La cantidad debe ser mayor a 0");
       return;
@@ -52,6 +59,7 @@ export default function TraspasoModal({ productoId }: { productoId?: string }) {
 
     const nuevo: MovimientoInventario = {
       id: uid(),
+      folio: generarFolioTraspaso(data.movimientosInventario.map((m) => m.folio)),
       productoId: prodId,
       origenId,
       destinoId,
@@ -97,7 +105,7 @@ export default function TraspasoModal({ productoId }: { productoId?: string }) {
           <option value="" disabled>
             Selecciona un destino
           </option>
-          {destinosActivos.map((d) => (
+          {destinosPermitidos.map((d) => (
             <option key={d.id} value={d.id}>
               {d.nombre} (disponible: {stockActual.get(d.id) ?? 0})
             </option>

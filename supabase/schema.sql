@@ -396,6 +396,7 @@ create table if not exists productos (
   empaque_minimo integer not null default 1,
   proveedor_id text references proveedores(id) on delete set null,
   activo boolean not null default true,
+  destinos_bloqueados jsonb not null default '[]'::jsonb,
   creado_en timestamptz not null default now(),
   creado_por text
 );

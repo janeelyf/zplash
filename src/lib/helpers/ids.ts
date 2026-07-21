@@ -29,3 +29,12 @@ export function generarCodigoProducto(existentes: string[]): string {
   } while (usados.has(codigo));
   return codigo;
 }
+
+/** Folio correlativo e irrepetible para una guía de traspaso de inventario
+ * (ver MovimientoInventario.folio) — todas las líneas creadas en una misma
+ * guía comparten el folio siguiente al mayor ya emitido, para dejar
+ * registro de cada traspaso. */
+export function generarFolioTraspaso(existentes: string[]): string {
+  const maximo = existentes.reduce((max, f) => Math.max(max, Number(f) || 0), 0);
+  return String(maximo + 1);
+}

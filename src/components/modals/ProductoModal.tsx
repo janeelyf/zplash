@@ -21,6 +21,7 @@ export default function ProductoModal({ data: prod }: { data: Producto | null })
   const [valorCompra, setValorCompra] = useState(pr.valorCompra ? String(pr.valorCompra) : "");
   const [valorVenta, setValorVenta] = useState(pr.valorVenta ? String(pr.valorVenta) : "");
   const [activo, setActivo] = useState(pr.activo ?? true);
+  const [destinosBloqueados, setDestinosBloqueados] = useState<string[]>(pr.destinosBloqueados || []);
   const [err, setErr] = useState("");
   // El código se asigna una sola vez (al abrir el modal para un producto
   // nuevo) y no se vuelve a recalcular en re-renders, para que no cambie
@@ -31,6 +32,13 @@ export default function ProductoModal({ data: prod }: { data: Producto | null })
   const categoriasOrdenadas = [...data.categoriasProducto]
     .filter((c) => c.activa || c.id === pr.categoriaId)
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
+  const destinosOrdenados = [...data.destinosInventario]
+    .filter((d) => d.activo)
+    .sort((a, b) => (b.esBodega ? 1 : 0) - (a.esBodega ? 1 : 0) || a.nombre.localeCompare(b.nombre));
+
+  const toggleDestinoBloqueado = (destinoId: string) => {
+    setDestinosBloqueados((prev) => (prev.includes(destinoId) ? prev.filter((id) => id !== destinoId) : [...prev, destinoId]));
+  };
 
   const guardar = async () => {
     const sku = skuRef.current?.value.trim() || "";
@@ -65,6 +73,7 @@ export default function ProductoModal({ data: prod }: { data: Producto | null })
       empaqueMinimo,
       proveedorId: proveedorRef.current?.value || "",
       activo,
+      destinosBloqueados,
     };
 
     let productos: Producto[];
@@ -149,6 +158,31 @@ export default function ProductoModal({ data: prod }: { data: Producto | null })
             </option>
           ))}
         </select>
+      </div>
+      <div className="field">
+        <label>Ubicaciones bloqueadas</label>
+        <div className="hint" style={{ fontSize: 12, color: "var(--gray)", marginBottom: 6 }}>
+          Marca las bodegas/máquinas donde este producto NO puede estar (ej. un paño no debería cargarse en
+          &ldquo;Vending Café&rdquo;). Los traspasos hacia esas ubicaciones quedarán bloqueados.
+        </div>
+        {destinosOrdenados.length === 0 ? (
+          <div className="hint" style={{ fontSize: 12, color: "var(--gray)" }}>
+            No hay destinos de inventario configurados.
+          </div>
+        ) : (
+          destinosOrdenados.map((d) => (
+            <label key={d.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <input
+                type="checkbox"
+                checked={destinosBloqueados.includes(d.id)}
+                onChange={() => toggleDestinoBloqueado(d.id)}
+                style={{ width: "auto" }}
+              />
+              {d.nombre}
+              {d.esBodega && <span style={{ fontSize: 11, color: "var(--gray)" }}>(Bodega)</span>}
+            </label>
+          ))
+        )}
       </div>
       <div className="field">
         <label>

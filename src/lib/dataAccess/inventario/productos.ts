@@ -62,6 +62,7 @@ export function productoToRow(p: Producto): typeof productos.$inferInsert {
     empaqueMinimo: p.empaqueMinimo || 1,
     proveedorId: p.proveedorId || null,
     activo: p.activo,
+    destinosBloqueados: p.destinosBloqueados || [],
     creadoEn: p.creadoEn,
     creadoPor: p.creadoPor || null,
   };
@@ -82,6 +83,7 @@ export function productoFromRow(r: ProductoRow): Producto {
     empaqueMinimo: r.empaqueMinimo || 1,
     proveedorId: r.proveedorId || undefined,
     activo: r.activo,
+    destinosBloqueados: r.destinosBloqueados?.length ? r.destinosBloqueados : undefined,
     creadoEn: r.creadoEn,
     creadoPor: r.creadoPor || undefined,
   };

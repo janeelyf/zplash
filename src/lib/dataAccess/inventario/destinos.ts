@@ -61,6 +61,7 @@ export async function deleteDestinosInventario(ids: string[]): Promise<boolean> 
 export function movimientoInventarioToRow(m: MovimientoInventario): typeof movimientosInventario.$inferInsert {
   return {
     id: m.id,
+    folio: m.folio,
     productoId: m.productoId,
     origenId: m.origenId,
     destinoId: m.destinoId,
@@ -74,6 +75,7 @@ export function movimientoInventarioToRow(m: MovimientoInventario): typeof movim
 export function movimientoInventarioFromRow(r: MovimientoInventarioRow): MovimientoInventario {
   return {
     id: r.id,
+    folio: r.folio,
     productoId: r.productoId,
     origenId: r.origenId,
     destinoId: r.destinoId,

@@ -52,6 +52,12 @@ export interface Producto {
   empaqueMinimo: number;
   proveedorId?: string;
   activo: boolean;
+  // Ids de DestinoInventario donde este producto NO puede estar (ej. un paño
+  // no debería poder cargarse en la máquina "Vending Café"). Vacío/ausente =
+  // permitido en todos los destinos — ver productoPermitidoEnDestino en
+  // helpers/inventario.ts, usado por TraspasoModal y GuiaTraspasoTab para
+  // impedir traspasar a un destino bloqueado.
+  destinosBloqueados?: string[];
   creadoEn: string;
   creadoPor?: string;
 }
@@ -73,8 +79,13 @@ export interface DestinoInventario {
 // disponible en cada destino se calcula sumando/restando estos movimientos
 // contra Producto.stock (ver stockPorDestino en helpers.ts) — no existe una
 // columna de "cantidad actual por destino" guardada aparte.
+// `folio` identifica la guía de traspaso que originó el movimiento: es
+// correlativo e irrepetible (ver generarFolioTraspaso en helpers/ids.ts) y
+// las líneas de una misma guía (GuiaTraspasoTab) comparten el mismo folio,
+// para dejar registro de cada traspaso.
 export interface MovimientoInventario {
   id: string;
+  folio: string;
   productoId: string;
   origenId: string;
   destinoId: string;

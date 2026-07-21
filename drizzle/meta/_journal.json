@@ -183,6 +183,13 @@
       "when": 1784591285403,
       "tag": "0025_seed_destinos_inventario",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1784641093800,
+      "tag": "0026_cool_namor",
+      "breakpoints": true
     }
   ]
 }

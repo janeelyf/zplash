@@ -275,6 +275,7 @@ export const productos = pgTable("productos", {
   empaqueMinimo: integer("empaque_minimo").notNull().default(1),
   proveedorId: text("proveedor_id").references(() => proveedores.id, { onDelete: "set null" }),
   activo: boolean("activo").notNull().default(true),
+  destinosBloqueados: jsonb("destinos_bloqueados").$type<string[]>().notNull().default([]),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
   creadoPor: text("creado_por"),
 });
@@ -327,9 +328,13 @@ export const destinosInventario = pgTable("destinos_inventario", {
 // destino no se guarda directo en una columna: se calcula sumando/restando
 // estos movimientos (ver stockPorDestino en helpers.ts) contra el stock total
 // del producto, que no cambia con un traspaso entre destinos — solo con una
-// compra/ajuste editado a mano en el producto mismo.
+// compra/ajuste editado a mano en el producto mismo. `folio` es correlativo e
+// irrepetible por guía (ver generarFolioTraspaso en helpers/ids.ts): las
+// líneas de una misma guía (un producto por línea) comparten folio, no es
+// único por fila.
 export const movimientosInventario = pgTable("movimientos_inventario", {
   id: text("id").primaryKey(),
+  folio: text("folio").notNull(),
   productoId: text("producto_id")
     .notNull()
     .references(() => productos.id, { onDelete: "cascade" }),

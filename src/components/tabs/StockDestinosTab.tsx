@@ -98,6 +98,7 @@ export default function StockDestinosTab() {
         <table>
           <thead>
             <tr>
+              <th>Folio</th>
               <th>Fecha</th>
               <th>Producto</th>
               <th>Origen</th>
@@ -111,13 +112,14 @@ export default function StockDestinosTab() {
           <tbody>
             {historial.length === 0 ? (
               <tr>
-                <td colSpan={puedeBorrar ? 8 : 7}>
+                <td colSpan={puedeBorrar ? 9 : 8}>
                   <div className="empty">Todavía no hay traspasos registrados</div>
                 </td>
               </tr>
             ) : (
               historial.map((m) => (
                 <tr key={m.id}>
+                  <td>{m.folio}</td>
                   <td>{new Date(m.fecha).toLocaleString("es-CL")}</td>
                   <td>{productoNombre(m.productoId)}</td>
                   <td>{destinoNombre(m.origenId)}</td>

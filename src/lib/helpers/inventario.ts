@@ -21,3 +21,11 @@ export function stockPorDestino(
   }
   return porDestino;
 }
+
+/** true si `producto` puede estar en `destinoId` — false si está en su lista
+ * de destinos bloqueados (ver Producto.destinosBloqueados en @/types, ej. un
+ * paño no debería poder cargarse en la máquina "Vending Café"). Sin lista
+ * (undefined/vacía) = permitido en todos los destinos. */
+export function productoPermitidoEnDestino(producto: Pick<Producto, "destinosBloqueados">, destinoId: string): boolean {
+  return !producto.destinosBloqueados?.includes(destinoId);
+}
