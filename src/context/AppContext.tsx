@@ -1,91 +1,37 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
-import type {
-  AppData,
-  AuditoriaEntrada,
-  BloqueoAgenda,
-  CartolaMovimiento,
-  CategoriaGasto,
-  CategoriaIngreso,
-  CategoriaInsumo,
-  CategoriaProducto,
-  Cita,
-  Cliente,
-  Cupon,
-  DestinoInventario,
-  Empresa,
-  HorarioAgenda,
-  Ingreso,
-  Insumo,
-  MovimientoContable,
-  MovimientoInventario,
-  PerfilPublico,
-  Producto,
-  Proveedor,
-  ReglaConciliacion,
-  Servicio,
-  TablaAuditada,
-  UIState,
-  Venta,
-} from "@/types";
+import type { AppData, AuditoriaEntrada, UIState } from "@/types";
+import { CATEGORIAS_GASTO_DEFAULT, CATEGORIAS_INGRESO_DEFAULT, CONFIG_DEFAULT, PERFILES_DEFAULT, PRECIOS_DEFAULT, SERVICIOS_DEFAULT } from "@/lib/helpers";
+import { insertAuditoria, loadAll, waitForStorage } from "@/lib/db";
 import {
-  CATEGORIAS_GASTO_DEFAULT,
-  CATEGORIAS_INGRESO_DEFAULT,
-  CONFIG_DEFAULT,
-  movimientoContableDesdeVenta,
-  PERFILES_DEFAULT,
-  PRECIOS_DEFAULT,
-  SERVICIOS_DEFAULT,
-} from "@/lib/helpers";
-import {
-  deleteBloqueosAgenda,
-  deleteCartolaMovimientos,
-  deleteCategoriasInsumo,
-  deleteCategoriasProducto,
-  deleteCitas,
-  deleteClientes,
-  deleteCupones,
-  deleteDestinosInventario,
-  deleteEmpresas,
-  deleteHorariosAgenda,
-  deleteInsumos,
-  deleteMovimientosContables,
-  deleteMovimientosInventario,
-  deletePerfiles,
-  deleteProductos,
-  deleteProveedores,
-  deleteServicios,
-  deleteVentas,
-  insertAuditoria,
-  insertIngresos,
-  insertVentas,
-  loadAll,
-  upsertBloqueosAgenda,
-  upsertCartolaMovimientos,
-  upsertCategoriasGasto,
-  upsertCategoriasIngreso,
-  upsertCategoriasInsumo,
-  upsertCategoriasProducto,
-  upsertCitas,
-  upsertClientes,
-  upsertConfig,
-  upsertCupones,
-  upsertDestinosInventario,
-  upsertEmpresas,
-  upsertHorariosAgenda,
-  upsertInsumos,
-  upsertMovimientosContables,
-  upsertMovimientosInventario,
-  upsertPerfiles,
-  upsertPrecios,
-  upsertProductos,
-  upsertProveedores,
-  upsertReglasConciliacion,
-  upsertServicios,
-  upsertVentas,
-  waitForStorage,
-} from "@/lib/db";
+  commitBloqueosAgenda,
+  commitCartolaMovimientos,
+  commitCategoriasGasto,
+  commitCategoriasIngreso,
+  commitCategoriasInsumo,
+  commitCategoriasProducto,
+  commitCitas,
+  commitClientes,
+  commitConfig,
+  commitCupones,
+  commitDestinosInventario,
+  commitEmpresas,
+  commitHorariosAgenda,
+  commitIngresos,
+  commitInsumos,
+  commitMovimientosContables,
+  commitMovimientosInventario,
+  commitPerfiles,
+  commitPrecios,
+  commitProductos,
+  commitProveedores,
+  commitReglasConciliacion,
+  commitServicios,
+  commitVentas,
+  derivarMovimientosDesdeVentas,
+  type CommitResult,
+} from "@/context/commit";
 
 const initialData: AppData = {
   clientes: [],
@@ -151,57 +97,6 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
-// Compara contra el objeto/id previo por referencia: cada acción de la app
-// construye objetos NUEVOS solo para las filas que cambiaron y reutiliza la
-// misma referencia para las filas que no tocó, así que esto detecta con
-// precisión qué filas hay que insertar/actualizar/eliminar en Supabase, sin
-// tener que reescribir la tabla completa en cada guardado.
-function diffPorId<T extends { id: string }>(previos: T[], siguientes: T[]) {
-  const prevById = new Map(previos.map((x) => [x.id, x]));
-  const nextIds = new Set(siguientes.map((x) => x.id));
-  const cambiados = siguientes.filter((x) => prevById.get(x.id) !== x);
-  const eliminados = previos.filter((x) => !nextIds.has(x.id)).map((x) => x.id);
-  return { cambiados, eliminados };
-}
-
-// Arma las entradas de auditoría para una tabla a partir del mismo diff que
-// ya se usa para decidir qué escribir en Supabase (ver diffPorId): una fila
-// en `cambiados` es "insert" si no existía antes, "update" si sí; una fila
-// en `eliminados` es "delete". No se llama a esto para perfiles/precios/
-// categoriasGasto/config: quedan fuera del alcance de la auditoría a
-// propósito (bajo riesgo/volumen).
-function auditEntries<T extends { id: string }>(
-  tabla: TablaAuditada,
-  previos: T[],
-  cambiados: T[],
-  eliminados: string[],
-  usuario: string | null
-): AuditoriaEntrada[] {
-  const prevById = new Map(previos.map((x) => [x.id, x]));
-  const entradas: AuditoriaEntrada[] = cambiados.map((row) => {
-    const anterior = prevById.get(row.id);
-    return {
-      tabla,
-      registroId: row.id,
-      accion: anterior ? "update" : "insert",
-      datosAnteriores: anterior ?? null,
-      datosNuevos: row,
-      usuario,
-    };
-  });
-  for (const id of eliminados) {
-    entradas.push({
-      tabla,
-      registroId: id,
-      accion: "delete",
-      datosAnteriores: prevById.get(id) ?? null,
-      datosNuevos: null,
-      usuario,
-    });
-  }
-  return entradas;
-}
-
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AppData>(initialData);
   // commit() necesita leer y escribir el `data` más reciente de forma
@@ -241,184 +136,56 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   async function commit(patch: Partial<AppData>): Promise<boolean> {
     const previous = dataRef.current;
-
-    // Cada Venta nueva o editada genera (o actualiza) su propio movimiento
-    // contable de ingreso automáticamente, para que el EERR y Contabilidad →
-    // Ingresos no dependan de que alguien la vuelva a tipear a mano (ver
-    // movimientoContableDesdeVenta en @/lib/helpers). Se resuelve acá, antes
-    // de construir `next`, para que quede reflejado en el mismo commit tanto
-    // en el estado local como en lo que se guarda más abajo.
-    if (patch.ventas) {
-      const { cambiados: ventasCambiadas } = diffPorId<Venta>(previous.ventas, patch.ventas);
-      if (ventasCambiadas.length) {
-        const derivados = ventasCambiadas.map(movimientoContableDesdeVenta);
-        const baseMovimientos = patch.movimientosContables || previous.movimientosContables;
-        const porId = new Map(baseMovimientos.map((m) => [m.id, m]));
-        for (const d of derivados) porId.set(d.id, d);
-        patch = { ...patch, movimientosContables: Array.from(porId.values()) };
-      }
-    }
+    patch = derivarMovimientosDesdeVentas(previous, patch);
 
     const next = { ...previous, ...patch };
     dataRef.current = next;
     setData(next);
 
+    const usuario = ui.perfilActual?.nombre || null;
     const ops: Promise<boolean>[] = [];
     const auditoria: AuditoriaEntrada[] = [];
-    const usuario = ui.perfilActual?.nombre || null;
+    const agregar = (r: CommitResult) => {
+      ops.push(...r.ops);
+      auditoria.push(...r.auditoria);
+    };
 
-    if (patch.clientes) {
-      const { cambiados, eliminados } = diffPorId<Cliente>(previous.clientes, patch.clientes);
-      if (cambiados.length) ops.push(upsertClientes(cambiados));
-      if (eliminados.length) ops.push(deleteClientes(eliminados));
-      auditoria.push(...auditEntries("clientes", previous.clientes, cambiados, eliminados, usuario));
-    }
-    if (patch.ingresos) {
-      const prevIds = new Set(previous.ingresos.map((i) => i.id));
-      const nuevos = patch.ingresos.filter((i) => !prevIds.has(i.id));
-      if (nuevos.length) ops.push(insertIngresos(nuevos));
-      auditoria.push(...auditEntries<Ingreso>("ingresos", previous.ingresos, nuevos, [], usuario));
-    }
-    // citas se resuelve ANTES de tocar ventas (ver más abajo, awaited aparte
-    // del resto de `ops`): ventas.citaId tiene FK a citas.id y ambas suelen
-    // llegar juntas en el mismo commit (ver registrar() en
-    // ServiciosAdicionalesView) — si corrieran en paralelo vía Promise.all,
-    // el insert de ventas podía llegar a la base antes que el de citas y
-    // violar la FK.
-    let citasOk = true;
-    try {
-      if (patch.citas) {
-        const { cambiados, eliminados } = diffPorId<Cita>(previous.citas, patch.citas);
-        const citaResults = await Promise.all([
-          cambiados.length ? upsertCitas(cambiados) : true,
-          eliminados.length ? deleteCitas(eliminados) : true,
-        ]);
-        citasOk = citaResults.every(Boolean);
-        auditoria.push(...auditEntries("citas", previous.citas, cambiados, eliminados, usuario));
-      }
-    } catch (err) {
-      // Server Action inalcanzable (p. ej. operador sin conexión): tratamos
-      // esto igual que un guardado fallido en vez de dejar que la promesa
-      // rechazada se propague sin manejo (ver `ok` más abajo).
-      console.error("No se pudo guardar (citas): posible falla de red", err);
-      citasOk = false;
-    }
+    agregar(commitClientes(previous.clientes, patch.clientes, usuario));
+    agregar(commitIngresos(previous.ingresos, patch.ingresos, usuario));
 
-    if (patch.ventas) {
-      const prevIds = new Set(previous.ventas.map((v) => v.id));
-      const { cambiados, eliminados } = diffPorId<Venta>(previous.ventas, patch.ventas);
-      const nuevas = cambiados.filter((v) => !prevIds.has(v.id));
-      const editadas = cambiados.filter((v) => prevIds.has(v.id));
-      if (nuevas.length) ops.push(insertVentas(nuevas));
-      if (editadas.length) ops.push(upsertVentas(editadas));
-      if (eliminados.length) ops.push(deleteVentas(eliminados));
-      auditoria.push(...auditEntries<Venta>("ventas", previous.ventas, cambiados, eliminados, usuario));
-    }
-    if (patch.perfiles) {
-      const { cambiados, eliminados } = diffPorId<PerfilPublico>(previous.perfiles, patch.perfiles);
-      if (cambiados.length) ops.push(upsertPerfiles(cambiados));
-      if (eliminados.length) ops.push(deletePerfiles(eliminados));
-    }
-    // La clave de un perfil nunca se escribe desde acá (perfilToRow no la
-    // incluye) — crearla o cambiarla pasa por rutas server-side dedicadas
-    // (/api/perfiles/crear, /api/perfiles/cambiar-clave). Perfiles queda
-    // fuera del alcance de la auditoría (ver TablaAuditada en @/types).
-    if (patch.cupones) {
-      const { cambiados, eliminados } = diffPorId<Cupon>(previous.cupones, patch.cupones);
-      if (cambiados.length) ops.push(upsertCupones(cambiados));
-      if (eliminados.length) ops.push(deleteCupones(eliminados));
-      auditoria.push(...auditEntries("cupones", previous.cupones, cambiados, eliminados, usuario));
-    }
-    if (patch.movimientosContables) {
-      const { cambiados, eliminados } = diffPorId<MovimientoContable>(previous.movimientosContables, patch.movimientosContables);
-      if (cambiados.length) ops.push(upsertMovimientosContables(cambiados));
-      if (eliminados.length) ops.push(deleteMovimientosContables(eliminados));
-      auditoria.push(...auditEntries("movimientos_contables", previous.movimientosContables, cambiados, eliminados, usuario));
-    }
-    if (patch.categoriasGasto) {
-      const { cambiados } = diffPorId<CategoriaGasto>(previous.categoriasGasto, patch.categoriasGasto);
-      if (cambiados.length) ops.push(upsertCategoriasGasto(cambiados));
-    }
-    if (patch.categoriasIngreso) {
-      const { cambiados } = diffPorId<CategoriaIngreso>(previous.categoriasIngreso, patch.categoriasIngreso);
-      if (cambiados.length) ops.push(upsertCategoriasIngreso(cambiados));
-    }
-    if (patch.categoriasProducto) {
-      const { cambiados, eliminados } = diffPorId<CategoriaProducto>(previous.categoriasProducto, patch.categoriasProducto);
-      if (cambiados.length) ops.push(upsertCategoriasProducto(cambiados));
-      if (eliminados.length) ops.push(deleteCategoriasProducto(eliminados));
-    }
-    if (patch.categoriasInsumo) {
-      const { cambiados, eliminados } = diffPorId<CategoriaInsumo>(previous.categoriasInsumo, patch.categoriasInsumo);
-      if (cambiados.length) ops.push(upsertCategoriasInsumo(cambiados));
-      if (eliminados.length) ops.push(deleteCategoriasInsumo(eliminados));
-    }
-    if (patch.cartolaMovimientos) {
-      const { cambiados, eliminados } = diffPorId<CartolaMovimiento>(previous.cartolaMovimientos, patch.cartolaMovimientos);
-      if (cambiados.length) ops.push(upsertCartolaMovimientos(cambiados));
-      if (eliminados.length) ops.push(deleteCartolaMovimientos(eliminados));
-    }
-    if (patch.reglasConciliacion) {
-      const { cambiados } = diffPorId<ReglaConciliacion>(previous.reglasConciliacion, patch.reglasConciliacion);
-      if (cambiados.length) ops.push(upsertReglasConciliacion(cambiados));
-    }
-    if (patch.empresas) {
-      const { cambiados, eliminados } = diffPorId<Empresa>(previous.empresas, patch.empresas);
-      if (cambiados.length) ops.push(upsertEmpresas(cambiados));
-      if (eliminados.length) ops.push(deleteEmpresas(eliminados));
-      auditoria.push(...auditEntries("empresas", previous.empresas, cambiados, eliminados, usuario));
-    }
-    if (patch.precios) {
-      ops.push(upsertPrecios(patch.precios));
-    }
-    if (patch.servicios) {
-      const { cambiados, eliminados } = diffPorId<Servicio>(previous.servicios, patch.servicios);
-      if (cambiados.length) ops.push(upsertServicios(cambiados));
-      if (eliminados.length) ops.push(deleteServicios(eliminados));
-    }
-    if (patch.horariosAgenda) {
-      const { cambiados, eliminados } = diffPorId<HorarioAgenda>(previous.horariosAgenda, patch.horariosAgenda);
-      if (cambiados.length) ops.push(upsertHorariosAgenda(cambiados));
-      if (eliminados.length) ops.push(deleteHorariosAgenda(eliminados));
-    }
-    if (patch.bloqueosAgenda) {
-      const { cambiados, eliminados } = diffPorId<BloqueoAgenda>(previous.bloqueosAgenda, patch.bloqueosAgenda);
-      if (cambiados.length) ops.push(upsertBloqueosAgenda(cambiados));
-      if (eliminados.length) ops.push(deleteBloqueosAgenda(eliminados));
-    }
-    if (patch.config) {
-      ops.push(upsertConfig(patch.config));
-    }
-    if (patch.proveedores) {
-      const { cambiados, eliminados } = diffPorId<Proveedor>(previous.proveedores, patch.proveedores);
-      if (cambiados.length) ops.push(upsertProveedores(cambiados));
-      if (eliminados.length) ops.push(deleteProveedores(eliminados));
-    }
-    if (patch.productos) {
-      const { cambiados, eliminados } = diffPorId<Producto>(previous.productos, patch.productos);
-      if (cambiados.length) ops.push(upsertProductos(cambiados));
-      if (eliminados.length) ops.push(deleteProductos(eliminados));
-    }
-    if (patch.insumos) {
-      const { cambiados, eliminados } = diffPorId<Insumo>(previous.insumos, patch.insumos);
-      if (cambiados.length) ops.push(upsertInsumos(cambiados));
-      if (eliminados.length) ops.push(deleteInsumos(eliminados));
-    }
-    if (patch.destinosInventario) {
-      const { cambiados, eliminados } = diffPorId<DestinoInventario>(previous.destinosInventario, patch.destinosInventario);
-      if (cambiados.length) ops.push(upsertDestinosInventario(cambiados));
-      if (eliminados.length) ops.push(deleteDestinosInventario(eliminados));
-    }
-    if (patch.movimientosInventario) {
-      const { cambiados, eliminados } = diffPorId<MovimientoInventario>(previous.movimientosInventario, patch.movimientosInventario);
-      if (cambiados.length) ops.push(upsertMovimientosInventario(cambiados));
-      if (eliminados.length) ops.push(deleteMovimientosInventario(eliminados));
-    }
+    // citas se resuelve y espera ANTES de tocar ventas (ver comentario en
+    // commitCitas, @/context/commit/agenda): ventas.citaId tiene FK a
+    // citas.id y ambas suelen llegar juntas en el mismo commit.
+    const { ok: citasOk, auditoria: auditoriaCitas } = await commitCitas(previous.citas, patch.citas, usuario);
+    auditoria.push(...auditoriaCitas);
+
+    agregar(commitVentas(previous.ventas, patch.ventas, usuario));
+    agregar(commitPerfiles(previous.perfiles, patch.perfiles));
+    agregar(commitCupones(previous.cupones, patch.cupones, usuario));
+    agregar(commitMovimientosContables(previous.movimientosContables, patch.movimientosContables, usuario));
+    agregar(commitCategoriasGasto(previous.categoriasGasto, patch.categoriasGasto));
+    agregar(commitCategoriasIngreso(previous.categoriasIngreso, patch.categoriasIngreso));
+    agregar(commitCategoriasProducto(previous.categoriasProducto, patch.categoriasProducto));
+    agregar(commitCategoriasInsumo(previous.categoriasInsumo, patch.categoriasInsumo));
+    agregar(commitCartolaMovimientos(previous.cartolaMovimientos, patch.cartolaMovimientos));
+    agregar(commitReglasConciliacion(previous.reglasConciliacion, patch.reglasConciliacion));
+    agregar(commitEmpresas(previous.empresas, patch.empresas, usuario));
+    agregar(commitPrecios(patch.precios));
+    agregar(commitServicios(previous.servicios, patch.servicios));
+    agregar(commitHorariosAgenda(previous.horariosAgenda, patch.horariosAgenda));
+    agregar(commitBloqueosAgenda(previous.bloqueosAgenda, patch.bloqueosAgenda));
+    agregar(commitConfig(patch.config));
+    agregar(commitProveedores(previous.proveedores, patch.proveedores));
+    agregar(commitProductos(previous.productos, patch.productos));
+    agregar(commitInsumos(previous.insumos, patch.insumos));
+    agregar(commitDestinosInventario(previous.destinosInventario, patch.destinosInventario));
+    agregar(commitMovimientosInventario(previous.movimientosInventario, patch.movimientosInventario));
+
     let results: boolean[];
     try {
       results = await Promise.all(ops);
     } catch (err) {
-      // Igual que arriba: si el fetch de la Server Action nunca llega al
+      // Igual que citasOk: si el fetch de la Server Action nunca llega al
       // servidor (offline), la promesa rechaza en vez de resolver `false`.
       // Sin este catch, el rechazo se propagaba sin manejar hasta el
       // `onClick` que llamó a commit(), saltándose el rollback de abajo y el
