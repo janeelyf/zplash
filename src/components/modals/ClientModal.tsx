@@ -84,7 +84,14 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
       return;
     }
     const telefonoRaw = telefonoRef.current?.value.trim() || "";
-    const telefono = telefonoRaw ? formatTelefono(telefonoRaw) : "";
+    // El campo precarga "+569" como ayuda para tipear solo los 8 dígitos
+    // restantes (ver defaultValue más abajo); si el operador lo deja intacto
+    // porque el cliente no tiene teléfono, no hay dígitos que validar — sin
+    // este chequeo, formatTelefono("+569") devuelve "+569" tal cual (no matchea
+    // ningún caso de conversión) e isValidTelefono lo rechaza por formato,
+    // bloqueando el guardado de un cliente que en realidad no quiso ingresar
+    // teléfono.
+    const telefono = telefonoRaw && telefonoRaw !== "+569" ? formatTelefono(telefonoRaw) : "";
     if (!exentoFormato && telefono && !isValidTelefono(telefono)) {
       setErr(TELEFONO_FORMATO_MSG);
       return;
