@@ -20,7 +20,7 @@ import { getDb } from "@/db";
 export async function verificarYMigrarClave(id: string, claveIngresada: string, claveAlmacenada: string): Promise<boolean> {
   const ok = await verificarClave(claveIngresada, claveAlmacenada);
   if (ok && !esHashBcrypt(claveAlmacenada)) {
-    await getDb()
+    await db
       .update(perfiles)
       .set({ clave: await hashClave(claveIngresada) })
       .where(and(eq(perfiles.id, id), eq(perfiles.clave, claveAlmacenada)));

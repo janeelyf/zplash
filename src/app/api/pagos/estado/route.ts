@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Patente inválida" }, { status: 400 });
     }
 
-    const db = getDb();
+    ;
     const [cliente] = await db.select().from(clientes).where(eq(clientes.patente, patente)).limit(1);
     if (!cliente) {
       return NextResponse.json({ encontrado: false });

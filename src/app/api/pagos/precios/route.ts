@@ -22,7 +22,7 @@ export const runtime = "nodejs";
 // que realmente se le va a cobrar.
 export async function GET() {
   try {
-    const db = getDb();
+    ;
     const [filas, filasServicios] = await Promise.all([
       db.select().from(precios),
       db.select().from(servicios).where(eq(servicios.activo, true)),

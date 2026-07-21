@@ -1,7 +1,7 @@
 import "server-only";
 import { TransactionDetail } from "transbank-sdk";
 import { and, eq, sql } from "drizzle-orm";
-import { getDb, type DbOrTx } from "@/db";
+import { db } from "@/db";
 import {
   clientes,
   cobrosOneclick,
@@ -66,7 +66,7 @@ interface AplicarPagoParams {
  * extendería de nuevo, gratis). Los tres llamadores (webpay/retorno,
  * cobrarSuscripcion x2) ahora pasan su propia transacción.
  */
-export async function aplicarPagoAprobado(p: AplicarPagoParams, db: DbOrTx = getDb()): Promise<{ clienteId: string }> {
+export async function aplicarPagoAprobado(p: AplicarPagoParams, db: DbOrTx = db): Promise<{ clienteId: string }> {
   const [existente] = await db.select().from(clientes).where(eq(clientes.patente, p.patente)).limit(1);
 
   let clienteId: string;
@@ -163,7 +163,7 @@ type PagoWebpayItemRow = typeof pagosWebpayItems.$inferSelect;
  */
 export async function aplicarPagoPackEmpresa(
   p: { item: PagoWebpayItemRow; ventaId: string; creadoPor: string },
-  db: DbOrTx = getDb()
+  db: DbOrTx = db
 ): Promise<void> {
   const { item } = p;
   const cantidad = item.cantidadCupones || 0;
@@ -305,7 +305,7 @@ export async function cobrarSuscripcion(suscripcion: SuscripcionOneclick): Promi
   // misma tarjeta. pg_advisory_xact_lock se libera solo al terminar la
   // transacción (commit o rollback), así que una segunda llamada concurrente
   // espera acá a que la primera termine de verdad antes de mirar el estado.
-  return getDb().transaction(async (tx) => {
+  return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${suscripcion.id}))`);
 
     const [filaPrecio] = await tx.select().from(precios).where(eq(precios.plan, PLAN_ONECLICK_KEY)).limit(1);

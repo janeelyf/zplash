@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const db = getDb();
+  ;
   const ahora = new Date().toISOString();
   const suscripciones = await db
     .select()

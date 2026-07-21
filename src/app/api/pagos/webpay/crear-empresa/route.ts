@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
       if (!patentes.includes(normalizada)) patentes.push(normalizada);
     }
 
-    const db = getDb();
+    ;
     const filasPrecios = await db.select().from(precios);
     const preciosMap = Object.fromEntries(filasPrecios.map((p) => [p.plan, { normal: p.normal, promo: p.promo }]));
     const monto = precioPackEmpresa(preciosMap, pack.cantidad);

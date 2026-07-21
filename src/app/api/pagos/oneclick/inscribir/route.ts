@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email inválido" }, { status: 400 });
     }
 
-    const db = getDb();
+    ;
     const returnUrl = new URL("/api/pagos/oneclick/inscripcion/retorno", request.nextUrl.origin).toString();
     const respuesta = await oneclickInscription().start(patente, email, returnUrl);
 

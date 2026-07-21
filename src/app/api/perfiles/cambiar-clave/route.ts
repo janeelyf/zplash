@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: `La nueva contraseña debe tener al menos ${CLAVE_MIN_LARGO} caracteres` }, { status: 400 });
   }
 
-  const db = getDb();
+  ;
   let actorRow: { clave: string; modulos: string[]; nombre: string; claveVersion: number } | undefined;
   try {
     [actorRow] = await db

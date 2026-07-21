@@ -24,7 +24,7 @@ async function procesarRetorno(
   tbkToken: string | null,
   tbkOrdenCompra: string | null
 ): Promise<NextResponse> {
-  const db = getDb();
+  ;
 
   // El cliente canceló/abandonó en la página de Transbank: no viene token_ws.
   if (!tokenWs && tbkToken) {

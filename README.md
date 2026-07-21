@@ -89,7 +89,7 @@ src/
   app/                    # App Router de Next.js (layout, página raíz, estilos globales)
   db/
     schema.ts              # Tablas de Drizzle (espejo de supabase/schema.sql)
-    index.ts                # Cliente de Drizzle (getDb()), conexión perezosa vía DATABASE_URL
+    index.ts                # Cliente de Drizzle (db), conexión perezosa vía DATABASE_URL
   context/AppContext.tsx  # Estado global (datos + estado de UI); commit() decide qué filas
                           # insertar/actualizar/eliminar según lo que cambió
   lib/

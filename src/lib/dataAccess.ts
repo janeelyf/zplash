@@ -14,7 +14,8 @@ import "server-only";
 
 import { asc, desc, eq, getTableColumns, inArray, sql, type SQL } from "drizzle-orm";
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
-import { getDb } from "@/db";
+import { db } from "@/db";
+
 import {
   auditoria,
   bloqueosAgenda,
@@ -725,7 +726,7 @@ function buildConflictUpdateColumns<T extends PgTable>(table: T, columns: string
 // lógica entre las 6 tablas que hacen upsert en vez de repetirla.
 async function upsertRows<T extends PgTable>(table: T, target: PgColumn, rows: Record<string, unknown>[]): Promise<void> {
   const columns = Object.keys(rows[0]).filter((k) => k !== target.name);
-  await getDb()
+  await db
     .insert(table)
     .values(rows as never[])
     .onConflictDoUpdate({ target, set: buildConflictUpdateColumns(table, columns) });
@@ -733,7 +734,7 @@ async function upsertRows<T extends PgTable>(table: T, target: PgColumn, rows: R
 
 export async function waitForStorage(): Promise<boolean> {
   try {
-    await getDb().select({ id: config.id }).from(config).limit(1);
+    await db.select({ id: config.id }).from(config).limit(1);
     return true;
   } catch (error) {
     console.error("No se pudo conectar a la base de datos", error);
@@ -742,7 +743,7 @@ export async function waitForStorage(): Promise<boolean> {
 }
 
 export async function loadAll(): Promise<AppData> {
-  const db = getDb();
+
   const [
     clientesRows,
     ingresosRows,
@@ -864,7 +865,7 @@ export async function loadAll(): Promise<AppData> {
  * horario del módulo Operador (ver insertIngresos en @/lib/db) — no confía en el
  * horario que traiga el cliente en AppData, que podría estar desactualizado o alterado. */
 export async function getConfig(): Promise<ConfigGlobal> {
-  const [row] = await getDb().select().from(config).limit(1);
+  const [row] = await db.select().from(config).limit(1);
   return row ? configFromRow(row) : CONFIG_DEFAULT;
 }
 
@@ -911,7 +912,7 @@ export async function upsertClientes(rows: Cliente[]): Promise<boolean> {
 export async function deleteClientes(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
   try {
-    await getDb().delete(clientes).where(inArray(clientes.id, ids));
+    await db.delete(clientes).where(inArray(clientes.id, ids));
     return true;
   } catch (error) {
     console.error("Error eliminando clientes", error);
@@ -922,7 +923,7 @@ export async function deleteClientes(ids: string[]): Promise<boolean> {
 export async function insertIngresos(rows: Ingreso[]): Promise<boolean> {
   if (!rows.length) return true;
   try {
-    await getDb().insert(ingresos).values(rows.map(ingresoToRow));
+    await db.insert(ingresos).values(rows.map(ingresoToRow));
     return true;
   } catch (error) {
     console.error("Error guardando ingresos", error);
@@ -933,7 +934,7 @@ export async function insertIngresos(rows: Ingreso[]): Promise<boolean> {
 export async function insertVentas(rows: Venta[]): Promise<boolean> {
   if (!rows.length) return true;
   try {
-    await getDb().insert(ventas).values(rows.map(ventaToRow));
+    await db.insert(ventas).values(rows.map(ventaToRow));
     return true;
   } catch (error) {
     console.error("Error guardando ventas", error);
@@ -969,7 +970,6 @@ export async function upsertVentas(rows: Venta[]): Promise<boolean> {
 export async function deleteVentas(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
   try {
-    const db = getDb();
     await db.delete(pagosWebpay).where(inArray(pagosWebpay.ventaId, ids));
     await db.delete(pagosWebpayItems).where(inArray(pagosWebpayItems.ventaId, ids));
     await db.delete(cobrosOneclick).where(inArray(cobrosOneclick.ventaId, ids));
@@ -990,7 +990,6 @@ export async function deleteVentas(ids: string[]): Promise<boolean> {
 export async function upsertPerfiles(rows: PerfilPublico[]): Promise<boolean> {
   if (!rows.length) return true;
   try {
-    const db = getDb();
     await Promise.all(rows.map((p) => db.update(perfiles).set(perfilToRow(p)).where(eq(perfiles.id, p.id))));
     return true;
   } catch (error) {
@@ -1002,7 +1001,7 @@ export async function upsertPerfiles(rows: PerfilPublico[]): Promise<boolean> {
 export async function deletePerfiles(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
   try {
-    await getDb().delete(perfiles).where(inArray(perfiles.id, ids));
+    await db.delete(perfiles).where(inArray(perfiles.id, ids));
     return true;
   } catch (error) {
     console.error("Error eliminando perfiles", error);
@@ -1036,7 +1035,7 @@ export async function upsertCupones(rows: Cupon[]): Promise<boolean> {
 export async function deleteCupones(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
   try {
-    await getDb().delete(cupones).where(inArray(cupones.id, ids));
+    await db.delete(cupones).where(inArray(cupones.id, ids));
     return true;
   } catch (error) {
     console.error("Error eliminando cupones", error);
@@ -1058,7 +1057,7 @@ export async function upsertMovimientosContables(rows: MovimientoContable[]): Pr
 export async function deleteMovimientosContables(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
   try {
-    await getDb().delete(movimientosContables).where(inArray(movimientosContables.id, ids));
+    await db.delete(movimientosContables).where(inArray(movimientosContables.id, ids));
     return true;
   } catch (error) {
     console.error("Error eliminando movimientos contables", error);
@@ -1080,7 +1079,7 @@ export async function upsertCartolaMovimientos(rows: CartolaMovimiento[]): Promi
 export async function deleteCartolaMovimientos(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
   try {
-    await getDb().delete(cartolaMovimientos).where(inArray(cartolaMovimientos.id, ids));
+    await db.delete(cartolaMovimientos).where(inArray(cartolaMovimientos.id, ids));
     return true;
   } catch (error) {
     console.error("Error eliminando movimientos de cartola", error);
@@ -1157,7 +1156,7 @@ export async function upsertEmpresas(rows: Empresa[]): Promise<boolean> {
 export async function deleteEmpresas(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
   try {
-    await getDb().delete(empresas).where(inArray(empresas.id, ids));
+    await db.delete(empresas).where(inArray(empresas.id, ids));
     return true;
   } catch (error) {
     console.error("Error eliminando empresas", error);
@@ -1179,7 +1178,7 @@ export async function upsertProveedores(rows: Proveedor[]): Promise<boolean> {
 export async function deleteProveedores(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
   try {
-    await getDb().delete(proveedores).where(inArray(proveedores.id, ids));
+    await db.delete(proveedores).where(inArray(proveedores.id, ids));
     return true;
   } catch (error) {
     console.error("Error eliminando proveedores", error);
@@ -1201,7 +1200,7 @@ export async function upsertProductos(rows: Producto[]): Promise<boolean> {
 export async function deleteProductos(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
   try {
-    await getDb().delete(productos).where(inArray(productos.id, ids));
+    await db.delete(productos).where(inArray(productos.id, ids));
     return true;
   } catch (error) {
     console.error("Error eliminando productos", error);
@@ -1223,7 +1222,7 @@ export async function upsertInsumos(rows: Insumo[]): Promise<boolean> {
 export async function deleteInsumos(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
   try {
-    await getDb().delete(insumos).where(inArray(insumos.id, ids));
+    await db.delete(insumos).where(inArray(insumos.id, ids));
     return true;
   } catch (error) {
     console.error("Error eliminando insumos", error);
@@ -1245,7 +1244,7 @@ export async function upsertServicios(rows: Servicio[]): Promise<boolean> {
 export async function deleteServicios(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
   try {
-    await getDb().delete(servicios).where(inArray(servicios.id, ids));
+    await db.delete(servicios).where(inArray(servicios.id, ids));
     return true;
   } catch (error) {
     console.error("Error eliminando servicios", error);
@@ -1270,7 +1269,7 @@ export async function upsertHorariosAgenda(rows: HorarioAgenda[]): Promise<boole
 export async function deleteHorariosAgenda(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
   try {
-    await getDb().delete(horariosAgenda).where(inArray(horariosAgenda.id, ids));
+    await db.delete(horariosAgenda).where(inArray(horariosAgenda.id, ids));
     return true;
   } catch (error) {
     console.error("Error eliminando horarios de agenda", error);
@@ -1292,7 +1291,7 @@ export async function upsertBloqueosAgenda(rows: BloqueoAgenda[]): Promise<boole
 export async function deleteBloqueosAgenda(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
   try {
-    await getDb().delete(bloqueosAgenda).where(inArray(bloqueosAgenda.id, ids));
+    await db.delete(bloqueosAgenda).where(inArray(bloqueosAgenda.id, ids));
     return true;
   } catch (error) {
     console.error("Error eliminando bloqueos de agenda", error);
@@ -1303,7 +1302,7 @@ export async function deleteBloqueosAgenda(ids: string[]): Promise<boolean> {
 /** Estado real en la base de un set de citas, para validar transiciones antes de escribir (ver upsertCitas en @/lib/db). */
 export async function getEstadosCitas(ids: string[]): Promise<Map<string, Cita["estado"]>> {
   if (!ids.length) return new Map();
-  const rows = await getDb().select({ id: citas.id, estado: citas.estado }).from(citas).where(inArray(citas.id, ids));
+  const rows = await db.select({ id: citas.id, estado: citas.estado }).from(citas).where(inArray(citas.id, ids));
   return new Map(rows.map((r) => [r.id, r.estado as Cita["estado"]]));
 }
 
@@ -1315,7 +1314,6 @@ export async function getEstadosCitas(ids: string[]): Promise<Map<string, Cita["
 export async function upsertCitas(rows: Cita[]): Promise<boolean> {
   if (!rows.length) return true;
   try {
-    const db = getDb();
     await upsertRows(citas, citas.id, rows.map(citaToRow));
     const citaIds = rows.map((c) => c.id);
     await db.delete(citaServicios).where(inArray(citaServicios.citaId, citaIds));
@@ -1333,7 +1331,7 @@ export async function upsertCitas(rows: Cita[]): Promise<boolean> {
 export async function deleteCitas(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
   try {
-    await getDb().delete(citas).where(inArray(citas.id, ids));
+    await db.delete(citas).where(inArray(citas.id, ids));
     return true;
   } catch (error) {
     console.error("Error eliminando citas", error);
@@ -1349,7 +1347,7 @@ export async function deleteCitas(ids: string[]): Promise<boolean> {
 export async function insertAuditoria(entradas: AuditoriaEntrada[]): Promise<boolean> {
   if (!entradas.length) return true;
   try {
-    await getDb()
+    await db
       .insert(auditoria)
       .values(
         entradas.map((e) => ({
@@ -1410,7 +1408,6 @@ export interface SuscripcionOneclickInfo {
 /** Estado de la suscripción Oneclick de un cliente para mostrar en
  * ClienteInfoModal, o null si nunca inscribió una tarjeta. */
 export async function obtenerSuscripcionOneclick(patente: string): Promise<SuscripcionOneclickInfo | null> {
-  const db = getDb();
   const [suscripcion] = await db
     .select()
     .from(suscripcionesOneclick)
@@ -1441,7 +1438,7 @@ export async function obtenerSuscripcionOneclick(patente: string): Promise<Suscr
 
 /** Fila cruda de la suscripción, para pasarle a cobrarSuscripcion() desde el Server Action de reintento manual. */
 export async function obtenerSuscripcionOneclickPorId(id: string) {
-  const [suscripcion] = await getDb().select().from(suscripcionesOneclick).where(eq(suscripcionesOneclick.id, id)).limit(1);
+  const [suscripcion] = await db.select().from(suscripcionesOneclick).where(eq(suscripcionesOneclick.id, id)).limit(1);
   return suscripcion || null;
 }
 
@@ -1452,7 +1449,6 @@ const ESTADO_ORDEN: Record<string, number> = { activa: 0, suspendida: 1, pendien
  * no guarda clienteId — se inscribe antes de que necesariamente exista una
  * fila en clientes) y el último intento de cobro de cada una. */
 export async function listarSuscripcionesOneclick(): Promise<SuscripcionOneclickInfo[]> {
-  const db = getDb();
   const filas = await db
     .select({ suscripcion: suscripcionesOneclick, clienteNombre: clientes.nombre })
     .from(suscripcionesOneclick)
@@ -1487,7 +1483,6 @@ export async function listarSuscripcionesOneclick(): Promise<SuscripcionOneclick
  * diferencia de suspenderSuscripcionOneclick, no se puede reactivar después
  * porque el token de tarjeta ya no existe en Transbank. */
 export async function cancelarSuscripcionOneclick(id: string): Promise<boolean> {
-  const db = getDb();
   const suscripcion = await obtenerSuscripcionOneclickPorId(id);
   if (!suscripcion) return false;
 
@@ -1515,7 +1510,6 @@ export async function cancelarSuscripcionOneclick(id: string): Promise<boolean> 
  * (/api/pagos/oneclick/cobrar) solo cobra estado "activa", así que
  * "suspendida" queda excluida automáticamente sin más cambios. */
 export async function suspenderSuscripcionOneclick(id: string): Promise<boolean> {
-  const db = getDb();
   await db
     .update(suscripcionesOneclick)
     .set({ estado: "suspendida", actualizadoEn: new Date().toISOString() })
@@ -1527,7 +1521,6 @@ export async function suspenderSuscripcionOneclick(id: string): Promise<boolean>
  * si quedó vencido, el cron del día siguiente cobra normalmente, igual que
  * cualquier otra suscripción activa atrasada). */
 export async function reactivarSuscripcionOneclick(id: string): Promise<boolean> {
-  const db = getDb();
   await db
     .update(suscripcionesOneclick)
     .set({ estado: "activa", actualizadoEn: new Date().toISOString() })

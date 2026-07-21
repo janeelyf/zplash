@@ -1,0 +1,23 @@
+import { boolean, integer, numeric, pgTable, text } from "drizzle-orm/pg-core";
+import { timestamptz } from "./columns";
+import { categoriasInsumo } from "./categorias-insumo";
+import { proveedores } from "./proveedores";
+
+
+// Insumo de consumo interno (limpieza/baño-aseo/oficina): a diferencia de
+// `productos` (que se venden por web/vending, con valor_venta), un insumo
+// nunca se vende — solo se gasta para prestar el servicio o para operar la
+// oficina, por eso no tiene valor_venta ni sku/código de vending.
+export const insumos = pgTable("insumos", {
+  id: text("id").primaryKey(),
+  nombre: text("nombre").notNull(),
+  categoriaId: text("categoria_id").references(() => categoriasInsumo.id, { onDelete: "set null" }),
+  valorCompra: numeric("valor_compra", { mode: "number" }).notNull().default(0),
+  stock: integer("stock").notNull().default(0),
+  stockMin: integer("stock_min").notNull().default(0),
+  stockMax: integer("stock_max").notNull().default(0),
+  proveedorId: text("proveedor_id").references(() => proveedores.id, { onDelete: "set null" }),
+  activo: boolean("activo").notNull().default(true),
+  creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+  creadoPor: text("creado_por"),
+});

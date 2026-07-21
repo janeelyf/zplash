@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, skipped: true });
   }
 
-  const db = getDb();
+  ;
   const ventaId = "wc-" + orderId;
   const billing = (order.billing as Record<string, unknown>) || {};
   const patente = extraerPatente(order);

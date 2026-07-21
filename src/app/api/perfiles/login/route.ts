@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
 
   let data: { nombre: string; clave: string; modulos: string[]; claveVersion: number } | undefined;
   try {
-    [data] = await getDb()
+    [data] = await db
       .select({ nombre: perfiles.nombre, clave: perfiles.clave, modulos: perfiles.modulos, claveVersion: perfiles.claveVersion })
       .from(perfiles)
       .where(eq(perfiles.id, id))

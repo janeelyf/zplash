@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Solo se puede pagar un plan por transacción" }, { status: 400 });
     }
 
-    const db = getDb();
+    ;
     const filasPrecios = await db.select().from(precios);
     const preciosMap = Object.fromEntries(filasPrecios.map((p) => [p.plan, { normal: p.normal, promo: p.promo }]));
 

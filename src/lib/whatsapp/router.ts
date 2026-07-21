@@ -41,7 +41,7 @@ const REGEX_DESCUENTO_PATENTE = /^(?:descuento|dscto)\s+([a-z0-9]+)$/i;
 
 async function estadoPlanPorPatente(patenteCruda: string): Promise<RespuestaBot> {
   const patente = normPlate(patenteCruda);
-  const db = getDb();
+  ;
   const [cliente] = await db.select().from(clientes).where(eq(clientes.patente, patente)).limit(1);
 
   if (!cliente) return { texto: PATENTE_NO_ENCONTRADA };
@@ -66,7 +66,7 @@ async function manejarDescuentoPrimeraVez(patenteCruda: string): Promise<Respues
   const patente = normPlate(patenteCruda);
   if (!isValidPatente(patente)) return { texto: TEXTO_DESCUENTO_PATENTE_INVALIDA };
 
-  const db = getDb();
+  ;
   const [clienteExistente] = await db.select().from(clientes).where(eq(clientes.patente, patente)).limit(1);
   if (clienteExistente) return { texto: TEXTO_DESCUENTO_YA_CLIENTE };
 
@@ -110,7 +110,7 @@ export async function responderMensaje(textoCrudo: string): Promise<RespuestaBot
   if (!texto || SALUDOS.has(normalizado)) return { texto: MENU_PRINCIPAL };
   if (isValidPatente(texto)) return estadoPlanPorPatente(texto);
   if (OPCIONES_PRECIOS.has(normalizado)) {
-    const db = getDb();
+    ;
     const [preciosRows, serviciosRows] = await Promise.all([
       db.select().from(preciosTabla),
       db.select().from(serviciosTabla),

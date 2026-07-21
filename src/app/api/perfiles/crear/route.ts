@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Datos inválidos" }, { status: 400 });
   }
 
-  const db = getDb();
+  ;
   let actorRow: { clave: string; modulos: string[] } | undefined;
   try {
     [actorRow] = await db

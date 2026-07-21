@@ -91,7 +91,7 @@ export async function leerSesion(): Promise<SesionPayload | null> {
 async function sesionVigente(): Promise<SesionPayload | null> {
   const sesion = await leerSesion();
   if (!sesion) return null;
-  const [fila] = await getDb()
+  const [fila] = await db
     .select({ claveVersion: perfiles.claveVersion })
     .from(perfiles)
     .where(eq(perfiles.id, sesion.id))

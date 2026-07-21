@@ -20,7 +20,7 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
     return redirectResultado(origin, "error");
   }
 
-  const db = getDb();
+  ;
   const [suscripcion] = await db
     .select()
     .from(suscripcionesOneclick)

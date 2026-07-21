@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Falta RUT o email" }, { status: 400 });
     }
 
-    const db = getDb();
+    ;
     const filas = await db
       .select({
         codigo: cupones.codigo,
