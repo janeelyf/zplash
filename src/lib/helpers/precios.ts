@@ -1,0 +1,136 @@
+import type { ConfigGlobal, Precios, Venta } from "@/types";
+
+export const PLANES = ["Plan Ilimitado Mensual"];
+
+export const PRECIOS_DEFAULT: Precios = {
+  "Plan Ilimitado Mensual": { normal: 21990, promo: 19990 },
+  tapiz: { normal: 39990, promo: 0 },
+  alfombra: { normal: 19990, promo: 0 },
+  techo: { normal: 19990, promo: 0 },
+  motor: { normal: 29990, promo: 0 },
+  "chasis-grafitado": { normal: 59990, promo: 0 },
+};
+
+/** Precio de un lavado único para clientes sin plan vigente (vencido o sin plan). */
+export const PRECIO_LAVADO_UNICO = 9990;
+
+/** Clave usada dentro de Precios para guardar el valor editable del lavado único. */
+export const LAVADO_UNICO_KEY = "Lavado único";
+
+/**
+ * Precio del plan para quien contrata con renovación automática (Oneclick
+ * Mall) desde /pagar — más barato que pagar un período a la vez con Webpay
+ * Plus, para incentivar la renovación automática. Es un canal de venta
+ * digital aparte y NO tiene relación con `precioPreferencial`/`promo`, que es
+ * el descuento de renovación para un cliente físico atendido en el local.
+ */
+export const PRECIO_PLAN_ONECLICK_DEFAULT = 19990;
+
+/** Clave usada dentro de Precios para guardar el valor editable del plan con renovación automática. */
+export const PLAN_ONECLICK_KEY = "Plan Ilimitado Mensual (Renovación Automática)";
+
+export function precioPlanOneclick(precios: Precios): number {
+  return (precios[PLAN_ONECLICK_KEY] && precios[PLAN_ONECLICK_KEY].normal) || PRECIO_PLAN_ONECLICK_DEFAULT;
+}
+
+/** Precio del uso puntual de la zona de aspirado autoservicio, sin plan ni límite de tiempo. */
+export const PRECIO_ZONA_ASPIRADO = 4990;
+
+/** Clave usada dentro de Precios para guardar el valor editable de la zona de aspirado autoservicio. */
+export const ZONA_ASPIRADO_KEY = "Uso Zona Aspirado Autoservicio";
+
+/** Precio vigente del uso de la zona de aspirado autoservicio, editable por el administrador; si no se ha guardado uno, usa el valor por defecto. */
+export function precioZonaAspirado(precios: Precios): number {
+  return (precios[ZONA_ASPIRADO_KEY] && precios[ZONA_ASPIRADO_KEY].normal) || PRECIO_ZONA_ASPIRADO;
+}
+
+/** Monto adicional (sobre el lavado único ya pagado) para convertir la visita de hoy en la contratación del Plan Ilimitado Mensual — promoción ofrecida en el módulo Operador dentro de la primera hora tras el ingreso. */
+export const PRECIO_UPGRADE_PLAN_DEFAULT = 12000;
+
+/** Clave usada dentro de Precios para guardar el valor editable del upgrade a plan. */
+export const UPGRADE_PLAN_KEY = "Upgrade a Plan Ilimitado";
+
+export function precioUpgradePlan(precios: Precios): number {
+  return (precios[UPGRADE_PLAN_KEY] && precios[UPGRADE_PLAN_KEY].normal) || PRECIO_UPGRADE_PLAN_DEFAULT;
+}
+
+/** Ventana desde el lavado único dentro de la cual se puede ofrecer el upgrade a plan (ver ventaUpgradeElegible). */
+const HORAS_VENTANA_UPGRADE_PLAN = 1;
+
+/**
+ * Venta de "Lavado único" del cliente elegible para convertirse en
+ * contratación del Plan Ilimitado Mensual vía la promoción de upgrade: la más
+ * reciente, y solo si ocurrió hace menos de 1 hora — pasada esa ventana el
+ * lavado ya se disfrutó sin plan y la promoción deja de tener sentido.
+ */
+export function ventaUpgradeElegible(ventas: Venta[], clienteId: string, ahora: Date = new Date()): Venta | undefined {
+  const ultima = ventas
+    .filter((v) => v.clienteId === clienteId && v.tipo === "Lavado único")
+    .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
+  if (!ultima) return undefined;
+  const msDesde = ahora.getTime() - new Date(ultima.fecha).getTime();
+  if (msDesde > HORAS_VENTANA_UPGRADE_PLAN * 3600 * 1000) return undefined;
+  return ultima;
+}
+
+/** Catálogo fijo de los 4 packs de tickets para empresas (flotas, automotoras,
+ * rent a car, talleres mecánicos), vendidos online con Webpay desde la
+ * pestaña "Venta a Empresa" del portal cliente. `key` es la clave usada
+ * dentro de `Precios` (mismo patrón que PLAN_ONECLICK_KEY/UPGRADE_PLAN_KEY),
+ * y `precioDefault` es el valor IVA incluido publicado en zplash.cl/empresas/
+ * mientras el administrador no lo edite desde Web Settings. */
+export const PACKS_EMPRESA = [
+  { cantidad: 10, key: "Pack Empresa 10 Tickets", precioDefault: 89990 },
+  { cantidad: 20, key: "Pack Empresa 20 Tickets", precioDefault: 159990 },
+  { cantidad: 30, key: "Pack Empresa 30 Tickets", precioDefault: 224990 },
+  { cantidad: 40, key: "Pack Empresa 40 Tickets", precioDefault: 279600 },
+] as const;
+
+export type CantidadPackEmpresa = (typeof PACKS_EMPRESA)[number]["cantidad"];
+
+export function packEmpresaPorCantidad(cantidad: number): (typeof PACKS_EMPRESA)[number] | undefined {
+  return PACKS_EMPRESA.find((p) => p.cantidad === cantidad);
+}
+
+/** Precio vigente de un pack empresa, editable por el administrador desde Web Settings; si no se ha guardado uno, usa precioDefault. */
+export function precioPackEmpresa(precios: Precios, cantidad: number): number {
+  const pack = packEmpresaPorCantidad(cantidad);
+  if (!pack) return 0;
+  return (precios[pack.key] && precios[pack.key].normal) || pack.precioDefault;
+}
+
+export function fmtCLP(n: number): string {
+  return "$" + Math.round(n).toLocaleString("es-CL");
+}
+
+export function precioNormal(precios: Precios, plan: string): number {
+  return (precios[plan] && precios[plan].normal) || 0;
+}
+
+export function precioPreferencial(precios: Precios, plan: string): number {
+  return (precios[plan] && precios[plan].promo) || 0;
+}
+
+/**
+ * Precio de renovación preferencial para un cliente Local según su cantidad
+ * de visitas acumuladas (ver tramosRenovacionLocal en ConfigGlobal): busca el
+ * tramo cuyo rango [visitasMin, visitasMax] contiene `visitas` (evaluando los
+ * tramos ordenados de menor a mayor visitasMin, para que el resultado sea
+ * determinístico aunque el admin los haya guardado en otro orden). Si ninguno
+ * calza, cae al precio preferencial general (Precios[plan].promo).
+ */
+export function precioRenovacionLocal(config: ConfigGlobal, precios: Precios, plan: string, visitas: number): number {
+  const tramos = [...(config.tramosRenovacionLocal[plan] || [])].sort((a, b) => a.visitasMin - b.visitasMin);
+  const match = tramos.find((t) => visitas >= t.visitasMin && (t.visitasMax === null || visitas <= t.visitasMax));
+  return match ? match.precio : precioPreferencial(precios, plan);
+}
+
+/** Precio vigente del lavado único, editable por el administrador; si no se ha guardado uno, usa el valor por defecto. */
+export function precioLavadoUnico(precios: Precios): number {
+  return (precios[LAVADO_UNICO_KEY] && precios[LAVADO_UNICO_KEY].normal) || PRECIO_LAVADO_UNICO;
+}
+
+/** Precio vigente de un servicio del catálogo, editable por el administrador desde Configuración; si no se ha guardado uno, es 0. */
+export function precioServicio(precios: Precios, servicioId: string): number {
+  return (precios[servicioId] && precios[servicioId].normal) || 0;
+}
