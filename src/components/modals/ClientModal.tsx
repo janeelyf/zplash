@@ -42,7 +42,10 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
   const vencRef = useRef<HTMLInputElement>(null);
   const origenRef = useRef<HTMLSelectElement>(null);
   const [tipoDoc, setTipoDoc] = useState<"Boleta" | "Factura">(cli.tipoDocumento === "Factura" ? "Factura" : "Boleta");
-  const [tipoCliente, setTipoCliente] = useState("plan");
+  // Determina si el cliente tiene plan o no. Para clientes existentes se basa en
+  // si ya tenía vencimiento; sin esto, el formulario de admin no tenía forma de
+  // representar "sin plan" y cualquier edición le asignaba un vencimiento.
+  const [tipoCliente, setTipoCliente] = useState(cli.vencimiento ? "plan" : "unico");
   const [err, setErr] = useState("");
 
   // El RUT manda: al salir del campo se busca en la ficha de Empresas; si ya
@@ -131,10 +134,13 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
       } else {
         vencimiento = null;
       }
-    } else {
+    } else if (tipoCliente === "plan") {
       plan = planRef.current?.value || PLANES[0];
       const vencVal = vencRef.current?.value;
       vencimiento = vencVal ? new Date(vencVal).toISOString() : null;
+    } else {
+      plan = "";
+      vencimiento = null;
     }
 
     const origen: "WEB" | "LOCAL" =
@@ -299,16 +305,27 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
           </select>
         </div>
       ) : (
-        <div className="field">
-          <label>Plan</label>
-          <select ref={planRef} defaultValue={cli.plan || PLANES[0]}>
-            {PLANES.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-        </div>
+        <>
+          <div className="field">
+            <label>Tipo de cliente</label>
+            <select value={tipoCliente} onChange={(e) => setTipoCliente(e.target.value)}>
+              <option value="plan">Con plan</option>
+              <option value="unico">Sin plan</option>
+            </select>
+          </div>
+          {tipoCliente === "plan" && (
+            <div className="field">
+              <label>Plan</label>
+              <select ref={planRef} defaultValue={cli.plan || PLANES[0]}>
+                {PLANES.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </>
       )}
       {contexto !== "operador" && (
         <div className="field">
@@ -365,10 +382,12 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
           </div>
         )
       ) : (
-        <div className="field">
-          <label>Vencimiento del plan</label>
-          <input ref={vencRef} type="date" defaultValue={cli.vencimiento ? cli.vencimiento.substring(0, 10) : todayYMD()} />
-        </div>
+        tipoCliente === "plan" && (
+          <div className="field">
+            <label>Vencimiento del plan</label>
+            <input ref={vencRef} type="date" defaultValue={cli.vencimiento ? cli.vencimiento.substring(0, 10) : todayYMD()} />
+          </div>
+        )
       )}
       <div className="err">{err}</div>
       <div className="modal-actions">

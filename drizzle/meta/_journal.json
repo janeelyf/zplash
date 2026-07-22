@@ -190,6 +190,27 @@
       "when": 1784641093800,
       "tag": "0026_cool_namor",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1784668879799,
+      "tag": "0027_sparkling_red_ghost",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1784692378082,
+      "tag": "0028_kind_dakota_north",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1784695905041,
+      "tag": "0029_bitter_mother_askani",
+      "breakpoints": true
     }
   ]
 }

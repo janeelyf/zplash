@@ -137,6 +137,7 @@ export default function CierreTab() {
     { tipo: "Lavado único", label: "Lavado único" },
     { tipo: "Plan nuevo", label: "Contratación de plan" },
     { tipo: "Renovación preferencial", label: "Renovación temprana" },
+    { tipo: "Reactivación promocional", label: "Reactivación promocional (plan vencido)" },
     { tipo: "Plan nuevo (Web)", label: "Contratación de plan (Web automático)" },
     { tipo: "Renovación (Web)", label: "Renovación de plan (Web automático)" },
     { tipo: "Cupón Venta Empresa", label: "Cupón Venta Empresa" },

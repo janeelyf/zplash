@@ -18,6 +18,8 @@ function configToRow(c: ConfigGlobal): typeof config.$inferInsert {
     festivos: c.festivos,
     vigenciaDiasPackEmpresa: c.vigenciaDiasPackEmpresa,
     tramosRenovacionLocal: c.tramosRenovacionLocal,
+    horasVentanaUpgradePlan: c.horasVentanaUpgradePlan,
+    tramosReactivacionVencido: c.tramosReactivacionVencido,
   };
 }
 
@@ -30,6 +32,8 @@ export function configFromRow(r: ConfigRow): ConfigGlobal {
     festivos: r.festivos ?? [],
     vigenciaDiasPackEmpresa: r.vigenciaDiasPackEmpresa || 365,
     tramosRenovacionLocal: r.tramosRenovacionLocal ?? {},
+    horasVentanaUpgradePlan: r.horasVentanaUpgradePlan || 1,
+    tramosReactivacionVencido: r.tramosReactivacionVencido ?? {},
   };
 }
 

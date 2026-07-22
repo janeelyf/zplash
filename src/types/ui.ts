@@ -32,12 +32,13 @@ export type ModalState =
   | null;
 
 export interface UIState {
-  view: "login" | "hub" | "operador" | "admin" | "servicios" | "contabilidad" | "web_settings" | "inventario";
+  view: "login" | "hub" | "operador" | "admin" | "servicios" | "contabilidad" | "web_settings" | "inventario" | "mantencion";
   operResult: OperResult;
   adminTab: string;
   contabilidadTab: string;
   webSettingsTab: string;
   inventarioTab: string;
+  mantencionTab: string;
   search: string;
   modal: ModalState;
   loginErr: string;

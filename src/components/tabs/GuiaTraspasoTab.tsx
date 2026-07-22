@@ -2,8 +2,18 @@
 
 import { useMemo, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { generarFolioTraspaso, productoPermitidoEnDestino, stockPorDestino, uid } from "@/lib/helpers";
+import { generarFolioTraspaso, productoPermitidoEnDestino, puedeBorrarCategoriaInventario, stockPorDestino, uid } from "@/lib/helpers";
 import type { MovimientoInventario } from "@/types";
+
+interface GuiaDesdeBodega {
+  folio: string;
+  fecha: string;
+  destinoId: string;
+  notas?: string;
+  creadoPor?: string;
+  ids: string[];
+  lineas: { productoId: string; cantidad: number }[];
+}
 
 export default function GuiaTraspasoTab() {
   const { data, ui, patchUi, commit } = useApp();
@@ -15,38 +25,106 @@ export default function GuiaTraspasoTab() {
   const [notas, setNotas] = useState("");
   const [cantidades, setCantidades] = useState<Record<string, number>>({});
   const [err, setErr] = useState<{ msg: string; ok: boolean } | null>(null);
+  const puedeBorrar = puedeBorrarCategoriaInventario(ui.perfilActual?.nombre);
 
+  const destinoNombre = (id: string) => data.destinosInventario.find((d) => d.id === id)?.nombre || "-";
+  const productoNombre = (id: string) => {
+    const p = data.productos.find((x) => x.id === id);
+    return p ? `${p.sku} — ${p.detalle}` : "(producto eliminado)";
+  };
+
+  // Agrupa los movimientos que salieron de Bodega por folio: cada guía se
+  // crea con un folio compartido entre todas sus líneas (un producto por
+  // línea, ver guardar() más abajo), así que agrupar por folio reconstruye
+  // la guía completa aunque se haya guardado como varias filas.
+  const guiasDesdeBodega = useMemo<GuiaDesdeBodega[]>(() => {
+    if (!bodega) return [];
+    const porFolio = new Map<string, GuiaDesdeBodega>();
+    for (const m of data.movimientosInventario) {
+      if (m.origenId !== bodega.id) continue;
+      const existente = porFolio.get(m.folio);
+      if (existente) {
+        existente.ids.push(m.id);
+        existente.lineas.push({ productoId: m.productoId, cantidad: m.cantidad });
+      } else {
+        porFolio.set(m.folio, {
+          folio: m.folio,
+          fecha: m.fecha,
+          destinoId: m.destinoId,
+          notas: m.notas,
+          creadoPor: m.creadoPor,
+          ids: [m.id],
+          lineas: [{ productoId: m.productoId, cantidad: m.cantidad }],
+        });
+      }
+    }
+    return [...porFolio.values()].sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
+  }, [data.movimientosInventario, bodega]);
+
+  const eliminarGuia = (guia: GuiaDesdeBodega) => {
+    patchUi({
+      modal: {
+        type: "confirm",
+        mensaje: `¿Eliminar la guía N° ${guia.folio} (${guia.lineas.length} producto(s) hacia "${destinoNombre(guia.destinoId)}")? Esta acción no se puede deshacer.`,
+        confirmLabel: "Eliminar",
+        onConfirm: () => {
+          commit({ movimientosInventario: data.movimientosInventario.filter((m) => !guia.ids.includes(m.id)) });
+        },
+      },
+    });
+  };
+
+  const disponibleEnOrigen = (productoId: string, origen: string = origenId) => {
+    const producto = data.productos.find((p) => p.id === productoId);
+    if (!producto) return 0;
+    const stock = stockPorDestino(producto, data.destinosInventario, data.movimientosInventario);
+    return stock.get(origen) ?? 0;
+  };
+
+  const destino = data.destinosInventario.find((d) => d.id === destinoId);
+
+  const permitidoEnDestino = (productoId: string) => {
+    if (!destino) return true;
+    const producto = data.productos.find((p) => p.id === productoId);
+    return !producto || productoPermitidoEnDestino(producto, destino);
+  };
+
+  // La lista solo muestra productos con stock en el origen elegido y, si ya
+  // se eligió destino, que además tengan ese destino permitido en su ficha
+  // (ver destinosBloqueados en @/types) — así se saca automáticamente lo que
+  // no se puede traspasar en vez de solo deshabilitarlo.
   const q = (ui.search || "").trim().toLowerCase();
   const productos = useMemo(() => {
     return data.productos
       .filter((p) => p.activo && (!q || p.sku.toLowerCase().includes(q) || p.detalle.toLowerCase().includes(q)))
+      .filter((p) => (stockPorDestino(p, data.destinosInventario, data.movimientosInventario).get(origenId) ?? 0) > 0)
+      .filter((p) => !destino || productoPermitidoEnDestino(p, destino))
       .sort((a, b) => a.sku.localeCompare(b.sku));
-  }, [data.productos, q]);
-
-  const disponibleEnOrigen = (productoId: string) => {
-    const producto = data.productos.find((p) => p.id === productoId);
-    if (!producto) return 0;
-    const stock = stockPorDestino(producto, data.destinosInventario, data.movimientosInventario);
-    return stock.get(origenId) ?? 0;
-  };
-
-  const permitidoEnDestino = (productoId: string) => {
-    if (!destinoId) return true;
-    const producto = data.productos.find((p) => p.id === productoId);
-    return !producto || productoPermitidoEnDestino(producto, destinoId);
-  };
+  }, [data.productos, data.destinosInventario, data.movimientosInventario, q, origenId, destino]);
 
   const setCantidad = (productoId: string, valor: number) => {
     setCantidades((prev) => ({ ...prev, [productoId]: valor }));
   };
 
+  const cambiarOrigen = (nuevoOrigenId: string) => {
+    setOrigenId(nuevoOrigenId);
+    setCantidades((prev) => {
+      const siguiente = { ...prev };
+      for (const [productoId, cantidad] of Object.entries(siguiente)) {
+        if (cantidad > disponibleEnOrigen(productoId, nuevoOrigenId)) delete siguiente[productoId];
+      }
+      return siguiente;
+    });
+  };
+
   const cambiarDestino = (nuevoDestinoId: string) => {
     setDestinoId(nuevoDestinoId);
+    const nuevoDestino = data.destinosInventario.find((d) => d.id === nuevoDestinoId);
     setCantidades((prev) => {
       const siguiente = { ...prev };
       for (const productoId of Object.keys(siguiente)) {
         const producto = data.productos.find((p) => p.id === productoId);
-        if (producto && !productoPermitidoEnDestino(producto, nuevoDestinoId)) delete siguiente[productoId];
+        if (producto && nuevoDestino && !productoPermitidoEnDestino(producto, nuevoDestino)) delete siguiente[productoId];
       }
       return siguiente;
     });
@@ -112,14 +190,15 @@ export default function GuiaTraspasoTab() {
   return (
     <div>
       <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
-        Selecciona un origen y un destino, luego ingresa la cantidad a traspasar de cada producto. Al guardar se
+        Selecciona un origen y un destino: la lista solo muestra los productos con stock en el origen y que tienen
+        ese destino permitido en su ficha. Luego ingresa la cantidad a traspasar de cada producto — al guardar se
         registra un traspaso por cada producto con cantidad ingresada, como una sola guía.
       </div>
 
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
         <div className="field" style={{ minWidth: 220, flex: 1 }}>
           <label>Origen</label>
-          <select value={origenId} onChange={(e) => setOrigenId(e.target.value)}>
+          <select value={origenId} onChange={(e) => cambiarOrigen(e.target.value)}>
             {destinosActivos.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.nombre}
@@ -168,32 +247,27 @@ export default function GuiaTraspasoTab() {
             {productos.length === 0 ? (
               <tr>
                 <td colSpan={4}>
-                  <div className="empty">No hay productos que coincidan</div>
+                  <div className="empty">No hay productos disponibles para traspasar entre este origen y destino</div>
                 </td>
               </tr>
             ) : (
               productos.map((p) => {
                 const disponible = disponibleEnOrigen(p.id);
-                const permitido = permitidoEnDestino(p.id);
                 return (
-                  <tr key={p.id} style={!permitido ? { opacity: 0.5 } : undefined}>
+                  <tr key={p.id}>
                     <td>{p.sku}</td>
                     <td>{p.detalle}</td>
                     <td>{disponible}</td>
                     <td>
-                      {permitido ? (
-                        <input
-                          type="number"
-                          min={0}
-                          max={disponible}
-                          placeholder="0"
-                          value={cantidades[p.id] || ""}
-                          onChange={(e) => setCantidad(p.id, Number(e.target.value) || 0)}
-                          style={{ width: 90 }}
-                        />
-                      ) : (
-                        <span style={{ fontSize: 12, color: "var(--gray)" }}>No permitido en este destino</span>
-                      )}
+                      <input
+                        type="number"
+                        min={0}
+                        max={disponible}
+                        placeholder="0"
+                        value={cantidades[p.id] || ""}
+                        onChange={(e) => setCantidad(p.id, Number(e.target.value) || 0)}
+                        style={{ width: 90 }}
+                      />
                     </td>
                   </tr>
                 );
@@ -216,6 +290,56 @@ export default function GuiaTraspasoTab() {
       </div>
       <div className="err" style={{ color: err?.ok ? "var(--green)" : undefined }}>
         {err?.msg || ""}
+      </div>
+
+      <h3 style={{ marginTop: 28 }}>Guías de traslado desde Bodega</h3>
+      <div className="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Folio</th>
+              <th>Fecha</th>
+              <th>Destino</th>
+              <th>Productos</th>
+              <th>Notas</th>
+              <th>Registrado por</th>
+              {puedeBorrar && <th></th>}
+            </tr>
+          </thead>
+          <tbody>
+            {guiasDesdeBodega.length === 0 ? (
+              <tr>
+                <td colSpan={puedeBorrar ? 7 : 6}>
+                  <div className="empty">Todavía no hay guías de traslado registradas desde Bodega</div>
+                </td>
+              </tr>
+            ) : (
+              guiasDesdeBodega.map((guia) => (
+                <tr key={guia.folio}>
+                  <td>{guia.folio}</td>
+                  <td>{new Date(guia.fecha).toLocaleString("es-CL")}</td>
+                  <td>{destinoNombre(guia.destinoId)}</td>
+                  <td>
+                    {guia.lineas.map((l, i) => (
+                      <div key={i}>
+                        {productoNombre(l.productoId)} × {l.cantidad}
+                      </div>
+                    ))}
+                  </td>
+                  <td>{guia.notas || "-"}</td>
+                  <td>{guia.creadoPor || "-"}</td>
+                  {puedeBorrar && (
+                    <td className="row-actions">
+                      <button className="icon-btn" onClick={() => eliminarGuia(guia)}>
+                        Eliminar
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );

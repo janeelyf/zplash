@@ -12,6 +12,8 @@ export const CONFIG_DEFAULT: ConfigGlobal = {
   festivos: [],
   vigenciaDiasPackEmpresa: 365,
   tramosRenovacionLocal: {},
+  horasVentanaUpgradePlan: 1,
+  tramosReactivacionVencido: {},
 };
 
 /** true si `ahora` cae dentro del horario configurado para registrar ingresos en el

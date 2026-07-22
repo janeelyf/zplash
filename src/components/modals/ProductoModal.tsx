@@ -21,7 +21,14 @@ export default function ProductoModal({ data: prod }: { data: Producto | null })
   const [valorCompra, setValorCompra] = useState(pr.valorCompra ? String(pr.valorCompra) : "");
   const [valorVenta, setValorVenta] = useState(pr.valorVenta ? String(pr.valorVenta) : "");
   const [activo, setActivo] = useState(pr.activo ?? true);
-  const [destinosBloqueados, setDestinosBloqueados] = useState<string[]>(pr.destinosBloqueados || []);
+  // Bodega nunca puede quedar bloqueada (es el origen implícito de todo
+  // Producto.stock — bloquearla dejaría el stock sin ningún destino válido).
+  // Se filtra también al cargar por si el producto ya trae datos viejos con
+  // Bodega bloqueada por error.
+  const idsBodega = new Set(data.destinosInventario.filter((d) => d.esBodega).map((d) => d.id));
+  const [destinosBloqueados, setDestinosBloqueados] = useState<string[]>(
+    (pr.destinosBloqueados || []).filter((id) => !idsBodega.has(id))
+  );
   const [err, setErr] = useState("");
   // El código se asigna una sola vez (al abrir el modal para un producto
   // nuevo) y no se vuelve a recalcular en re-renders, para que no cambie
@@ -171,15 +178,16 @@ export default function ProductoModal({ data: prod }: { data: Producto | null })
           </div>
         ) : (
           destinosOrdenados.map((d) => (
-            <label key={d.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <label key={d.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, opacity: d.esBodega ? 0.5 : 1 }}>
               <input
                 type="checkbox"
-                checked={destinosBloqueados.includes(d.id)}
+                checked={!d.esBodega && destinosBloqueados.includes(d.id)}
+                disabled={d.esBodega}
                 onChange={() => toggleDestinoBloqueado(d.id)}
                 style={{ width: "auto" }}
               />
               {d.nombre}
-              {d.esBodega && <span style={{ fontSize: 11, color: "var(--gray)" }}>(Bodega)</span>}
+              {d.esBodega && <span style={{ fontSize: 11, color: "var(--gray)" }}>(no se puede bloquear: origen del stock)</span>}
             </label>
           ))
         )}

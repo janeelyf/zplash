@@ -31,9 +31,26 @@ export function planStatus(c: Pick<Cliente, "vencimiento">): PlanStatus {
   return { label: "Vigente", cls: "ok" };
 }
 
-/** 30 days from now, as an ISO string. Kept outside component bodies since it is not a pure computation. */
-export function vencimientoPorDefectoISO(): string {
-  const d = new Date();
+/**
+ * Días enteros transcurridos desde que venció el plan (mismo criterio que
+ * planStatus: hora de Chile, comparado contra el inicio del día); `null` si
+ * el cliente no tiene plan o su plan sigue vigente. Base del eje "hace
+ * cuánto se venció" de la promoción de reactivación (ver
+ * precioReactivacionVencido en @/lib/helpers/precios).
+ */
+export function diasVencido(c: Pick<Cliente, "vencimiento">, ahora: Date = ahoraEnSantiago()): number | null {
+  if (!c.vencimiento) return null;
+  const hoy = new Date(ahora);
+  hoy.setHours(0, 0, 0, 0);
+  const venc = new Date(c.vencimiento);
+  venc.setHours(0, 0, 0, 0);
+  if (venc >= hoy) return null;
+  return Math.round((hoy.getTime() - venc.getTime()) / 86400000);
+}
+
+/** 30 days from `desde` (por defecto ahora), as an ISO string. Kept outside component bodies since it is not a pure computation. */
+export function vencimientoPorDefectoISO(desde: Date = new Date()): string {
+  const d = new Date(desde);
   d.setDate(d.getDate() + 30);
   return d.toISOString();
 }
@@ -55,4 +72,31 @@ export function vencimientoAnclado(fechaContratacion: string | null | undefined)
     base.setDate(base.getDate() + 30);
   }
   return base.toISOString();
+}
+
+/**
+ * Inicio del período de plan vigente hoy, anclado a fechaContratacion en
+ * bloques de 30 días (mismo ciclo que vencimientoAnclado) — no mes
+ * calendario. P. ej. contratado el 12 de junio, el período vigente el 5 de
+ * julio es [12 jun, 11 jul]. Sin fecha de contratación (cliente sin plan
+ * asociado a un ciclo), se usa una ventana de los últimos 30 días.
+ */
+export function inicioPeriodoPlan(fechaContratacion: string | null | undefined, ahora: Date = ahoraEnSantiago()): Date {
+  const hoy = new Date(ahora);
+  hoy.setHours(0, 0, 0, 0);
+  let base = fechaContratacion ? new Date(fechaContratacion) : null;
+  if (!base || isNaN(base.getTime())) {
+    base = new Date(hoy);
+    base.setDate(base.getDate() - 30);
+    return base;
+  }
+  base.setHours(0, 0, 0, 0);
+  let siguiente = new Date(base);
+  siguiente.setDate(siguiente.getDate() + 30);
+  while (siguiente <= hoy) {
+    base = siguiente;
+    siguiente = new Date(base);
+    siguiente.setDate(siguiente.getDate() + 30);
+  }
+  return base;
 }

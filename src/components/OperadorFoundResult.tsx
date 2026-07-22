@@ -8,6 +8,7 @@ import {
   CATEGORIA_DETAILING,
   PLANES,
   TELEFONO_FORMATO_MSG,
+  diasVencido,
   esExentoBloqueoReingreso,
   esExentoValidacionRegistroOperador,
   esNombreVacio,
@@ -22,11 +23,13 @@ import {
   planStatus,
   precioLavadoUnico,
   precioNormal,
+  precioReactivacionVencido,
   precioRenovacionLocal,
   precioUpgradePlan,
   vencimientoAnclado,
   vencimientoPorDefectoISO,
   ventaUpgradeElegible,
+  visitasUltimoPeriodoVencido,
   yaIngresoHoy,
 } from "@/lib/helpers";
 import type { Cliente, PagoInfo, Venta } from "@/types";
@@ -64,6 +67,18 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
     .filter((v) => v.clienteId === c.id)
     .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
   const precioOfertaWeb = ventasCliente.length ? ventasCliente[0].precio : pNormal;
+
+  // Promoción: reactivación preferencial para un cliente (Local o Web) con
+  // el plan vencido hace poco, escalonada por hace cuánto venció y cuántas
+  // veces pasó durante su último período de plan pagado (ver
+  // tramosReactivacionVencido/precioReactivacionVencido). undefined =
+  // ningún tramo calza, no corresponde ofrecerla — en ese caso un cliente
+  // Web sigue viendo su oferta genérica (esWebVencido, más abajo).
+  const diasVenc = diasVencido(c);
+  const visitasUltPeriodo = visitasUltimoPeriodoVencido(data.ingresos, c);
+  const precioReactivacion =
+    diasVenc !== null ? precioReactivacionVencido(data.config, c.plan || "", diasVenc, visitasUltPeriodo) : undefined;
+  const showReactivacion = precioReactivacion !== undefined;
 
   // Promoción: si al cliente se le acaba de cobrar un lavado único (dentro de
   // la ventana configurada, ver ventaUpgradeElegible) y sigue sin plan
@@ -292,6 +307,21 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
     });
   };
 
+  const reactivar = () => {
+    if (precioReactivacion === undefined) return;
+    pedirPago(precioReactivacion, `Reactivación promocional del plan de ${c.nombre} a precio preferencial`, async (pago) => {
+      const patch = renovarPlan(data, c, ui.perfilActual?.nombre, precioReactivacion, pago, "Reactivación promocional");
+      const ok = await commit(patch);
+      if (!ok) {
+        setGuardarErr(ERROR_GUARDADO);
+        return;
+      }
+      setGuardarErr("");
+      const updated = patch.clientes?.find((x) => x.id === c.id);
+      if (updated) updateResult(updated);
+    });
+  };
+
   const renovarWeb = () => {
     pedirPago(precioOfertaWeb, `Renovación de plan Web para ${c.nombre} (${c.patente})`, async (pago) => {
       const nuevoVencimiento = vencimientoAnclado(c.fechaContratacion || c.vencimiento);
@@ -357,12 +387,15 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
   // contratación del Plan Ilimitado Mensual: se cobra solo el adicional y se
   // actualiza esa misma venta (en vez de crear una nueva) a "Plan nuevo", que
   // es el tipo que Cierre de Caja y Estadísticas ya reconocen como
-  // "Contratación de plan".
+  // "Contratación de plan". El vencimiento se ancla a la fecha del lavado
+  // original (no al momento del pago del upgrade), para que el cliente no
+  // pierda el tiempo transcurrido dentro de la ventana de la promoción (ver
+  // ConfigGlobal.horasVentanaUpgradePlan).
   const upgradeAPlan = () => {
     if (!ventaUpgrade) return;
     const plan = PLANES[0];
     pedirPago(precioUpgrade, `Upgrade a ${plan} para ${c.nombre} (adicional al lavado ya pagado)`, async (pago) => {
-      const updated = { ...c, plan, vencimiento: vencimientoPorDefectoISO() };
+      const updated = { ...c, plan, vencimiento: vencimientoPorDefectoISO(new Date(ventaUpgrade.fecha)) };
       const ventaActualizada: Venta = {
         ...ventaUpgrade,
         plan,
@@ -433,7 +466,24 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
           </button>
         </div>
       )}
-      {esWebVencido && (
+      {showReactivacion && (
+        <div className="offer-card">
+          <div className="offer-head">
+            <span className="badge">Promoción</span>
+            <h4>Plan vencido hace {diasVenc} día{diasVenc === 1 ? "" : "s"}</h4>
+          </div>
+          <div className="msg">
+            Ofrécele a {c.nombre} reactivar su {c.plan} ahora mismo a precio preferencial.
+          </div>
+          <div className="price-row">
+            <span className="new">{fmtCLP(precioReactivacion!)}</span>
+          </div>
+          <button className="btn secondary" onClick={reactivar}>
+            Reactivar plan a precio preferencial ({fmtCLP(precioReactivacion!)})
+          </button>
+        </div>
+      )}
+      {esWebVencido && !showReactivacion && (
         <div className="offer-card">
           <div className="offer-head">
             <span className="badge">Cliente Web</span>

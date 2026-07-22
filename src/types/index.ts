@@ -20,6 +20,7 @@ import type {
   Producto,
   Proveedor,
 } from "./inventario";
+import type { Maquinaria, RegistroMantencion } from "./mantencion";
 import type { PerfilPublico } from "./perfiles";
 import type { Precios } from "./precios";
 import type { Servicio } from "./servicios";
@@ -50,6 +51,8 @@ export interface AppData {
   categoriasInsumo: CategoriaInsumo[];
   destinosInventario: DestinoInventario[];
   movimientosInventario: MovimientoInventario[];
+  maquinarias: Maquinaria[];
+  registrosMantencion: RegistroMantencion[];
 }
 
 export * from "./agenda";
@@ -61,6 +64,7 @@ export * from "./cupones";
 export * from "./empresas";
 export * from "./ingresos";
 export * from "./inventario";
+export * from "./mantencion";
 export * from "./perfiles";
 export * from "./precios";
 export * from "./servicios";

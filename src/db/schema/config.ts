@@ -24,4 +24,22 @@ export const config = pgTable("config", {
     .$type<Record<string, { id: string; visitasMin: number; visitasMax: number | null; precio: number }[]>>()
     .notNull()
     .default({}),
+  // Horas desde el pago de un "Lavado único" dentro de las cuales se puede
+  // ofrecer la promoción de upgrade a plan (ver ventaUpgradeElegible).
+  horasVentanaUpgradePlan: integer("horas_ventana_upgrade_plan").notNull().default(1),
+  // Escala de precio de reactivación preferencial para clientes (Local o
+  // Web) con el plan vencido hace poco, keyed por plan — dos rangos por tramo (días
+  // vencido y visitas del último período vigente, ver
+  // TramoReactivacionVencido/precioReactivacionVencido en @/types y
+  // @/lib/helpers). A diferencia de tramosRenovacionLocal, si el cliente no
+  // calza en ningún tramo no se ofrece promoción (sin precio de respaldo).
+  tramosReactivacionVencido: jsonb("tramos_reactivacion_vencido")
+    .$type<
+      Record<
+        string,
+        { id: string; diasVencidoMin: number; diasVencidoMax: number | null; visitasMin: number; visitasMax: number | null; precio: number }[]
+      >
+    >()
+    .notNull()
+    .default({}),
 });

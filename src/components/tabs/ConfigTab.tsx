@@ -19,7 +19,7 @@ import {
   todayYMD,
   uid,
 } from "@/lib/helpers";
-import type { ConfigGlobal, TramoRenovacionLocal } from "@/types";
+import type { ConfigGlobal, TramoReactivacionVencido, TramoRenovacionLocal } from "@/types";
 
 function HorarioOperador() {
   const { data, commit } = useApp();
@@ -151,10 +151,16 @@ export default function ConfigTab() {
   const [tramosVals, setTramosVals] = useState<Record<string, TramoRenovacionLocal[]>>(
     () => data.config.tramosRenovacionLocal
   );
+  const [tramosReactivacionVals, setTramosReactivacionVals] = useState<Record<string, TramoReactivacionVencido[]>>(
+    () => data.config.tramosReactivacionVencido
+  );
   const [lavadoUnicoVal, setLavadoUnicoVal] = useState(() => String(precioLavadoUnico(data.precios)));
   const [zonaAspiradoVal, setZonaAspiradoVal] = useState(() => String(precioZonaAspirado(data.precios)));
   const [planOneclickVal, setPlanOneclickVal] = useState(() => String(precioPlanOneclick(data.precios)));
   const [upgradePlanVal, setUpgradePlanVal] = useState(() => String(precioUpgradePlan(data.precios)));
+  const [horasVentanaUpgradeVal, setHorasVentanaUpgradeVal] = useState(() =>
+    String(data.config.horasVentanaUpgradePlan)
+  );
   const [servicioVals, setServicioVals] = useState<Record<string, string>>(() =>
     Object.fromEntries(catalogoServicios.map((s) => [s.id, String(precioServicio(data.precios, s.id))]))
   );
@@ -199,7 +205,16 @@ export default function ConfigTab() {
     catalogoServicios.forEach((s) => {
       precios[s.id] = { normal: Number(servicioVals[s.id]) || 0, promo: 0 };
     });
-    await commit({ precios, config: { ...data.config, tramosRenovacionLocal: tramosVals } });
+    const horasVentanaUpgradePlan = Math.max(1, Number(horasVentanaUpgradeVal) || 0);
+    await commit({
+      precios,
+      config: {
+        ...data.config,
+        tramosRenovacionLocal: tramosVals,
+        horasVentanaUpgradePlan,
+        tramosReactivacionVencido: tramosReactivacionVals,
+      },
+    });
     setPrecioErr({ msg: "Precios actualizados correctamente", ok: true });
   };
 
@@ -216,6 +231,27 @@ export default function ConfigTab() {
 
   const editarTramo = (plan: string, id: string, cambios: Partial<TramoRenovacionLocal>) => {
     setTramosVals((cur) => ({
+      ...cur,
+      [plan]: (cur[plan] || []).map((t) => (t.id === id ? { ...t, ...cambios } : t)),
+    }));
+  };
+
+  const agregarTramoReactivacion = (plan: string) => {
+    setTramosReactivacionVals((cur) => ({
+      ...cur,
+      [plan]: [
+        ...(cur[plan] || []),
+        { id: uid(), diasVencidoMin: 0, diasVencidoMax: null, visitasMin: 0, visitasMax: null, precio: 0 },
+      ],
+    }));
+  };
+
+  const quitarTramoReactivacion = (plan: string, id: string) => {
+    setTramosReactivacionVals((cur) => ({ ...cur, [plan]: (cur[plan] || []).filter((t) => t.id !== id) }));
+  };
+
+  const editarTramoReactivacion = (plan: string, id: string, cambios: Partial<TramoReactivacionVencido>) => {
+    setTramosReactivacionVals((cur) => ({
       ...cur,
       [plan]: (cur[plan] || []).map((t) => (t.id === id ? { ...t, ...cambios } : t)),
     }));
@@ -314,6 +350,87 @@ export default function ConfigTab() {
             >
               + Agregar tramo
             </button>
+
+            <div
+              className="hint"
+              style={{ textAlign: "left", marginTop: 18, marginBottom: 8, textTransform: "uppercase", fontWeight: 700 }}
+            >
+              Reactivación de plan vencido — {p}
+            </div>
+            <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 10 }}>
+              Ofrece un precio preferencial para recuperar clientes que se vencieron hace poco (Local o Web), según
+              hace cuántos días venció su plan y cuántas veces pasó durante su último período pagado (ej: $15.990
+              para quien pasó 0 o 1 vez y venció hace 0 a 15 días). Si un cliente no cae en ningún tramo, no se le
+              ofrece esta promoción — un cliente Web sigue viendo su oferta de renovar al mismo valor de su último
+              pedido.
+            </div>
+            {(tramosReactivacionVals[p] || []).map((t) => (
+              <div key={t.id} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <input
+                    type="number"
+                    min={0}
+                    value={t.diasVencidoMin}
+                    onChange={(e) =>
+                      editarTramoReactivacion(p, t.id, { diasVencidoMin: Number(e.target.value) || 0 })
+                    }
+                    style={{ width: 60 }}
+                  />
+                  <span style={{ color: "var(--gray)", fontSize: 13 }}>a</span>
+                  <input
+                    type="number"
+                    min={0}
+                    placeholder="∞"
+                    value={t.diasVencidoMax ?? ""}
+                    onChange={(e) =>
+                      editarTramoReactivacion(p, t.id, {
+                        diasVencidoMax: e.target.value === "" ? null : Number(e.target.value) || 0,
+                      })
+                    }
+                    style={{ width: 60 }}
+                  />
+                  <span style={{ color: "var(--gray)", fontSize: 13 }}>días vencido</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <input
+                    type="number"
+                    min={0}
+                    value={t.visitasMin}
+                    onChange={(e) => editarTramoReactivacion(p, t.id, { visitasMin: Number(e.target.value) || 0 })}
+                    style={{ width: 60 }}
+                  />
+                  <span style={{ color: "var(--gray)", fontSize: 13 }}>a</span>
+                  <input
+                    type="number"
+                    min={0}
+                    placeholder="∞"
+                    value={t.visitasMax ?? ""}
+                    onChange={(e) =>
+                      editarTramoReactivacion(p, t.id, {
+                        visitasMax: e.target.value === "" ? null : Number(e.target.value) || 0,
+                      })
+                    }
+                    style={{ width: 60 }}
+                  />
+                  <span style={{ color: "var(--gray)", fontSize: 13 }}>visitas</span>
+                </div>
+                <PriceInput
+                  value={String(t.precio)}
+                  onChange={(v) => editarTramoReactivacion(p, t.id, { precio: Number(v) || 0 })}
+                  style={{ flex: 1 }}
+                />
+                <button className="icon-btn" onClick={() => quitarTramoReactivacion(p, t.id)}>
+                  Quitar
+                </button>
+              </div>
+            ))}
+            <button
+              className="btn ghost"
+              style={{ marginTop: 0, padding: "3px 10px", fontSize: "0.82rem" }}
+              onClick={() => agregarTramoReactivacion(p)}
+            >
+              + Agregar tramo
+            </button>
           </div>
         ))}
 
@@ -331,12 +448,22 @@ export default function ConfigTab() {
 
         <h3 style={{ marginTop: 22 }}>Promoción: upgrade a plan</h3>
         <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
-          Monto adicional que se le ofrece al cliente en el módulo Operador, dentro de la primera hora tras pagar un
-          lavado único, para convertir esa visita en la contratación del {PLANES[0]}.
+          Monto adicional que se le ofrece al cliente en el módulo Operador, dentro del tiempo configurado abajo tras
+          pagar un lavado único, para convertir esa visita en la contratación del {PLANES[0]}.
         </div>
         <div className="field">
           <label>Precio adicional del upgrade</label>
           <PriceInput value={upgradePlanVal} onChange={setUpgradePlanVal} />
+        </div>
+        <div className="field">
+          <label>Horas disponibles para el upgrade (usa múltiplos de 24 para días, ej: 48 = 2 días)</label>
+          <input
+            type="number"
+            min={1}
+            value={horasVentanaUpgradeVal}
+            onChange={(e) => setHorasVentanaUpgradeVal(e.target.value)}
+            style={{ width: 100 }}
+          />
         </div>
 
         <h3 style={{ marginTop: 22 }}>Pagos web (/pagar)</h3>

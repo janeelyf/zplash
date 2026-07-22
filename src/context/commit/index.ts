@@ -14,6 +14,7 @@ export * from "./cupones";
 export * from "./empresas";
 export * from "./ingresos";
 export * from "./inventario";
+export * from "./mantencion";
 export * from "./perfiles";
 export * from "./precios";
 export * from "./servicios";

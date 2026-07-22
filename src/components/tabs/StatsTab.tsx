@@ -57,6 +57,7 @@ export default function StatsTab() {
   const TIPOS_VENTA_PLAN = new Set([
     "Plan nuevo",
     "Renovación preferencial",
+    "Reactivación promocional",
     "Plan nuevo (Web)",
     "Renovación (Web)",
     "Renovación Web (manual)",

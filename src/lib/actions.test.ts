@@ -37,6 +37,8 @@ function appDataVacia(): AppData {
     categoriasInsumo: [],
     destinosInventario: [],
     movimientosInventario: [],
+    maquinarias: [],
+    registrosMantencion: [],
   };
 }
 
@@ -193,6 +195,17 @@ describe("renovarPlan", () => {
     expect(patch.ventas).toHaveLength(1);
     expect(patch.ventas![0].precio).toBe(16990);
     expect(patch.ventas![0].tipo).toBe("Renovación preferencial");
+  });
+
+  it("acepta un tipo de venta explícito (ej: reactivación promocional)", () => {
+    const data = appDataVacia();
+    const cliente = clienteBase({ vencimiento: "2000-01-01T00:00:00.000Z" });
+    data.clientes = [cliente];
+
+    const patch = renovarPlan(data, cliente, "Operador X", 15990, undefined, "Reactivación promocional");
+
+    expect(patch.ventas![0].tipo).toBe("Reactivación promocional");
+    expect(patch.ventas![0].precio).toBe(15990);
   });
 });
 

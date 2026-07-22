@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CONFIG_DEFAULT,
   dentroDeHorarioOperador,
+  diasVencido,
   esExentoBloqueoReingreso,
   esExentoFormatoCliente,
   esExentoHorarioOperador,
@@ -13,6 +14,7 @@ import {
   fmtHora,
   fmtTelefono,
   formatTelefono,
+  inicioPeriodoPlan,
   isValidPatente,
   isValidRut,
   isValidTelefono,
@@ -22,10 +24,13 @@ import {
   normPlate,
   ordenarPerfiles,
   planStatus,
+  precioReactivacionVencido,
   proximoIngresoPermitido,
   puedeBorrarCategoriaInventario,
   resolverDescuento,
   vencimientoAnclado,
+  visitasPeriodoPlan,
+  visitasUltimoPeriodoVencido,
 } from "./helpers";
 import type { ConfigGlobal, Cupon, Ingreso, PerfilPublico } from "@/types";
 
@@ -136,6 +141,25 @@ describe("planStatus", () => {
   });
 });
 
+describe("diasVencido", () => {
+  it("sin vencimiento -> null", () => {
+    expect(diasVencido({ vencimiento: null })).toBeNull();
+  });
+
+  it("plan vigente -> null", () => {
+    const enUnMes = new Date();
+    enUnMes.setDate(enUnMes.getDate() + 40);
+    expect(diasVencido({ vencimiento: enUnMes.toISOString() })).toBeNull();
+  });
+
+  it("vencido hace 15 días -> 15", () => {
+    const ahora = new Date();
+    const hace15Dias = new Date(ahora);
+    hace15Dias.setDate(hace15Dias.getDate() - 15);
+    expect(diasVencido({ vencimiento: hace15Dias.toISOString() }, ahora)).toBe(15);
+  });
+});
+
 describe("estadoReingresoPlan", () => {
   const ingreso = (clienteId: string, fecha: string): Ingreso => ({
     id: "i1",
@@ -219,6 +243,80 @@ describe("vencimientoAnclado", () => {
   });
 });
 
+describe("inicioPeriodoPlan", () => {
+  it("contratado el 12 de junio, el período vigente el 5 de julio es 12 jun - 11 jul", () => {
+    const ahora = new Date("2026-07-05T12:00:00Z");
+    const resultado = inicioPeriodoPlan("2026-06-12T00:00:00Z", ahora);
+    expect(resultado.toDateString()).toBe(new Date("2026-06-12T00:00:00Z").toDateString());
+  });
+
+  it("el día del vencimiento (día 30) ya pertenece al período siguiente", () => {
+    const ahora = new Date("2026-07-12T12:00:00Z");
+    const resultado = inicioPeriodoPlan("2026-06-12T00:00:00Z", ahora);
+    expect(resultado.toDateString()).toBe(new Date("2026-07-12T00:00:00Z").toDateString());
+  });
+
+  it("sin fecha de contratación, usa una ventana de los últimos 30 días", () => {
+    const ahora = new Date("2026-07-05T12:00:00Z");
+    const resultado = inicioPeriodoPlan(null, ahora);
+    const esperado = new Date(ahora);
+    esperado.setHours(0, 0, 0, 0);
+    esperado.setDate(esperado.getDate() - 30);
+    expect(resultado.toDateString()).toBe(esperado.toDateString());
+  });
+});
+
+describe("visitasPeriodoPlan", () => {
+  const ingreso = (clienteId: string, fecha: string): Ingreso => ({
+    id: "i1",
+    clienteId,
+    patente: "AB1234",
+    nombre: "Cliente",
+    fecha,
+    planEstadoAlIngreso: "ok",
+  });
+
+  it("cuenta solo los ingresos dentro del período de plan vigente, del cliente correcto", () => {
+    const ahora = new Date("2026-07-05T12:00:00Z");
+    const cliente = { id: "c1", fechaContratacion: "2026-06-12T00:00:00Z" };
+    const ingresos = [
+      ingreso("c1", "2026-06-12T09:00:00Z"), // dentro del período (primer día)
+      ingreso("c1", "2026-06-30T09:00:00Z"), // dentro del período
+      ingreso("c1", "2026-06-01T09:00:00Z"), // período anterior
+      ingreso("c1", "2026-07-12T09:00:00Z"), // período siguiente
+      ingreso("otro", "2026-06-20T09:00:00Z"), // otro cliente
+    ];
+    expect(visitasPeriodoPlan(ingresos, cliente, ahora)).toBe(2);
+  });
+});
+
+describe("visitasUltimoPeriodoVencido", () => {
+  const ingreso = (clienteId: string, fecha: string): Ingreso => ({
+    id: "i1",
+    clienteId,
+    patente: "AB1234",
+    nombre: "Cliente",
+    fecha,
+    planEstadoAlIngreso: "ok",
+  });
+
+  it("cuenta solo los ingresos de los 30 días antes de vencimiento, del cliente correcto", () => {
+    const cliente = { id: "c1", vencimiento: "2026-07-12T00:00:00Z" };
+    const ingresos = [
+      ingreso("c1", "2026-06-12T09:00:00Z"), // dentro del período (primer día)
+      ingreso("c1", "2026-06-30T09:00:00Z"), // dentro del período
+      ingreso("c1", "2026-06-01T09:00:00Z"), // período anterior
+      ingreso("c1", "2026-07-12T09:00:00Z"), // ya vencido, fuera del período
+      ingreso("otro", "2026-06-20T09:00:00Z"), // otro cliente
+    ];
+    expect(visitasUltimoPeriodoVencido(ingresos, cliente)).toBe(2);
+  });
+
+  it("sin vencimiento -> 0", () => {
+    expect(visitasUltimoPeriodoVencido([ingreso("c1", "2026-06-12T09:00:00Z")], { id: "c1", vencimiento: null })).toBe(0);
+  });
+});
+
 describe("mesKey", () => {
   it("arma la clave YYYY-MM de una fecha ISO", () => {
     expect(mesKey("2026-03-05T12:00:00.000Z")).toBe("2026-03");
@@ -229,6 +327,35 @@ describe("fmtCLP", () => {
   it("redondea y formatea con separador de miles chileno", () => {
     expect(fmtCLP(19990)).toBe("$19.990");
     expect(fmtCLP(1000.6)).toBe("$1.001");
+  });
+});
+
+describe("precioReactivacionVencido", () => {
+  const config: ConfigGlobal = {
+    ...CONFIG_DEFAULT,
+    tramosReactivacionVencido: {
+      plan1: [
+        { id: "t1", diasVencidoMin: 0, diasVencidoMax: 15, visitasMin: 0, visitasMax: 1, precio: 15990 },
+        { id: "t2", diasVencidoMin: 16, diasVencidoMax: null, visitasMin: 0, visitasMax: 1, precio: 17990 },
+        { id: "t3", diasVencidoMin: 0, diasVencidoMax: null, visitasMin: 2, visitasMax: null, precio: 18990 },
+      ],
+    },
+  };
+
+  it("calza por ambos rangos (días vencido y visitas)", () => {
+    expect(precioReactivacionVencido(config, "plan1", 15, 1)).toBe(15990);
+  });
+
+  it("tramo con techo abierto en días vencido", () => {
+    expect(precioReactivacionVencido(config, "plan1", 40, 0)).toBe(17990);
+  });
+
+  it("tramo con techo abierto en visitas", () => {
+    expect(precioReactivacionVencido(config, "plan1", 5, 10)).toBe(18990);
+  });
+
+  it("sin tramos configurados para el plan -> undefined (no se ofrece promoción)", () => {
+    expect(precioReactivacionVencido(config, "otro-plan", 15, 1)).toBeUndefined();
   });
 });
 

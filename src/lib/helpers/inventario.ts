@@ -22,10 +22,17 @@ export function stockPorDestino(
   return porDestino;
 }
 
-/** true si `producto` puede estar en `destinoId` — false si está en su lista
- * de destinos bloqueados (ver Producto.destinosBloqueados en @/types, ej. un
+/** true si `producto` puede estar en `destino` — false si está en su lista de
+ * destinos bloqueados (ver Producto.destinosBloqueados en @/types, ej. un
  * paño no debería poder cargarse en la máquina "Vending Café"). Sin lista
- * (undefined/vacía) = permitido en todos los destinos. */
-export function productoPermitidoEnDestino(producto: Pick<Producto, "destinosBloqueados">, destinoId: string): boolean {
-  return !producto.destinosBloqueados?.includes(destinoId);
+ * (undefined/vacía) = permitido en todos los destinos. Bodega siempre está
+ * permitida sin importar la lista guardada: es el origen implícito de todo
+ * Producto.stock (ver stockPorDestino más arriba) y bloquearla dejaría el
+ * stock sin ningún destino válido — la UI (ProductoModal) ya no permite
+ * marcarla, esto además cubre datos viejos guardados antes de ese resguardo. */
+export function productoPermitidoEnDestino(
+  producto: Pick<Producto, "destinosBloqueados">,
+  destino: Pick<DestinoInventario, "id" | "esBodega">
+): boolean {
+  return destino.esBodega || !producto.destinosBloqueados?.includes(destino.id);
 }

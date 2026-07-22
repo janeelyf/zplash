@@ -19,12 +19,14 @@ import {
   horariosAgenda,
   ingresos,
   insumos,
+  maquinarias,
   movimientosContables,
   movimientosInventario,
   perfiles,
   precios,
   productos,
   proveedores,
+  registrosMantencion,
   reglasConciliacion,
   servicios,
   ventas,
@@ -49,6 +51,7 @@ import { categoriaInsumoFromRow, insumoFromRow } from "./inventario/insumos";
 import { destinoInventarioFromRow, movimientoInventarioFromRow } from "./inventario/destinos";
 import { categoriaProductoFromRow, productoFromRow } from "./inventario/productos";
 import { proveedorFromRow } from "./inventario/proveedores";
+import { maquinariaFromRow, registroMantencionFromRow } from "./mantencion";
 import { perfilPublicoFromRow } from "./perfiles";
 import { preciosFromRows } from "./precios";
 import { safe } from "./shared";
@@ -93,6 +96,8 @@ export async function loadAll(): Promise<AppData> {
     insumosRows,
     destinosInventarioRows,
     movimientosInventarioRows,
+    maquinariasRows,
+    registrosMantencionRows,
   ] = await Promise.all([
     safe(db.select().from(clientes)),
     safe(db.select().from(ingresos).orderBy(desc(ingresos.fecha))),
@@ -119,6 +124,8 @@ export async function loadAll(): Promise<AppData> {
     safe(db.select().from(insumos).orderBy(asc(insumos.nombre))),
     safe(db.select().from(destinosInventario).orderBy(asc(destinosInventario.nombre))),
     safe(db.select().from(movimientosInventario).orderBy(desc(movimientosInventario.fecha))),
+    safe(db.select().from(maquinarias).orderBy(asc(maquinarias.nombre))),
+    safe(db.select().from(registrosMantencion).orderBy(desc(registrosMantencion.fecha))),
   ]);
 
   const perfilesData = perfilesRows.length ? perfilesRows.map(perfilPublicoFromRow) : PERFILES_DEFAULT;
@@ -187,5 +194,7 @@ export async function loadAll(): Promise<AppData> {
     categoriasInsumo: categoriasInsumoRows.map(categoriaInsumoFromRow),
     destinosInventario: destinosInventarioRows.map(destinoInventarioFromRow),
     movimientosInventario: movimientosInventarioRows.map(movimientoInventarioFromRow),
+    maquinarias: maquinariasRows.map(maquinariaFromRow),
+    registrosMantencion: registrosMantencionRows.map(registroMantencionFromRow),
   };
 }

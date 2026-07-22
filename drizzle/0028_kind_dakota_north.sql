@@ -1,0 +1,1 @@
+ALTER TABLE "config" ADD COLUMN "horas_ventana_upgrade_plan" integer DEFAULT 1 NOT NULL;

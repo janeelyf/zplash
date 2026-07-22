@@ -10,11 +10,15 @@ import {
   suspenderSuscripcionOneclick,
 } from "@/lib/db";
 import type { SuscripcionOneclickInfo } from "@/lib/dataAccess";
-import { fmtDate } from "@/lib/helpers";
+import { fmtDate, fmtFecha, inicioPeriodoPlan, visitasPeriodoPlan } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 
 export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
-  const { patchUi } = useApp();
+  const { data: appData, patchUi } = useApp();
+  const inicioPeriodo = inicioPeriodoPlan(c.fechaContratacion);
+  const finPeriodo = new Date(inicioPeriodo);
+  finPeriodo.setDate(finPeriodo.getDate() + 29);
+  const visitasPeriodo = visitasPeriodoPlan(appData.ingresos, c);
   const [suscripcion, setSuscripcion] = useState<SuscripcionOneclickInfo | null>(null);
   const [cobrando, setCobrando] = useState(false);
   const [errSuscripcion, setErrSuscripcion] = useState("");
@@ -105,6 +109,12 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
         <div>
           <div className="k">Fecha de creación</div>
           <div className="v">{c.creadoEn ? fmtDate(c.creadoEn) : "-"}</div>
+        </div>
+        <div>
+          <div className="k">Visitas último período</div>
+          <div className="v">
+            {visitasPeriodo} ({fmtFecha(inicioPeriodo.toISOString())} - {fmtFecha(finPeriodo.toISOString())})
+          </div>
         </div>
       </div>
 

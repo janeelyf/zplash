@@ -58,6 +58,13 @@ export default function HubView() {
             <div className="desc">Precios, banners y catálogo autoadministrable de la web</div>
           </button>
         )}
+        {modulos.includes("mantencion") && (
+          <button className="role-btn" onClick={() => patchUi({ view: "mantencion" })}>
+            <div className="icon">🛠️</div>
+            <div className="label">Libro de Mantención Maquinaria</div>
+            <div className="desc">Máquinas del túnel y bitácora de mantenciones</div>
+          </button>
+        )}
       </div>
       <button className="btn ghost" style={{ marginTop: 20 }} onClick={() => logout()}>
         Cerrar sesión

@@ -20,12 +20,14 @@ import {
   commitHorariosAgenda,
   commitIngresos,
   commitInsumos,
+  commitMaquinarias,
   commitMovimientosContables,
   commitMovimientosInventario,
   commitPerfiles,
   commitPrecios,
   commitProductos,
   commitProveedores,
+  commitRegistrosMantencion,
   commitReglasConciliacion,
   commitServicios,
   commitVentas,
@@ -58,6 +60,8 @@ const initialData: AppData = {
   categoriasInsumo: [],
   destinosInventario: [],
   movimientosInventario: [],
+  maquinarias: [],
+  registrosMantencion: [],
 };
 
 const initialUI: UIState = {
@@ -67,6 +71,7 @@ const initialUI: UIState = {
   contabilidadTab: "egreso",
   webSettingsTab: "precios",
   inventarioTab: "productos",
+  mantencionTab: "maquinas",
   search: "",
   modal: null,
   loginErr: "",
@@ -180,6 +185,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     agregar(commitInsumos(previous.insumos, patch.insumos));
     agregar(commitDestinosInventario(previous.destinosInventario, patch.destinosInventario));
     agregar(commitMovimientosInventario(previous.movimientosInventario, patch.movimientosInventario));
+    agregar(commitMaquinarias(previous.maquinarias, patch.maquinarias));
+    agregar(commitRegistrosMantencion(previous.registrosMantencion, patch.registrosMantencion));
 
     let results: boolean[];
     try {

@@ -14,6 +14,7 @@ export * from "./fechas";
 export * from "./ids";
 export * from "./ingresos";
 export * from "./inventario";
+export * from "./mantencion";
 export * from "./perfiles";
 export * from "./precios";
 export * from "./servicios";

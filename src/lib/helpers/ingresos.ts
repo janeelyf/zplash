@@ -1,6 +1,7 @@
-import type { Ingreso } from "@/types";
+import type { Cliente, Ingreso } from "@/types";
+import { inicioPeriodoPlan } from "./clientes";
 import { fmtCLP, PRECIO_LAVADO_UNICO } from "./precios";
-import { fmtHora, todayStr } from "./fechas";
+import { ahoraEnSantiago, fmtHora, todayStr } from "./fechas";
 
 /** Si el cliente ya registró un ingreso hoy (para limitar a 1 pasada diaria por plan vigente). */
 export function yaIngresoHoy(ingresos: Ingreso[], clienteId: string): boolean {
@@ -46,6 +47,38 @@ export function mensajeBloqueoReingreso(ingresos: Ingreso[], clienteId: string):
   const proximo = proximoIngresoPermitido(ingresos, clienteId);
   const hora = proximo ? fmtHora(proximo.toISOString()) : "";
   return `VEHICULO HIZO USO DEL SERVICIO TUNEL HACE MENOS DE 24 HORAS. PUEDE REINGRESAR A PARTIR DE LAS ${hora} HRS.`;
+}
+
+/**
+ * Cantidad de ingresos del cliente dentro del período de plan vigente (30
+ * días anclados a fechaContratacion, ver inicioPeriodoPlan) — no mes
+ * calendario ni el total histórico acumulado en `cliente.visitas`.
+ */
+export function visitasPeriodoPlan(
+  ingresos: Ingreso[],
+  cliente: Pick<Cliente, "id" | "fechaContratacion">,
+  ahora: Date = ahoraEnSantiago()
+): number {
+  const inicio = inicioPeriodoPlan(cliente.fechaContratacion, ahora);
+  const fin = new Date(inicio);
+  fin.setDate(fin.getDate() + 30);
+  return ingresos.filter((i) => i.clienteId === cliente.id && new Date(i.fecha) >= inicio && new Date(i.fecha) < fin).length;
+}
+
+/**
+ * Cantidad de ingresos del cliente durante su último período de plan pagado,
+ * es decir los 30 días que terminan en `vencimiento` — a diferencia de
+ * visitasPeriodoPlan (que usa `ahora` para ubicar el período vigente), acá el
+ * cliente ya está vencido y el período relevante es el último que sí pagó,
+ * no uno posterior sin pago. Eje "veces" de la promoción de reactivación de
+ * plan vencido (ver precioReactivacionVencido en @/lib/helpers/precios).
+ */
+export function visitasUltimoPeriodoVencido(ingresos: Ingreso[], cliente: Pick<Cliente, "id" | "vencimiento">): number {
+  if (!cliente.vencimiento) return 0;
+  const fin = new Date(cliente.vencimiento);
+  const inicio = new Date(fin);
+  inicio.setDate(inicio.getDate() - 30);
+  return ingresos.filter((i) => i.clienteId === cliente.id && new Date(i.fecha) >= inicio && new Date(i.fecha) < fin).length;
 }
 
 export function tipoIngreso(i: Ingreso): { label: string; cls: "ok" | "warn" | "bad" } {

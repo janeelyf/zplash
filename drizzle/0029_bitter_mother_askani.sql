@@ -1,0 +1,1 @@
+ALTER TABLE "config" ADD COLUMN "tramos_reactivacion_vencido" jsonb DEFAULT '{}'::jsonb NOT NULL;

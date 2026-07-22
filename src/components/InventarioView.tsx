@@ -10,6 +10,7 @@ import InsumosTab from "@/components/tabs/InsumosTab";
 import StockDestinosTab from "@/components/tabs/StockDestinosTab";
 import DestinosInventarioTab from "@/components/tabs/DestinosInventarioTab";
 import GuiaTraspasoTab from "@/components/tabs/GuiaTraspasoTab";
+import BodegasTab from "@/components/tabs/BodegasTab";
 
 const TABS = [
   { id: "productos", label: "Productos" },
@@ -17,7 +18,8 @@ const TABS = [
   { id: "proveedores", label: "Proveedores" },
   { id: "insumos", label: "Insumos" },
   { id: "destinos", label: "Destinos" },
-  { id: "traspasarGuia", label: "Traspasar/Guía" },
+  { id: "bodegas", label: "Bodegas" },
+  { id: "traspasarGuia", label: "Guías de Despacho" },
 ] as const;
 
 export default function InventarioView() {
@@ -60,6 +62,7 @@ export default function InventarioView() {
                 <DestinosInventarioTab />
               </div>
             )}
+            {tabActual.id === "bodegas" && <BodegasTab />}
             {tabActual.id === "traspasarGuia" && <GuiaTraspasoTab />}
           </div>
         </div>

@@ -22,7 +22,7 @@ export default function TraspasoModal({ productoId }: { productoId?: string }) {
   const producto = data.productos.find((p) => p.id === productoSel);
   const stockActual = producto ? stockPorDestino(producto, data.destinosInventario, data.movimientosInventario) : new Map<string, number>();
   const destinosPermitidos = producto
-    ? destinosActivos.filter((d) => productoPermitidoEnDestino(producto, d.id))
+    ? destinosActivos.filter((d) => productoPermitidoEnDestino(producto, d))
     : destinosActivos;
 
   const guardar = async () => {
@@ -43,8 +43,9 @@ export default function TraspasoModal({ productoId }: { productoId?: string }) {
       setErr("El origen y el destino no pueden ser el mismo");
       return;
     }
-    if (producto && !productoPermitidoEnDestino(producto, destinoId)) {
-      setErr(`Este producto no puede estar en "${data.destinosInventario.find((d) => d.id === destinoId)?.nombre}"`);
+    const destino = data.destinosInventario.find((d) => d.id === destinoId);
+    if (producto && destino && !productoPermitidoEnDestino(producto, destino)) {
+      setErr(`Este producto no puede estar en "${destino.nombre}"`);
       return;
     }
     if (cantidad <= 0) {

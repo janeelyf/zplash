@@ -26,6 +26,7 @@ export const TODOS_LOS_MODULOS: Modulo[] = [
   "permisos",
   "web_settings",
   "inventario",
+  "mantencion",
 ];
 
 export const MODULO_LABELS: Record<Modulo, string> = {
@@ -45,6 +46,7 @@ export const MODULO_LABELS: Record<Modulo, string> = {
   agenda: "Agenda",
   web_settings: "Web Settings (precios de venta web)",
   inventario: "Inventario",
+  mantencion: "Libro de Mantención Maquinaria",
 };
 
 /** Identidades por defecto para un entorno nuevo sin filas en `perfiles`

@@ -97,7 +97,8 @@ export function renovarPlan(
   cliente: Cliente,
   operadorActual: string | null | undefined,
   precio: number,
-  pago?: PagoInfo
+  pago?: PagoInfo,
+  tipo: string = "Renovación preferencial"
 ): Partial<AppData> {
   const base = cliente.vencimiento && new Date(cliente.vencimiento) > new Date() ? new Date(cliente.vencimiento) : new Date();
   base.setDate(base.getDate() + 30);
@@ -113,7 +114,7 @@ export function renovarPlan(
     nombre: cliente.nombre,
     plan: cliente.plan || "",
     precio,
-    tipo: "Renovación preferencial",
+    tipo,
     fecha: new Date().toISOString(),
     creadoPor: operadorActual || "",
     metodoPago: pago?.metodo,

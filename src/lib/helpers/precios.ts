@@ -44,7 +44,7 @@ export function precioZonaAspirado(precios: Precios): number {
   return (precios[ZONA_ASPIRADO_KEY] && precios[ZONA_ASPIRADO_KEY].normal) || PRECIO_ZONA_ASPIRADO;
 }
 
-/** Monto adicional (sobre el lavado único ya pagado) para convertir la visita de hoy en la contratación del Plan Ilimitado Mensual — promoción ofrecida en el módulo Operador dentro de la primera hora tras el ingreso. */
+/** Monto adicional (sobre el lavado único ya pagado) para convertir la visita de hoy en la contratación del Plan Ilimitado Mensual — promoción ofrecida en el módulo Operador dentro de la ventana configurada (ver ConfigGlobal.horasVentanaUpgradePlan). */
 export const PRECIO_UPGRADE_PLAN_DEFAULT = 12000;
 
 /** Clave usada dentro de Precios para guardar el valor editable del upgrade a plan. */
@@ -54,23 +54,35 @@ export function precioUpgradePlan(precios: Precios): number {
   return (precios[UPGRADE_PLAN_KEY] && precios[UPGRADE_PLAN_KEY].normal) || PRECIO_UPGRADE_PLAN_DEFAULT;
 }
 
-/** Ventana desde el lavado único dentro de la cual se puede ofrecer el upgrade a plan (ver ventaUpgradeElegible). */
-const HORAS_VENTANA_UPGRADE_PLAN = 1;
-
 /**
  * Venta de "Lavado único" del cliente elegible para convertirse en
  * contratación del Plan Ilimitado Mensual vía la promoción de upgrade: la más
- * reciente, y solo si ocurrió hace menos de 1 hora — pasada esa ventana el
- * lavado ya se disfrutó sin plan y la promoción deja de tener sentido.
+ * reciente, y solo si ocurrió hace menos de `horasVentana` (ver
+ * ConfigGlobal.horasVentanaUpgradePlan) — pasada esa ventana el lavado ya se
+ * disfrutó sin plan y la promoción deja de tener sentido.
  */
-export function ventaUpgradeElegible(ventas: Venta[], clienteId: string, ahora: Date = new Date()): Venta | undefined {
+export function ventaUpgradeElegible(
+  ventas: Venta[],
+  clienteId: string,
+  horasVentana: number,
+  ahora: Date = new Date()
+): Venta | undefined {
   const ultima = ventas
     .filter((v) => v.clienteId === clienteId && v.tipo === "Lavado único")
     .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
   if (!ultima) return undefined;
   const msDesde = ahora.getTime() - new Date(ultima.fecha).getTime();
-  if (msDesde > HORAS_VENTANA_UPGRADE_PLAN * 3600 * 1000) return undefined;
+  if (msDesde > horasVentana * 3600 * 1000) return undefined;
   return ultima;
+}
+
+/** Texto legible de la ventana de la promoción de upgrade a plan (ver ventaUpgradeElegible), en horas o días si es múltiplo exacto de 24. */
+export function fmtHorasVentanaUpgradePlan(horas: number): string {
+  if (horas % 24 === 0) {
+    const dias = horas / 24;
+    return dias === 1 ? "1 día" : `${dias} días`;
+  }
+  return horas === 1 ? "1 hora" : `${horas} horas`;
 }
 
 /** Catálogo fijo de los 4 packs de tickets para empresas (flotas, automotoras,
@@ -123,6 +135,35 @@ export function precioRenovacionLocal(config: ConfigGlobal, precios: Precios, pl
   const tramos = [...(config.tramosRenovacionLocal[plan] || [])].sort((a, b) => a.visitasMin - b.visitasMin);
   const match = tramos.find((t) => visitas >= t.visitasMin && (t.visitasMax === null || visitas <= t.visitasMax));
   return match ? match.precio : precioPreferencial(precios, plan);
+}
+
+/**
+ * Precio de reactivación preferencial para un cliente (Local o Web) con el
+ * plan vencido hace poco (ver tramosReactivacionVencido en ConfigGlobal): busca el
+ * tramo cuyos rangos [diasVencidoMin, diasVencidoMax] y [visitasMin,
+ * visitasMax] contienen `diasVencido`/`visitas` respectivamente (tramos
+ * ordenados por diasVencidoMin y luego visitasMin para un resultado
+ * determinístico). A diferencia de precioRenovacionLocal, si ningún tramo
+ * calza no hay precio de respaldo: `undefined` significa que no corresponde
+ * ofrecer la promoción.
+ */
+export function precioReactivacionVencido(
+  config: ConfigGlobal,
+  plan: string,
+  diasVencido: number,
+  visitas: number
+): number | undefined {
+  const tramos = [...(config.tramosReactivacionVencido[plan] || [])].sort(
+    (a, b) => a.diasVencidoMin - b.diasVencidoMin || a.visitasMin - b.visitasMin
+  );
+  const match = tramos.find(
+    (t) =>
+      diasVencido >= t.diasVencidoMin &&
+      (t.diasVencidoMax === null || diasVencido <= t.diasVencidoMax) &&
+      visitas >= t.visitasMin &&
+      (t.visitasMax === null || visitas <= t.visitasMax)
+  );
+  return match?.precio;
 }
 
 /** Precio vigente del lavado único, editable por el administrador; si no se ha guardado uno, usa el valor por defecto. */

@@ -13,6 +13,22 @@ export interface TramoRenovacionLocal {
   precio: number;
 }
 
+/**
+ * Un tramo de la escala de reactivación preferencial para clientes (Local o
+ * Web) con el plan vencido hace poco (ver tramosReactivacionVencido en
+ * ConfigGlobal): dos rangos independientes, días vencido y visitas del
+ * último período vigente (no el histórico acumulado) — ambos con máximo
+ * null = sin tope superior.
+ */
+export interface TramoReactivacionVencido {
+  id: string;
+  diasVencidoMin: number;
+  diasVencidoMax: number | null;
+  visitasMin: number;
+  visitasMax: number | null;
+  precio: number;
+}
+
 export interface ConfigGlobal {
   horarioOperadorSemanaInicio: string;
   horarioOperadorSemanaFin: string;
@@ -30,4 +46,15 @@ export interface ConfigGlobal {
   // cliente frecuente. Si un cliente no cae en ningún tramo, se usa el precio
   // preferencial general (Precios[plan].promo, ver precioRenovacionLocal).
   tramosRenovacionLocal: Record<string, TramoRenovacionLocal[]>;
+  // Horas desde el pago de un "Lavado único" dentro de las cuales el módulo
+  // Operador puede ofrecer la promoción de upgrade a plan (ver
+  // ventaUpgradeElegible en helpers/precios.ts). Editable en Configuración;
+  // acepta múltiplos de 24 para expresar días (ej: 48 = 2 días).
+  horasVentanaUpgradePlan: number;
+  // Escala de precio de reactivación preferencial para clientes (Local o
+  // Web) con el plan vencido hace poco, keyed por plan — a diferencia de
+  // tramosRenovacionLocal, si el cliente no calza en ningún tramo no se
+  // ofrece la promoción (ver precioReactivacionVencido); un cliente Web sin
+  // tramo sigue viendo su oferta de renovar al último valor pagado.
+  tramosReactivacionVencido: Record<string, TramoReactivacionVencido[]>;
 }
