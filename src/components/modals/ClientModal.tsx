@@ -23,6 +23,11 @@ import {
   vencimientoPorDefectoISO,
 } from "@/lib/helpers";
 import type { Cliente, Empresa, PagoInfo, Venta } from "@/types";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 
 export default function ClientModal({ data: c, contexto }: { data: Cliente | null; contexto?: "operador" | "admin" }) {
   const { data, commit, patchUi, ui } = useApp();
@@ -33,20 +38,21 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
   const telefonoRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const vehiculoRef = useRef<HTMLInputElement>(null);
-  const tipoClienteRef = useRef<HTMLSelectElement>(null);
-  const planRef = useRef<HTMLSelectElement>(null);
   const razonSocialRef = useRef<HTMLInputElement>(null);
   const rutRef = useRef<HTMLInputElement>(null);
   const direccionRef = useRef<HTMLInputElement>(null);
   const giroRef = useRef<HTMLInputElement>(null);
   const vencRef = useRef<HTMLInputElement>(null);
-  const origenRef = useRef<HTMLSelectElement>(null);
   const [tipoDoc, setTipoDoc] = useState<"Boleta" | "Factura">(cli.tipoDocumento === "Factura" ? "Factura" : "Boleta");
   // Determina si el cliente tiene plan o no. Para clientes existentes se basa en
   // si ya tenía vencimiento; sin esto, el formulario de admin no tenía forma de
   // representar "sin plan" y cualquier edición le asignaba un vencimiento.
   const [tipoCliente, setTipoCliente] = useState(cli.vencimiento ? "plan" : "unico");
+  const [planSeleccionado, setPlanSeleccionado] = useState(cli.plan || PLANES[0]);
+  const [origenSeleccionado, setOrigenSeleccionado] = useState<"LOCAL" | "WEB">(cli.origen === "WEB" ? "WEB" : "LOCAL");
   const [err, setErr] = useState("");
+
+  const cerrar = () => patchUi({ modal: null });
 
   // El RUT manda: al salir del campo se busca en la ficha de Empresas; si ya
   // existe una con ese RUT se traen sus datos en vez de tipearlos de nuevo.
@@ -125,9 +131,8 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
     let plan: string;
     let vencimiento: string | null;
     if (contexto === "operador") {
-      const tc = tipoClienteRef.current?.value || "plan";
-      plan = tc === "plan" ? PLANES[0] : "";
-      if (tc === "plan") {
+      plan = tipoCliente === "plan" ? PLANES[0] : "";
+      if (tipoCliente === "plan") {
         const d = new Date();
         d.setDate(d.getDate() + 30);
         vencimiento = d.toISOString();
@@ -135,7 +140,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
         vencimiento = null;
       }
     } else if (tipoCliente === "plan") {
-      plan = planRef.current?.value || PLANES[0];
+      plan = planSeleccionado;
       const vencVal = vencRef.current?.value;
       vencimiento = vencVal ? new Date(vencVal).toISOString() : null;
     } else {
@@ -143,8 +148,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
       vencimiento = null;
     }
 
-    const origen: "WEB" | "LOCAL" =
-      contexto === "operador" ? "LOCAL" : origenRef.current?.value === "WEB" ? "WEB" : "LOCAL";
+    const origen: "WEB" | "LOCAL" = contexto === "operador" ? "LOCAL" : origenSeleccionado;
 
     const persistir = async (pago?: PagoInfo) => {
       let clientes: Cliente[];
@@ -257,7 +261,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
         setErr("No se pudo guardar el cambio (sin conexión con el almacenamiento). Verifica tu conexión e inténtalo de nuevo.");
         return;
       }
-      patchUi({ modal: null });
+      cerrar();
     };
 
     // Solo el operador (punto de venta) cobra: editar un cliente existente
@@ -274,130 +278,166 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
   };
 
   return (
-    <div className="modal">
-      <h3>{c ? "Editar cliente" : "Nuevo cliente"}</h3>
-      <div className="field">
-        <label>Nombre</label>
-        <input ref={nombreRef} defaultValue={cli.nombre || ""} />
-      </div>
-      <div className="field">
-        <label>Patente</label>
-        <input ref={patenteRef} defaultValue={cli.patente || ""} style={{ textTransform: "uppercase" }} />
-      </div>
-      <div className="field">
-        <label>Teléfono</label>
-        <input ref={telefonoRef} defaultValue={cli.telefono ? fmtTelefono(cli.telefono) : "+569"} onBlur={onTelefonoBlur} />
-      </div>
-      <div className="field">
-        <label>Correo electrónico</label>
-        <input ref={emailRef} type="email" defaultValue={cli.email || ""} placeholder="correo@ejemplo.com" />
-      </div>
-      <div className="field">
-        <label>Vehículo (Marca y Modelo)</label>
-        <input ref={vehiculoRef} defaultValue={cli.vehiculo || ""} placeholder="Ej: Toyota Yaris" />
-      </div>
-      {contexto === "operador" ? (
-        <div className="field">
-          <label>Tipo de lavado</label>
-          <select ref={tipoClienteRef} value={tipoCliente} onChange={(e) => setTipoCliente(e.target.value)}>
-            <option value="plan">Con Plan Ilimitado Mensual</option>
-            <option value="unico">Lavado Full Túnel (sin plan)</option>
-          </select>
-        </div>
-      ) : (
-        <>
-          <div className="field">
-            <label>Tipo de cliente</label>
-            <select value={tipoCliente} onChange={(e) => setTipoCliente(e.target.value)}>
-              <option value="plan">Con plan</option>
-              <option value="unico">Sin plan</option>
-            </select>
+    <Dialog open onOpenChange={(open) => !open && cerrar()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{c ? "Editar cliente" : "Nuevo cliente"}</DialogTitle>
+        </DialogHeader>
+
+        <div className="grid gap-3">
+          <div className="grid gap-1.5">
+            <Label htmlFor="cli-nombre">Nombre</Label>
+            <Input id="cli-nombre" ref={nombreRef} defaultValue={cli.nombre || ""} autoFocus />
           </div>
-          {tipoCliente === "plan" && (
-            <div className="field">
-              <label>Plan</label>
-              <select ref={planRef} defaultValue={cli.plan || PLANES[0]}>
-                {PLANES.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
+          <div className="grid gap-1.5">
+            <Label htmlFor="cli-patente">Patente</Label>
+            <Input id="cli-patente" ref={patenteRef} defaultValue={cli.patente || ""} className="uppercase" />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="cli-telefono">Teléfono</Label>
+            <Input
+              id="cli-telefono"
+              ref={telefonoRef}
+              defaultValue={cli.telefono ? fmtTelefono(cli.telefono) : "+569"}
+              onBlur={onTelefonoBlur}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="cli-email">Correo electrónico</Label>
+            <Input id="cli-email" ref={emailRef} type="email" defaultValue={cli.email || ""} placeholder="correo@ejemplo.com" />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="cli-vehiculo">Vehículo (Marca y Modelo)</Label>
+            <Input id="cli-vehiculo" ref={vehiculoRef} defaultValue={cli.vehiculo || ""} placeholder="Ej: Toyota Yaris" />
+          </div>
+
+          {contexto === "operador" ? (
+            <div className="grid gap-1.5">
+              <Label>Tipo de lavado</Label>
+              <Select value={tipoCliente} onValueChange={(v) => setTipoCliente(v ?? "unico")}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="plan">Con Plan Ilimitado Mensual</SelectItem>
+                  <SelectItem value="unico">Lavado Full Túnel (sin plan)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-1.5">
+                <Label>Tipo de cliente</Label>
+                <Select value={tipoCliente} onValueChange={(v) => setTipoCliente(v ?? "unico")}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="plan">Con plan</SelectItem>
+                    <SelectItem value="unico">Sin plan</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {tipoCliente === "plan" && (
+                <div className="grid gap-1.5">
+                  <Label>Plan</Label>
+                  <Select value={planSeleccionado} onValueChange={(v) => setPlanSeleccionado(v ?? PLANES[0])}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PLANES.map((p) => (
+                        <SelectItem key={p} value={p}>
+                          {p}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </>
+          )}
+
+          {contexto !== "operador" && (
+            <div className="grid gap-1.5">
+              <Label>Origen</Label>
+              <Select value={origenSeleccionado} onValueChange={(v) => setOrigenSeleccionado(v as "LOCAL" | "WEB")}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="LOCAL">Local</SelectItem>
+                  <SelectItem value="WEB">Web</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           )}
-        </>
-      )}
-      {contexto !== "operador" && (
-        <div className="field">
-          <label>Origen</label>
-          <select ref={origenRef} defaultValue={cli.origen || "LOCAL"}>
-            <option value="LOCAL">Local</option>
-            <option value="WEB">Web</option>
-          </select>
+
+          <div className="grid gap-1.5">
+            <Label>Tipo de documento</Label>
+            <Select value={tipoDoc} onValueChange={(v) => setTipoDoc(v as "Boleta" | "Factura")}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Boleta">Boleta</SelectItem>
+                <SelectItem value="Factura">Factura</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {tipoDoc === "Factura" && (
+            <>
+              <div className="grid gap-1.5">
+                <Label htmlFor="cli-rut">RUT</Label>
+                <Input id="cli-rut" ref={rutRef} defaultValue={cli.rut || ""} placeholder="12.345.678-9" onBlur={onRutBlur} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="cli-razon">Razón Social</Label>
+                <Input id="cli-razon" ref={razonSocialRef} defaultValue={cli.razonSocial || ""} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="cli-direccion">Dirección</Label>
+                <Input id="cli-direccion" ref={direccionRef} defaultValue={cli.direccion || ""} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="cli-giro">Giro</Label>
+                <Input id="cli-giro" ref={giroRef} defaultValue={cli.giro || ""} />
+              </div>
+            </>
+          )}
+
+          {contexto === "operador"
+            ? tipoCliente === "plan" && (
+                <div className="grid gap-1.5">
+                  <Label>Vigencia del plan</Label>
+                  <div className="rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-primary">
+                    1 mes desde hoy — vence el {new Date(vencimientoPorDefectoISO()).toLocaleDateString("es-CL")}
+                  </div>
+                </div>
+              )
+            : tipoCliente === "plan" && (
+                <div className="grid gap-1.5">
+                  <Label htmlFor="cli-venc">Vencimiento del plan</Label>
+                  <Input
+                    id="cli-venc"
+                    ref={vencRef}
+                    type="date"
+                    defaultValue={cli.vencimiento ? cli.vencimiento.substring(0, 10) : todayYMD()}
+                  />
+                </div>
+              )}
+
+          {err && <p className="text-sm text-destructive">{err}</p>}
         </div>
-      )}
-      <div className="field">
-        <label>Tipo de documento</label>
-        <select value={tipoDoc} onChange={(e) => setTipoDoc(e.target.value as "Boleta" | "Factura")}>
-          <option value="Boleta">Boleta</option>
-          <option value="Factura">Factura</option>
-        </select>
-      </div>
-      {tipoDoc === "Factura" && (
-        <div>
-          <div className="field">
-            <label>RUT</label>
-            <input ref={rutRef} defaultValue={cli.rut || ""} placeholder="12.345.678-9" onBlur={onRutBlur} />
-          </div>
-          <div className="field">
-            <label>Razón Social</label>
-            <input ref={razonSocialRef} defaultValue={cli.razonSocial || ""} />
-          </div>
-          <div className="field">
-            <label>Dirección</label>
-            <input ref={direccionRef} defaultValue={cli.direccion || ""} />
-          </div>
-          <div className="field">
-            <label>Giro</label>
-            <input ref={giroRef} defaultValue={cli.giro || ""} />
-          </div>
-        </div>
-      )}
-      {contexto === "operador" ? (
-        tipoCliente === "plan" && (
-          <div className="field">
-            <label>Vigencia del plan</label>
-            <div
-              style={{
-                padding: "10px 12px",
-                background: "var(--bg)",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                color: "var(--gold)",
-                fontSize: 13.5,
-              }}
-            >
-              1 mes desde hoy — vence el {new Date(vencimientoPorDefectoISO()).toLocaleDateString("es-CL")}
-            </div>
-          </div>
-        )
-      ) : (
-        tipoCliente === "plan" && (
-          <div className="field">
-            <label>Vencimiento del plan</label>
-            <input ref={vencRef} type="date" defaultValue={cli.vencimiento ? cli.vencimiento.substring(0, 10) : todayYMD()} />
-          </div>
-        )
-      )}
-      <div className="err">{err}</div>
-      <div className="modal-actions">
-        <button className="btn ghost" onClick={() => patchUi({ modal: null })}>
-          Cancelar
-        </button>
-        <button className="btn" onClick={guardar}>
-          Guardar
-        </button>
-      </div>
-    </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={cerrar}>
+            Cancelar
+          </Button>
+          <Button onClick={guardar}>Guardar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

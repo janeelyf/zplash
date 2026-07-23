@@ -1,6 +1,3 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Image from "next/image";
 import UbicacionTab from "@/components/cliente/UbicacionTab";
 import TiposLavadoTab from "@/components/cliente/TiposLavadoTab";
@@ -9,29 +6,16 @@ import VentaEmpresaInfoTab from "@/components/cliente/VentaEmpresaInfoTab";
 import FaqTab from "@/components/cliente/FaqTab";
 import MiCuentaTab from "@/components/cliente/MiCuentaTab";
 import CarritoBadge from "@/components/cliente/CarritoBadge";
-import type { PreciosPublicos } from "@/components/cliente/types";
+import ClienteTabs from "@/components/cliente/ClienteTabs";
+import { getPreciosPublicos } from "@/lib/preciosPublicos";
 
-const TABS = [
-  { id: "ubicacion", label: "Ubicación y Horarios" },
-  { id: "lavados", label: "Tipos de Lavados" },
-  { id: "detailing", label: "Limpieza y Detailing" },
-  { id: "empresa", label: "Venta a Empresa" },
-  { id: "faq", label: "Preguntas Frecuentes" },
-  { id: "cuenta", label: "Mi Cuenta" },
-] as const;
+// Los precios se leen de la base en cada request (no estáticos en build):
+// deben reflejar siempre lo que /api/pagos/webpay/crear va a cobrar de
+// verdad, igual que el resto de las páginas que usan getPreciosPublicos().
+export const dynamic = "force-dynamic";
 
-type TabId = (typeof TABS)[number]["id"];
-
-export default function ClientePage() {
-  const [tab, setTab] = useState<TabId>("ubicacion");
-  const [precios, setPrecios] = useState<PreciosPublicos | null>(null);
-
-  useEffect(() => {
-    fetch("/api/pagos/precios")
-      .then((r) => r.json())
-      .then(setPrecios)
-      .catch(() => setPrecios(null));
-  }, []);
+export default async function ClientePage() {
+  const precios = await getPreciosPublicos();
 
   return (
     <div id="app">
@@ -54,20 +38,16 @@ export default function ClientePage() {
       </div>
 
       <div className="content">
-        <div className="tabs cliente-tabs">
-          {TABS.map((t) => (
-            <div key={t.id} className={`tab ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
-              {t.label}
-            </div>
-          ))}
-        </div>
-
-        {tab === "ubicacion" && <UbicacionTab />}
-        {tab === "lavados" && <TiposLavadoTab precios={precios} />}
-        {tab === "detailing" && <DetailingTab precios={precios} />}
-        {tab === "empresa" && <VentaEmpresaInfoTab precios={precios} />}
-        {tab === "faq" && <FaqTab />}
-        {tab === "cuenta" && <MiCuentaTab />}
+        <ClienteTabs
+          panels={{
+            ubicacion: <UbicacionTab />,
+            lavados: <TiposLavadoTab precios={precios} />,
+            detailing: <DetailingTab precios={precios} />,
+            empresa: <VentaEmpresaInfoTab precios={precios} />,
+            faq: <FaqTab />,
+            cuenta: <MiCuentaTab />,
+          }}
+        />
       </div>
     </div>
   );

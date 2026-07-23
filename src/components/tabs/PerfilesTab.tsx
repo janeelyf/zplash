@@ -4,6 +4,10 @@ import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { MODULO_LABELS, ordenarPerfiles, TODOS_LOS_MODULOS } from "@/lib/helpers";
 import type { Modulo, PerfilPublico } from "@/types";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Pencil, Trash2 } from "lucide-react";
 
 export default function PerfilesTab() {
   const { data, ui, commit, patchUi } = useApp();
@@ -33,28 +37,30 @@ export default function PerfilesTab() {
           + Nuevo perfil
         </button>
       </div>
-      <table>
-        <thead>
-          <tr>
-            <th>Nombre</th>
-            <th>Módulos</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.perfiles.length === 0 ? (
-            <tr>
-              <td colSpan={3}>
-                <div className="empty">No hay perfiles registrados</div>
-              </td>
-            </tr>
-          ) : (
-            ordenarPerfiles(data.perfiles).map((p) => (
-              <PerfilRow key={p.id} perfil={p} puedeAsignarPermisos={puedeAsignarPermisos} onEliminar={() => eliminar(p)} />
-            ))
-          )}
-        </tbody>
-      </table>
+      <div className="table-scroll">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nombre</TableHead>
+              <TableHead>Módulos</TableHead>
+              <TableHead className="sticky right-0 z-10 w-0 bg-background" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.perfiles.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={3}>
+                  <div className="empty">No hay perfiles registrados</div>
+                </TableCell>
+              </TableRow>
+            ) : (
+              ordenarPerfiles(data.perfiles).map((p) => (
+                <PerfilRow key={p.id} perfil={p} puedeAsignarPermisos={puedeAsignarPermisos} onEliminar={() => eliminar(p)} />
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
@@ -93,49 +99,66 @@ function PerfilRow({
 
   return (
     <>
-      <tr>
-        <td>{perfil.nombre}</td>
-        <td style={{ color: "var(--gray)", fontSize: 13 }}>
+      <TableRow>
+        <TableCell>{perfil.nombre}</TableCell>
+        <TableCell style={{ color: "var(--gray)", fontSize: 13 }}>
           {perfil.modulos.length ? perfil.modulos.map((m) => MODULO_LABELS[m]).join(", ") : "Sin módulos asignados"}
-        </td>
-        <td className="row-actions">
-          <button className="icon-btn" onClick={() => patchUi({ modal: { type: "perfil", data: perfil } })}>
-            Editar
-          </button>
-          {puedeAsignarPermisos && (
-            <>
-              <button
-                className="icon-btn"
-                onClick={() => {
-                  setEditandoModulos((v) => !v);
-                  setReseteando(false);
-                }}
-              >
-                {editandoModulos ? "Cancelar" : "Editar módulos"}
-              </button>
-              <button
-                className="icon-btn"
-                onClick={() => {
-                  setReseteando((v) => !v);
-                  setEditandoModulos(false);
-                }}
-              >
-                {reseteando ? "Cancelar" : "Resetear contraseña"}
-              </button>
-            </>
-          )}
-          <button className="icon-btn" onClick={onEliminar}>
-            Eliminar
-          </button>
-        </td>
-      </tr>
+        </TableCell>
+        <TableCell className="sticky right-0 z-10 bg-background">
+          <div className="flex flex-wrap items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              title="Editar"
+              aria-label="Editar"
+              onClick={() => patchUi({ modal: { type: "perfil", data: perfil } })}
+            >
+              <Pencil />
+            </Button>
+            {puedeAsignarPermisos && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setEditandoModulos((v) => !v);
+                    setReseteando(false);
+                  }}
+                >
+                  {editandoModulos ? "Cancelar" : "Editar módulos"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setReseteando((v) => !v);
+                    setEditandoModulos(false);
+                  }}
+                >
+                  {reseteando ? "Cancelar" : "Resetear contraseña"}
+                </Button>
+              </>
+            )}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              title="Eliminar"
+              aria-label="Eliminar"
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={onEliminar}
+            >
+              <Trash2 />
+            </Button>
+          </div>
+        </TableCell>
+      </TableRow>
       {editandoModulos && (
-        <tr>
-          <td colSpan={3}>
+        <TableRow>
+          <TableCell colSpan={3}>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: "10px 0" }}>
               {TODOS_LOS_MODULOS.map((m) => (
                 <label key={m} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-                  <input type="checkbox" checked={seleccion.has(m)} onChange={() => toggleModulo(m)} />
+                  <Checkbox checked={seleccion.has(m)} onCheckedChange={() => toggleModulo(m)} />
                   {MODULO_LABELS[m]}
                 </label>
               ))}
@@ -143,15 +166,15 @@ function PerfilRow({
             <button className="btn" style={{ marginTop: 0 }} onClick={guardarModulos} disabled={guardando}>
               {guardando ? "Guardando..." : "Guardar módulos"}
             </button>
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       )}
       {reseteando && (
-        <tr>
-          <td colSpan={3}>
+        <TableRow>
+          <TableCell colSpan={3}>
             <ResetClaveForm perfil={perfil} actorId={ui.perfilActual?.id || null} onListo={() => setReseteando(false)} />
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       )}
     </>
   );

@@ -1,18 +1,16 @@
-"use client";
-
-import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-
 const MENSAJES: Record<string, { titulo: string; texto: string; cls: "ok" | "warn" | "bad" }> = {
   ok: { titulo: "¡Pago exitoso!", texto: "Tu pago se procesó correctamente.", cls: "ok" },
   error: { titulo: "Pago rechazado", texto: "El pago no pudo procesarse. Puedes intentar de nuevo.", cls: "bad" },
   anulado: { titulo: "Pago cancelado", texto: "Cancelaste el pago antes de completarlo.", cls: "warn" },
 };
 
-function Resultado() {
-  const params = useSearchParams();
-  const estado = params.get("estado") || "error";
-  const buyOrder = params.get("buyOrder");
+export default async function ResultadoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ estado?: string; buyOrder?: string }>;
+}) {
+  const { estado: estadoParam, buyOrder } = await searchParams;
+  const estado = estadoParam || "error";
   const info = MENSAJES[estado] || MENSAJES.error;
 
   return (
@@ -34,13 +32,5 @@ function Resultado() {
         </a>
       </div>
     </div>
-  );
-}
-
-export default function ResultadoPage() {
-  return (
-    <Suspense>
-      <Resultado />
-    </Suspense>
   );
 }

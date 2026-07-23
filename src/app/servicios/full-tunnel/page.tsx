@@ -1,14 +1,11 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { CATEGORIA_DETAILING, fmtCLP } from "@/lib/helpers";
+import { getPreciosPublicos } from "@/lib/preciosPublicos";
 import FaqAccordion from "@/components/cliente/FaqAccordion";
 import ProductoBanner from "@/components/cliente/ProductoBanner";
 import CarritoBadge from "@/components/cliente/CarritoBadge";
-import { useCarrito } from "@/hooks/useCarrito";
-import type { PreciosPublicos } from "@/components/cliente/types";
+import AgregarCarritoButton from "@/components/cliente/AgregarCarritoButton";
 
 const PREGUNTAS_FULL_TUNNEL = [
   {
@@ -33,25 +30,12 @@ const PREGUNTAS_FULL_TUNNEL = [
   },
 ];
 
-export default function FullTunnelPage() {
-  const [precios, setPrecios] = useState<PreciosPublicos | null>(null);
-  const [agregado, setAgregado] = useState(false);
-  const { agregar } = useCarrito();
+// Ver nota en /cliente/page.tsx: precios siempre frescos desde la base.
+export const dynamic = "force-dynamic";
 
-  useEffect(() => {
-    fetch("/api/pagos/precios")
-      .then((r) => r.json())
-      .then(setPrecios)
-      .catch(() => setPrecios(null));
-  }, []);
-
-  const relacionados = (precios?.servicios ?? []).filter((s) => s.categoria === CATEGORIA_DETAILING);
-
-  function agregarAlCarrito() {
-    if (!precios) return;
-    agregar({ key: "lavado_unico", tipo: "lavado_unico", nombre: "Lavado Full Tunnel", precio: precios.lavadoUnico.precio });
-    setAgregado(true);
-  }
+export default async function FullTunnelPage() {
+  const precios = await getPreciosPublicos();
+  const relacionados = precios.servicios.filter((s) => s.categoria === CATEGORIA_DETAILING);
 
   return (
     <div id="app">
@@ -77,15 +61,13 @@ export default function FullTunnelPage() {
           <ProductoBanner imagen="/servicios-precios.jpg" alt="Lavado Full Tunnel" />
           <h3>🚿 Lavado Full Tunnel</h3>
           <div className="price-row" style={{ marginBottom: 14 }}>
-            <span className="new">{precios ? fmtCLP(precios.lavadoUnico.precio) : "..."}</span>
+            <span className="new">{fmtCLP(precios.lavadoUnico.precio)}</span>
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <Link href="/pagar?item=lavado_unico" className="btn" style={{ marginTop: 0, textDecoration: "none" }}>
               Comprar
             </Link>
-            <button type="button" className="btn ghost" style={{ marginTop: 0 }} onClick={agregarAlCarrito} disabled={!precios}>
-              {agregado ? "Agregado ✓" : "Agregar al carrito"}
-            </button>
+            <AgregarCarritoButton item={{ key: "lavado_unico", tipo: "lavado_unico", nombre: "Lavado Full Tunnel", precio: precios.lavadoUnico.precio }} />
           </div>
         </div>
 

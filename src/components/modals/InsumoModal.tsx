@@ -5,20 +5,31 @@ import { useApp } from "@/context/AppContext";
 import PriceInput from "@/components/PriceInput";
 import { uid } from "@/lib/helpers";
 import type { Insumo } from "@/types";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+
+const SIN_CATEGORIA = "sin-categoria";
+const SIN_PROVEEDOR = "sin-proveedor";
 
 export default function InsumoModal({ data: ins }: { data: Insumo | null }) {
   const { data, commit, patchUi, ui } = useApp();
   const it = ins || ({} as Partial<Insumo>);
 
   const nombreRef = useRef<HTMLInputElement>(null);
-  const categoriaRef = useRef<HTMLSelectElement>(null);
   const stockRef = useRef<HTMLInputElement>(null);
   const stockMinRef = useRef<HTMLInputElement>(null);
   const stockMaxRef = useRef<HTMLInputElement>(null);
-  const proveedorRef = useRef<HTMLSelectElement>(null);
+  const [categoria, setCategoria] = useState(it.categoriaId || SIN_CATEGORIA);
+  const [proveedor, setProveedor] = useState(it.proveedorId || SIN_PROVEEDOR);
   const [valorCompra, setValorCompra] = useState(it.valorCompra ? String(it.valorCompra) : "");
   const [activo, setActivo] = useState(it.activo ?? true);
   const [err, setErr] = useState("");
+
+  const cerrar = () => patchUi({ modal: null });
 
   const proveedoresOrdenados = [...data.proveedores].sort((a, b) => a.nombre.localeCompare(b.nombre));
   const categoriasOrdenadas = [...data.categoriasInsumo]
@@ -40,12 +51,12 @@ export default function InsumoModal({ data: ins }: { data: Insumo | null }) {
 
     const campos = {
       nombre,
-      categoriaId: categoriaRef.current?.value || undefined,
+      categoriaId: categoria === SIN_CATEGORIA ? undefined : categoria,
       valorCompra: Number(valorCompra) || 0,
       stock: Number(stockRef.current?.value) || 0,
       stockMin,
       stockMax,
-      proveedorId: proveedorRef.current?.value || "",
+      proveedorId: proveedor === SIN_PROVEEDOR ? "" : proveedor,
       activo,
     };
 
@@ -68,69 +79,84 @@ export default function InsumoModal({ data: ins }: { data: Insumo | null }) {
       setErr("No se pudo guardar el cambio (sin conexión con el almacenamiento). Verifica tu conexión e inténtalo de nuevo.");
       return;
     }
-    patchUi({ modal: null });
+    cerrar();
   };
 
   return (
-    <div className="modal">
-      <h3>{ins ? "Editar insumo" : "Nuevo insumo"}</h3>
-      <div className="field">
-        <label>Nombre</label>
-        <input ref={nombreRef} defaultValue={it.nombre || ""} autoFocus />
-      </div>
-      <div className="field">
-        <label>Categoría</label>
-        <select ref={categoriaRef} defaultValue={it.categoriaId || ""}>
-          <option value="">Sin categoría asignada</option>
-          {categoriasOrdenadas.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.nombre}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="field">
-        <label>Valor de Compra</label>
-        <PriceInput value={valorCompra} onChange={setValorCompra} />
-      </div>
-      <div className="field">
-        <label>Stock actual</label>
-        <input ref={stockRef} type="number" min={0} defaultValue={it.stock ?? 0} />
-      </div>
-      <div className="field">
-        <label>Stock Mínimo</label>
-        <input ref={stockMinRef} type="number" min={0} defaultValue={it.stockMin ?? 0} />
-      </div>
-      <div className="field">
-        <label>Stock Máximo</label>
-        <input ref={stockMaxRef} type="number" min={0} placeholder="0 = sin tope" defaultValue={it.stockMax ?? 0} />
-      </div>
-      <div className="field">
-        <label>Proveedor</label>
-        <select ref={proveedorRef} defaultValue={it.proveedorId || ""}>
-          <option value="">Sin proveedor asignado</option>
-          {proveedoresOrdenados.map((prv) => (
-            <option key={prv.id} value={prv.id}>
-              {prv.nombre}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="field">
-        <label>
-          <input type="checkbox" checked={activo} onChange={(e) => setActivo(e.target.checked)} style={{ width: "auto", marginRight: 8 }} />
-          Activo
-        </label>
-      </div>
-      <div className="err">{err}</div>
-      <div className="modal-actions">
-        <button className="btn ghost" onClick={() => patchUi({ modal: null })}>
-          Cancelar
-        </button>
-        <button className="btn" onClick={guardar}>
-          Guardar
-        </button>
-      </div>
-    </div>
+    <Dialog open onOpenChange={(open) => !open && cerrar()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{ins ? "Editar insumo" : "Nuevo insumo"}</DialogTitle>
+        </DialogHeader>
+
+        <div className="grid gap-3">
+          <div className="grid gap-1.5">
+            <Label htmlFor="ins-nombre">Nombre</Label>
+            <Input id="ins-nombre" ref={nombreRef} defaultValue={it.nombre || ""} autoFocus />
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Categoría</Label>
+            <Select value={categoria} onValueChange={(v) => setCategoria(v ?? SIN_CATEGORIA)}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SIN_CATEGORIA}>Sin categoría asignada</SelectItem>
+                {categoriasOrdenadas.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Valor de Compra</Label>
+            <PriceInput value={valorCompra} onChange={setValorCompra} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="ins-stock">Stock actual</Label>
+            <Input id="ins-stock" ref={stockRef} type="number" min={0} defaultValue={it.stock ?? 0} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="ins-stock-min">Stock Mínimo</Label>
+            <Input id="ins-stock-min" ref={stockMinRef} type="number" min={0} defaultValue={it.stockMin ?? 0} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="ins-stock-max">Stock Máximo</Label>
+            <Input id="ins-stock-max" ref={stockMaxRef} type="number" min={0} placeholder="0 = sin tope" defaultValue={it.stockMax ?? 0} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Proveedor</Label>
+            <Select value={proveedor} onValueChange={(v) => setProveedor(v ?? SIN_PROVEEDOR)}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SIN_PROVEEDOR}>Sin proveedor asignado</SelectItem>
+                {proveedoresOrdenados.map((prv) => (
+                  <SelectItem key={prv.id} value={prv.id}>
+                    {prv.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={activo} onCheckedChange={(checked) => setActivo(checked === true)} />
+            Activo
+          </label>
+
+          {err && <p className="text-sm text-destructive">{err}</p>}
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={cerrar}>
+            Cancelar
+          </Button>
+          <Button onClick={guardar}>Guardar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

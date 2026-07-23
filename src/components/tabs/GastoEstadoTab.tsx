@@ -4,6 +4,10 @@ import { useMemo, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { esEstadoPagadoEgreso, fmtCLP, formatRut, mesActualKey, mesKey } from "@/lib/helpers";
 import type { MovimientoContable } from "@/types";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Trash2 } from "lucide-react";
 
 const ESTADO_LABEL: Record<string, string> = {
   pagado_cc: "Pagado desde CC",
@@ -80,43 +84,43 @@ export default function GastoEstadoTab({
         />
       </div>
       <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Fecha Emisión</th>
-              <th>Fecha Registro</th>
-              <th>Fecha Pago</th>
-              <th>Descripción</th>
-              <th>Tipo de gasto</th>
-              <th>RUT</th>
-              <th>Proveedor</th>
-              <th>N° Factura</th>
-              <th>Documento</th>
-              <th>Adjunto</th>
-              <th>Monto</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Fecha Emisión</TableHead>
+              <TableHead>Fecha Registro</TableHead>
+              <TableHead>Fecha Pago</TableHead>
+              <TableHead className="max-w-[200px]">Descripción</TableHead>
+              <TableHead>Tipo de gasto</TableHead>
+              <TableHead>RUT</TableHead>
+              <TableHead>Proveedor</TableHead>
+              <TableHead>N° Factura</TableHead>
+              <TableHead>Documento</TableHead>
+              <TableHead>Adjunto</TableHead>
+              <TableHead>Monto</TableHead>
+              <TableHead className="sticky right-0 z-10 w-0 bg-background" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {items.length === 0 ? (
-              <tr>
-                <td colSpan={12}>
+              <TableRow>
+                <TableCell colSpan={12}>
                   <div className="empty">Sin registros para este periodo</div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               items.map((m) => (
-                <tr key={m.id}>
-                  <td>{new Date(m.fecha).toLocaleDateString("es-CL")}</td>
-                  <td>{new Date(m.creadoEn).toLocaleDateString("es-CL")}</td>
-                  <td>{m.fechaPago ? new Date(m.fechaPago).toLocaleDateString("es-CL") : "-"}</td>
-                  <td>{m.descripcion}</td>
-                  <td>{m.categoria || "-"}</td>
-                  <td>{m.rutProveedor ? formatRut(m.rutProveedor) : "-"}</td>
-                  <td>{m.contraparte || "-"}</td>
-                  <td>{m.numeroFactura || "-"}</td>
-                  <td>{m.tipoDocumento || "-"}</td>
-                  <td>
+                <TableRow key={m.id}>
+                  <TableCell>{new Date(m.fecha).toLocaleDateString("es-CL")}</TableCell>
+                  <TableCell>{new Date(m.creadoEn).toLocaleDateString("es-CL")}</TableCell>
+                  <TableCell>{m.fechaPago ? new Date(m.fechaPago).toLocaleDateString("es-CL") : "-"}</TableCell>
+                  <TableCell className="max-w-[200px] truncate" title={m.descripcion}>{m.descripcion}</TableCell>
+                  <TableCell>{m.categoria || "-"}</TableCell>
+                  <TableCell>{m.rutProveedor ? formatRut(m.rutProveedor) : "-"}</TableCell>
+                  <TableCell>{m.contraparte || "-"}</TableCell>
+                  <TableCell>{m.numeroFactura || "-"}</TableCell>
+                  <TableCell>{m.tipoDocumento || "-"}</TableCell>
+                  <TableCell>
                     {m.documentoUrl ? (
                       <a href={m.documentoUrl} target="_blank" rel="noopener noreferrer">
                         Ver
@@ -124,24 +128,38 @@ export default function GastoEstadoTab({
                     ) : (
                       "-"
                     )}
-                  </td>
-                  <td>{fmtCLP(m.monto)}</td>
-                  <td className="row-actions">
-                    <select value={m.estado} onChange={(e) => cambiarEstado(m, e.target.value as MovimientoContable["estado"])}>
-                      <option value="pagado_cc">Pagado desde CC</option>
-                      <option value="pagado_efectivo">Pagado en Efectivo</option>
-                      <option value="x_rendir">X Rendir</option>
-                      <option value="pendiente_pago">Pendiente de Pago</option>
-                    </select>
-                    <button className="icon-btn" onClick={() => eliminar(m)}>
-                      Eliminar
-                    </button>
-                  </td>
-                </tr>
+                  </TableCell>
+                  <TableCell>{fmtCLP(m.monto)}</TableCell>
+                  <TableCell className="sticky right-0 z-10 bg-background">
+                    <div className="flex items-center gap-1">
+                      <Select value={m.estado} onValueChange={(v) => v && cambiarEstado(m, v as MovimientoContable["estado"])}>
+                        <SelectTrigger size="sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pagado_cc">Pagado desde CC</SelectItem>
+                          <SelectItem value="pagado_efectivo">Pagado en Efectivo</SelectItem>
+                          <SelectItem value="x_rendir">X Rendir</SelectItem>
+                          <SelectItem value="pendiente_pago">Pendiente de Pago</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        title="Eliminar"
+                        aria-label="Eliminar"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => eliminar(m)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

@@ -6,6 +6,9 @@ import { useApp } from "@/context/AppContext";
 import { ESTADOS_CITA, esEstadoFinal, esRetrocesoInvalido } from "@/lib/agenda";
 import { fmtCLP, fmtTelefono, precioServicio, sumarDias, todayYMD, uid } from "@/lib/helpers";
 import type { BloqueoAgenda, Cita, HorarioAgenda, Servicio } from "@/types";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Trash2 } from "lucide-react";
 
 const DIAS = [
   { valor: 1, nombre: "Lunes" },
@@ -417,30 +420,37 @@ function BloqueosPuntuales() {
 
       {data.bloqueosAgenda.length > 0 && (
         <div className="table-scroll" style={{ marginTop: 16 }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Horario</th>
-                <th>Motivo</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Horario</TableHead>
+                <TableHead>Motivo</TableHead>
+                <TableHead className="sticky right-0 z-10 w-0 bg-background" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {data.bloqueosAgenda.map((b) => (
-                <tr key={b.id}>
-                  <td>{b.fecha}</td>
-                  <td>{b.todoElDia ? "Todo el día" : `${b.horaInicio} – ${b.horaFin}`}</td>
-                  <td>{b.motivo || "-"}</td>
-                  <td className="row-actions">
-                    <button className="icon-btn" onClick={() => quitar(b.id)}>
-                      Quitar
-                    </button>
-                  </td>
-                </tr>
+                <TableRow key={b.id}>
+                  <TableCell>{b.fecha}</TableCell>
+                  <TableCell>{b.todoElDia ? "Todo el día" : `${b.horaInicio} – ${b.horaFin}`}</TableCell>
+                  <TableCell>{b.motivo || "-"}</TableCell>
+                  <TableCell className="sticky right-0 z-10 bg-background">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      title="Quitar"
+                      aria-label="Quitar"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => quitar(b.id)}
+                    >
+                      <Trash2 />
+                    </Button>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>

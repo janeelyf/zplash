@@ -4,6 +4,9 @@ import { useMemo } from "react";
 import { useApp } from "@/context/AppContext";
 import { fmtCLP } from "@/lib/helpers";
 import type { Producto } from "@/types";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Pencil, Trash2, ArrowLeftRight } from "lucide-react";
 
 export default function ProductosTab() {
   const { data, ui, patchUi, commit } = useApp();
@@ -64,62 +67,83 @@ export default function ProductosTab() {
       </div>
 
       <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Código</th>
-              <th>SKU</th>
-              <th>Detalle</th>
-              <th>Categoría</th>
-              <th>Valor Compra</th>
-              <th>Valor Venta</th>
-              <th>Stock</th>
-              <th>Stock Mín</th>
-              <th>Stock Máx</th>
-              <th>Empaque</th>
-              <th>Proveedor</th>
-              <th>Estado</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Código</TableHead>
+              <TableHead>SKU</TableHead>
+              <TableHead className="max-w-[180px]">Detalle</TableHead>
+              <TableHead>Categoría</TableHead>
+              <TableHead>Valor Compra</TableHead>
+              <TableHead>Valor Venta</TableHead>
+              <TableHead>Stock</TableHead>
+              <TableHead>Stock Mín</TableHead>
+              <TableHead>Stock Máx</TableHead>
+              <TableHead>Empaque</TableHead>
+              <TableHead>Proveedor</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead className="sticky right-0 z-10 w-0 bg-background" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {filtrados.length === 0 ? (
-              <tr>
-                <td colSpan={13}>
+              <TableRow>
+                <TableCell colSpan={13}>
                   <div className="empty">No hay productos que coincidan</div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               filtrados.map((p) => (
-                <tr key={p.id}>
-                  <td>{p.codigo}</td>
-                  <td>{p.sku}</td>
-                  <td>{p.detalle}</td>
-                  <td>{categoriaNombre(p.categoriaId)}</td>
-                  <td>{fmtCLP(p.valorCompra)}</td>
-                  <td>{fmtCLP(p.valorVenta)}</td>
-                  <td style={p.stock < p.stockMin ? { color: "var(--red)", fontWeight: 600 } : undefined}>{p.stock}</td>
-                  <td>{p.stockMin}</td>
-                  <td>{p.stockMax || "-"}</td>
-                  <td>{p.empaqueMinimo}</td>
-                  <td>{proveedorNombre(p.proveedorId)}</td>
-                  <td>{p.activo ? "Activo" : "Inactivo"}</td>
-                  <td className="row-actions">
-                    <button className="icon-btn" onClick={() => patchUi({ modal: { type: "producto", data: p } })}>
-                      Editar
-                    </button>
-                    <button className="icon-btn" onClick={() => patchUi({ modal: { type: "traspasoInventario", productoId: p.id } })}>
-                      Traspasar
-                    </button>
-                    <button className="icon-btn" onClick={() => eliminar(p)}>
-                      Eliminar
-                    </button>
-                  </td>
-                </tr>
+                <TableRow key={p.id}>
+                  <TableCell>{p.codigo}</TableCell>
+                  <TableCell>{p.sku}</TableCell>
+                  <TableCell className="max-w-[180px] truncate" title={p.detalle}>{p.detalle}</TableCell>
+                  <TableCell>{categoriaNombre(p.categoriaId)}</TableCell>
+                  <TableCell>{fmtCLP(p.valorCompra)}</TableCell>
+                  <TableCell>{fmtCLP(p.valorVenta)}</TableCell>
+                  <TableCell style={p.stock < p.stockMin ? { color: "var(--red)", fontWeight: 600 } : undefined}>{p.stock}</TableCell>
+                  <TableCell>{p.stockMin}</TableCell>
+                  <TableCell>{p.stockMax || "-"}</TableCell>
+                  <TableCell>{p.empaqueMinimo}</TableCell>
+                  <TableCell>{proveedorNombre(p.proveedorId)}</TableCell>
+                  <TableCell>{p.activo ? "Activo" : "Inactivo"}</TableCell>
+                  <TableCell className="sticky right-0 z-10 bg-background">
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        title="Editar"
+                        aria-label="Editar"
+                        onClick={() => patchUi({ modal: { type: "producto", data: p } })}
+                      >
+                        <Pencil />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        title="Traspasar"
+                        aria-label="Traspasar"
+                        onClick={() => patchUi({ modal: { type: "traspasoInventario", productoId: p.id } })}
+                      >
+                        <ArrowLeftRight />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        title="Eliminar"
+                        aria-label="Eliminar"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => eliminar(p)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

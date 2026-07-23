@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { fmtCLP } from "@/lib/helpers";
 import type { MovimientoContable, PagoInfo } from "@/types";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 
 // Resumen de Cuentas por Cobrar: no es una tabla propia, se deriva de los
 // movimientos de tipo "ingreso" con estado "pendiente" (ver Ingresos y
@@ -68,42 +70,42 @@ export default function CuentasPorCobrarTab() {
       </div>
 
       <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Fecha</th>
-              <th>Descripción</th>
-              <th>Categoría</th>
-              <th>Cliente / Origen</th>
-              <th>Monto</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Fecha</TableHead>
+              <TableHead className="max-w-[200px]">Descripción</TableHead>
+              <TableHead>Categoría</TableHead>
+              <TableHead>Cliente / Origen</TableHead>
+              <TableHead>Monto</TableHead>
+              <TableHead className="sticky right-0 z-10 w-0 bg-background" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {items.length === 0 ? (
-              <tr>
-                <td colSpan={6}>
+              <TableRow>
+                <TableCell colSpan={6}>
                   <div className="empty">Sin cuentas por cobrar</div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               items.map((m) => (
-                <tr key={m.id}>
-                  <td>{new Date(m.fecha).toLocaleDateString("es-CL")}</td>
-                  <td>{m.descripcion}</td>
-                  <td>{m.categoria || "-"}</td>
-                  <td>{m.contraparte || "-"}</td>
-                  <td>{fmtCLP(m.monto)}</td>
-                  <td className="row-actions">
-                    <button className="icon-btn" onClick={() => marcarPagado(m)}>
+                <TableRow key={m.id}>
+                  <TableCell>{new Date(m.fecha).toLocaleDateString("es-CL")}</TableCell>
+                  <TableCell className="max-w-[200px] truncate" title={m.descripcion}>{m.descripcion}</TableCell>
+                  <TableCell>{m.categoria || "-"}</TableCell>
+                  <TableCell>{m.contraparte || "-"}</TableCell>
+                  <TableCell>{fmtCLP(m.monto)}</TableCell>
+                  <TableCell className="sticky right-0 z-10 bg-background">
+                    <Button variant="ghost" size="sm" onClick={() => marcarPagado(m)}>
                       Marcar pagado
-                    </button>
-                  </td>
-                </tr>
+                    </Button>
+                  </TableCell>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

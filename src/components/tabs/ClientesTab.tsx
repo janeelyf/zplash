@@ -3,6 +3,9 @@
 import { useApp } from "@/context/AppContext";
 import { fmtTelefono, normPlate, planStatus } from "@/lib/helpers";
 import type { Cliente } from "@/types";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Info, Pencil, Trash2 } from "lucide-react";
 
 const ESTADO_PRIORIDAD: Record<string, number> = { Vencido: 0, "Por vencer": 1, "Sin plan": 2, Vigente: 3 };
 
@@ -128,67 +131,88 @@ export default function ClientesTab() {
         </button>
       </div>
       <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Patente</th>
-              <th>Nombre</th>
-              <th>Teléfono</th>
-              <th className="col-mail">Mail</th>
-              <th>Vehículo</th>
-              <th>Origen</th>
-              <th>Plan</th>
-              <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => sortHeader("vencimiento")}>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Patente</TableHead>
+              <TableHead className="max-w-[140px]">Nombre</TableHead>
+              <TableHead>Teléfono</TableHead>
+              <TableHead className="col-mail">Mail</TableHead>
+              <TableHead>Vehículo</TableHead>
+              <TableHead>Origen</TableHead>
+              <TableHead>Plan</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => sortHeader("vencimiento")}>
                 Vencimiento{flecha("vencimiento")}
-              </th>
-              <th>Estado</th>
-              <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => sortHeader("visitas")}>
+              </TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => sortHeader("visitas")}>
                 Visitas{flecha("visitas")}
-              </th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
+              </TableHead>
+              <TableHead className="sticky right-0 z-10 w-0 bg-background" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={11}>
+              <TableRow>
+                <TableCell colSpan={11}>
                   <div className="empty">No hay clientes que coincidan</div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               filtered.map((c, idx) => {
                 const st = planStatus(c);
                 return (
-                  <tr key={`${c.id}-${c.patente}-${idx}`}>
-                    <td className="plate-tag">{c.patente}</td>
-                    <td>{c.nombre}</td>
-                    <td>{c.telefono ? fmtTelefono(c.telefono) : "-"}</td>
-                    <td className="col-mail" title={c.email || ""}>{c.email || "-"}</td>
-                    <td>{c.vehiculo || "-"}</td>
-                    <td>{c.origen || "LOCAL"}</td>
-                    <td>{c.plan || "-"}</td>
-                    <td>{c.vencimiento ? new Date(c.vencimiento).toLocaleDateString("es-CL") : "-"}</td>
-                    <td>
+                  <TableRow key={`${c.id}-${c.patente}-${idx}`}>
+                    <TableCell className="plate-tag">{c.patente}</TableCell>
+                    <TableCell className="max-w-[140px] truncate" title={c.nombre}>{c.nombre}</TableCell>
+                    <TableCell>{c.telefono ? fmtTelefono(c.telefono) : "-"}</TableCell>
+                    <TableCell className="col-mail" title={c.email || ""}>{c.email || "-"}</TableCell>
+                    <TableCell>{c.vehiculo || "-"}</TableCell>
+                    <TableCell>{c.origen || "LOCAL"}</TableCell>
+                    <TableCell>{c.plan || "-"}</TableCell>
+                    <TableCell>{c.vencimiento ? new Date(c.vencimiento).toLocaleDateString("es-CL") : "-"}</TableCell>
+                    <TableCell>
                       <span className={`status-pill ${st.cls}`}>{st.label}</span>
-                    </td>
-                    <td>{c.visitas || 0}</td>
-                    <td className="row-actions">
-                      <button className="icon-btn" onClick={() => patchUi({ modal: { type: "clienteInfo", data: c } })}>
-                        Info
-                      </button>
-                      <button className="icon-btn" onClick={() => patchUi({ modal: { type: "client", data: c } })}>
-                        Editar
-                      </button>
-                      <button className="icon-btn" onClick={() => eliminar(c)}>
-                        Eliminar
-                      </button>
-                    </td>
-                  </tr>
+                    </TableCell>
+                    <TableCell>{c.visitas || 0}</TableCell>
+                    <TableCell className="sticky right-0 z-10 bg-background">
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          title="Información adicional"
+                          aria-label="Información adicional"
+                          onClick={() => patchUi({ modal: { type: "clienteInfo", data: c } })}
+                        >
+                          <Info />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          title="Editar"
+                          aria-label="Editar"
+                          onClick={() => patchUi({ modal: { type: "client", data: c } })}
+                        >
+                          <Pencil />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          title="Eliminar"
+                          aria-label="Eliminar"
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => eliminar(c)}
+                        >
+                          <Trash2 />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
                 );
               })
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

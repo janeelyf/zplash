@@ -16,6 +16,10 @@ import {
   todayYMD,
 } from "@/lib/helpers";
 import type { MovimientoContable, PagoInfo } from "@/types";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Trash2 } from "lucide-react";
 
 const CONTRAPARTE_LABEL: Record<MovimientoContable["tipo"], string> = {
   ingreso: "Cliente / Origen",
@@ -545,46 +549,46 @@ export default function MovimientoContableTab({
         />
       </div>
       <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>{tipo === "egreso" ? "Fecha Emisión" : "Fecha"}</th>
-              {tipo === "egreso" && <th>Fecha Registro</th>}
-              {tipo === "egreso" && <th>Fecha Pago</th>}
-              <th>Descripción</th>
-              <th>Categoría</th>
-              {tipo === "egreso" && <th>RUT</th>}
-              <th>{CONTRAPARTE_LABEL[tipo]}</th>
-              {tipo === "egreso" && <th>N° Factura</th>}
-              {tipo === "egreso" && <th>Documento</th>}
-              {tipo === "egreso" && <th>Adjunto</th>}
-              <th>Monto</th>
-              <th>Estado</th>
-              {tipo !== "egreso" && <th>Método</th>}
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{tipo === "egreso" ? "Fecha Emisión" : "Fecha"}</TableHead>
+              {tipo === "egreso" && <TableHead>Fecha Registro</TableHead>}
+              {tipo === "egreso" && <TableHead>Fecha Pago</TableHead>}
+              <TableHead className="max-w-[200px]">Descripción</TableHead>
+              <TableHead>Categoría</TableHead>
+              {tipo === "egreso" && <TableHead>RUT</TableHead>}
+              <TableHead>{CONTRAPARTE_LABEL[tipo]}</TableHead>
+              {tipo === "egreso" && <TableHead>N° Factura</TableHead>}
+              {tipo === "egreso" && <TableHead>Documento</TableHead>}
+              {tipo === "egreso" && <TableHead>Adjunto</TableHead>}
+              <TableHead>Monto</TableHead>
+              <TableHead>Estado</TableHead>
+              {tipo !== "egreso" && <TableHead>Método</TableHead>}
+              <TableHead className="sticky right-0 z-10 w-0 bg-background" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {items.length === 0 ? (
-              <tr>
-                <td colSpan={tipo === "egreso" ? 13 : 8}>
+              <TableRow>
+                <TableCell colSpan={tipo === "egreso" ? 13 : 8}>
                   <div className="empty">Sin registros</div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               items.map((m) => (
-                <tr key={m.id}>
-                  <td>{new Date(m.fecha).toLocaleDateString("es-CL")}</td>
-                  {tipo === "egreso" && <td>{new Date(m.creadoEn).toLocaleDateString("es-CL")}</td>}
-                  {tipo === "egreso" && <td>{m.fechaPago ? new Date(m.fechaPago).toLocaleDateString("es-CL") : "-"}</td>}
-                  <td>{m.descripcion}</td>
-                  <td>{m.categoria || "-"}</td>
-                  {tipo === "egreso" && <td>{m.rutProveedor ? formatRut(m.rutProveedor) : "-"}</td>}
-                  <td>{m.contraparte || "-"}</td>
-                  {tipo === "egreso" && <td>{m.numeroFactura || "-"}</td>}
-                  {tipo === "egreso" && <td>{m.tipoDocumento || "-"}</td>}
+                <TableRow key={m.id}>
+                  <TableCell>{new Date(m.fecha).toLocaleDateString("es-CL")}</TableCell>
+                  {tipo === "egreso" && <TableCell>{new Date(m.creadoEn).toLocaleDateString("es-CL")}</TableCell>}
+                  {tipo === "egreso" && <TableCell>{m.fechaPago ? new Date(m.fechaPago).toLocaleDateString("es-CL") : "-"}</TableCell>}
+                  <TableCell className="max-w-[200px] truncate" title={m.descripcion}>{m.descripcion}</TableCell>
+                  <TableCell>{m.categoria || "-"}</TableCell>
+                  {tipo === "egreso" && <TableCell>{m.rutProveedor ? formatRut(m.rutProveedor) : "-"}</TableCell>}
+                  <TableCell>{m.contraparte || "-"}</TableCell>
+                  {tipo === "egreso" && <TableCell>{m.numeroFactura || "-"}</TableCell>}
+                  {tipo === "egreso" && <TableCell>{m.tipoDocumento || "-"}</TableCell>}
                   {tipo === "egreso" && (
-                    <td>
+                    <TableCell>
                       {m.documentoUrl ? (
                         <a href={m.documentoUrl} target="_blank" rel="noopener noreferrer">
                           Ver
@@ -592,10 +596,10 @@ export default function MovimientoContableTab({
                       ) : (
                         "-"
                       )}
-                    </td>
+                    </TableCell>
                   )}
-                  <td>{fmtCLP(m.monto)}</td>
-                  <td>
+                  <TableCell>{fmtCLP(m.monto)}</TableCell>
+                  <TableCell>
                     {tipo === "egreso" ? (
                       <span className={`status-pill ${ESTADO_EGRESO_CLASE[m.estado] || "warn"}`}>
                         {ESTADO_EGRESO_LABEL[m.estado] || m.estado}
@@ -605,9 +609,9 @@ export default function MovimientoContableTab({
                         {m.estado === "pagado" ? "Pagado" : "Pendiente"}
                       </span>
                     )}
-                  </td>
+                  </TableCell>
                   {tipo !== "egreso" && (
-                    <td>
+                    <TableCell>
                       {m.metodoPago === "efectivo"
                         ? "Efectivo"
                         : m.metodoPago === "tarjeta"
@@ -615,33 +619,47 @@ export default function MovimientoContableTab({
                           : m.metodoPago === "transferencia"
                             ? "Transferencia bancaria"
                             : "-"}
-                    </td>
+                    </TableCell>
                   )}
-                  <td className="row-actions">
-                    {tipo === "egreso" ? (
-                      <select
-                        value={m.estado}
-                        onChange={(e) => cambiarEstadoEgreso(m, e.target.value as MovimientoContable["estado"])}
+                  <TableCell className="sticky right-0 z-10 bg-background">
+                    <div className="flex items-center gap-1">
+                      {tipo === "egreso" ? (
+                        <Select
+                          value={m.estado}
+                          onValueChange={(v) => v && cambiarEstadoEgreso(m, v as MovimientoContable["estado"])}
+                        >
+                          <SelectTrigger size="sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pagado_cc">Pagado desde CC</SelectItem>
+                            <SelectItem value="pagado_efectivo">Pagado en Efectivo</SelectItem>
+                            <SelectItem value="x_rendir">X Rendir</SelectItem>
+                            <SelectItem value="pendiente_pago">Pendiente de Pago</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Button variant="ghost" size="sm" onClick={() => toggleEstado(m)}>
+                          {m.estado === "pagado" ? "Marcar pendiente" : "Marcar pagado"}
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        title="Eliminar"
+                        aria-label="Eliminar"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => eliminar(m)}
                       >
-                        <option value="pagado_cc">Pagado desde CC</option>
-                        <option value="pagado_efectivo">Pagado en Efectivo</option>
-                        <option value="x_rendir">X Rendir</option>
-                        <option value="pendiente_pago">Pendiente de Pago</option>
-                      </select>
-                    ) : (
-                      <button className="icon-btn" onClick={() => toggleEstado(m)}>
-                        {m.estado === "pagado" ? "Marcar pendiente" : "Marcar pagado"}
-                      </button>
-                    )}
-                    <button className="icon-btn" onClick={() => eliminar(m)}>
-                      Eliminar
-                    </button>
-                  </td>
-                </tr>
+                        <Trash2 />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

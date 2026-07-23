@@ -5,11 +5,13 @@ export default function PriceInput({
   onChange,
   placeholder = "$0",
   style,
+  className,
 }: {
   value: string;
   onChange: (digitos: string) => void;
   placeholder?: string;
   style?: React.CSSProperties;
+  className?: string;
 }) {
   const formateado = value ? "$" + Number(value).toLocaleString("es-CL") : "";
   return (
@@ -19,6 +21,7 @@ export default function PriceInput({
       onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
       placeholder={placeholder}
       style={style}
+      className={className}
     />
   );
 }

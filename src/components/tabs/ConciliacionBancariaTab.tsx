@@ -7,6 +7,11 @@ import { importarCartola } from "@/lib/actions";
 import type { CartolaParseResult } from "@/lib/cartolaParser";
 import { fmtCLP, mesActualKey, mesKey, uidMovimientoContable } from "@/lib/helpers";
 import type { CartolaMovimiento, MovimientoContable } from "@/types";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+const SIN_VINCULAR = "sin-vincular";
 
 // Por ahora una sola cuenta soportada; el campo `cuenta` queda en el modelo
 // para no tener que migrar el día que se agregue otra (ver plan de este módulo).
@@ -55,12 +60,12 @@ function FilaCartola({
 
   return (
     <>
-      <tr>
-        <td>{new Date(m.fecha).toLocaleDateString("es-CL")}</td>
-        <td style={{ maxWidth: 260 }}>{m.glosa}</td>
-        <td>{m.cargo ? fmtCLP(m.cargo) : "-"}</td>
-        <td>{m.abono ? fmtCLP(m.abono) : "-"}</td>
-        <td>
+      <TableRow>
+        <TableCell>{new Date(m.fecha).toLocaleDateString("es-CL")}</TableCell>
+        <TableCell className="max-w-[220px] truncate" title={m.glosa}>{m.glosa}</TableCell>
+        <TableCell>{m.cargo ? fmtCLP(m.cargo) : "-"}</TableCell>
+        <TableCell>{m.abono ? fmtCLP(m.abono) : "-"}</TableCell>
+        <TableCell>
           <Buscador
             value={categoriaTexto}
             onChange={setCategoriaTexto}
@@ -71,9 +76,9 @@ function FilaCartola({
             placeholder="Sin clasificar"
             style={{ minWidth: 170, display: "inline-block", verticalAlign: "middle" }}
           />
-          <button className="icon-btn" onClick={() => setMostrarRegla((v) => !v)} title="Recordar esta categoría para futuras cartolas">
+          <Button variant="ghost" size="sm" onClick={() => setMostrarRegla((v) => !v)} title="Recordar esta categoría para futuras cartolas">
             Regla
-          </button>
+          </Button>
           {mostrarRegla && (
             <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
               <input
@@ -93,51 +98,61 @@ function FilaCartola({
               </button>
             </div>
           )}
-        </td>
-        <td>
+        </TableCell>
+        <TableCell>
           <span className={`status-pill ${m.estado === "conciliado" ? "ok" : m.estado === "ignorado" ? "bad" : "warn"}`}>
             {m.estado === "conciliado" ? "Conciliado" : m.estado === "ignorado" ? "Ignorado" : "Pendiente"}
           </span>
-        </td>
-        <td className="row-actions">
-          {m.estado !== "conciliado" && (
-            <button className="icon-btn" onClick={() => onCambiarEstado("conciliado")}>
-              Conciliar
-            </button>
-          )}
-          {m.estado === "pendiente" && (
-            <button className="icon-btn" onClick={() => onCambiarEstado("ignorado")}>
-              Ignorar
-            </button>
-          )}
-          {m.estado !== "pendiente" && (
-            <button className="icon-btn" onClick={() => onCambiarEstado("pendiente")}>
-              Reabrir
-            </button>
-          )}
-          <select value={m.movimientoContableId || ""} onChange={(e) => onVincular(e.target.value)} style={{ maxWidth: 170 }}>
-            <option value="">Vincular a...</option>
-            {vinculables.map((mc) => (
-              <option key={mc.id} value={mc.id}>
-                {new Date(mc.fecha).toLocaleDateString("es-CL")} · {mc.descripcion} · {fmtCLP(mc.monto)}
-              </option>
-            ))}
-          </select>
-          {m.cargo > 0 && (
-            <button className="icon-btn" onClick={() => setMostrarGasto((v) => !v)}>
-              Crear gasto
-            </button>
-          )}
-          {m.abono > 0 && (
-            <button className="icon-btn" onClick={() => setMostrarIngreso((v) => !v)}>
-              Crear ingreso
-            </button>
-          )}
-        </td>
-      </tr>
+        </TableCell>
+        <TableCell className="sticky right-0 z-10 bg-background">
+          <div className="flex flex-wrap items-center gap-1">
+            {m.estado !== "conciliado" && (
+              <Button variant="ghost" size="sm" onClick={() => onCambiarEstado("conciliado")}>
+                Conciliar
+              </Button>
+            )}
+            {m.estado === "pendiente" && (
+              <Button variant="ghost" size="sm" onClick={() => onCambiarEstado("ignorado")}>
+                Ignorar
+              </Button>
+            )}
+            {m.estado !== "pendiente" && (
+              <Button variant="ghost" size="sm" onClick={() => onCambiarEstado("pendiente")}>
+                Reabrir
+              </Button>
+            )}
+            <Select
+              value={m.movimientoContableId || SIN_VINCULAR}
+              onValueChange={(v) => onVincular(!v || v === SIN_VINCULAR ? "" : v)}
+            >
+              <SelectTrigger size="sm" className="max-w-[170px]">
+                <SelectValue placeholder="Vincular a..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SIN_VINCULAR}>Vincular a...</SelectItem>
+                {vinculables.map((mc) => (
+                  <SelectItem key={mc.id} value={mc.id}>
+                    {new Date(mc.fecha).toLocaleDateString("es-CL")} · {mc.descripcion} · {fmtCLP(mc.monto)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {m.cargo > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => setMostrarGasto((v) => !v)}>
+                Crear gasto
+              </Button>
+            )}
+            {m.abono > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => setMostrarIngreso((v) => !v)}>
+                Crear ingreso
+              </Button>
+            )}
+          </div>
+        </TableCell>
+      </TableRow>
       {mostrarGasto && (
-        <tr>
-          <td colSpan={7}>
+        <TableRow>
+          <TableCell colSpan={7}>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: "8px 0" }}>
               <select value={gastoCategoria} onChange={(e) => setGastoCategoria(e.target.value)} style={{ minWidth: 220 }}>
                 <option value="">Selecciona tipo de gasto...</option>
@@ -165,12 +180,12 @@ function FilaCartola({
                 Guardar gasto y conciliar
               </button>
             </div>
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       )}
       {mostrarIngreso && (
-        <tr>
-          <td colSpan={7}>
+        <TableRow>
+          <TableCell colSpan={7}>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: "8px 0" }}>
               <select value={ingresoCategoria} onChange={(e) => setIngresoCategoria(e.target.value)} style={{ minWidth: 220 }}>
                 <option value="">Selecciona categoría de ingreso...</option>
@@ -198,8 +213,8 @@ function FilaCartola({
                 Guardar ingreso y conciliar
               </button>
             </div>
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       )}
     </>
   );
@@ -481,25 +496,25 @@ export default function ConciliacionBancariaTab() {
       </div>
 
       <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Fecha</th>
-              <th>Glosa</th>
-              <th>Cargo</th>
-              <th>Abono</th>
-              <th>Categoría</th>
-              <th>Estado</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Fecha</TableHead>
+              <TableHead>Glosa</TableHead>
+              <TableHead>Cargo</TableHead>
+              <TableHead>Abono</TableHead>
+              <TableHead>Categoría</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead className="sticky right-0 z-10 w-0 bg-background" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {movimientosPeriodo.length === 0 ? (
-              <tr>
-                <td colSpan={7}>
+              <TableRow>
+                <TableCell colSpan={7}>
                   <div className="empty">Sin movimientos importados para este período</div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               movimientosPeriodo.map((m) => (
                 <FilaCartola
@@ -518,8 +533,8 @@ export default function ConciliacionBancariaTab() {
                 />
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

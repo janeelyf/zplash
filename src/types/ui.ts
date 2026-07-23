@@ -1,7 +1,7 @@
 import type { Cliente } from "./clientes";
 import type { Empresa } from "./empresas";
 import type { Insumo, Producto, Proveedor } from "./inventario";
-import type { PagoInfo } from "./ventas";
+import type { PagoInfo, Venta } from "./ventas";
 import type { PerfilPublico } from "./perfiles";
 
 export type PlanStatusCls = "ok" | "warn" | "bad";
@@ -29,6 +29,7 @@ export type ModalState =
   | { type: "proveedor"; data: Proveedor | null }
   | { type: "insumo"; data: Insumo | null }
   | { type: "traspasoInventario"; productoId?: string }
+  | { type: "servicioAdicional"; data: Venta }
   | null;
 
 export interface UIState {

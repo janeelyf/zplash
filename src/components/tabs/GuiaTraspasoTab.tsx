@@ -4,6 +4,9 @@ import { useMemo, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { generarFolioTraspaso, productoPermitidoEnDestino, puedeBorrarCategoriaInventario, stockPorDestino, uid } from "@/lib/helpers";
 import type { MovimientoInventario } from "@/types";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Trash2 } from "lucide-react";
 
 interface GuiaDesdeBodega {
   folio: string;
@@ -234,31 +237,31 @@ export default function GuiaTraspasoTab() {
       </div>
 
       <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>SKU</th>
-              <th>Detalle</th>
-              <th>Disponible en origen</th>
-              <th>Cantidad a traspasar</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>SKU</TableHead>
+              <TableHead className="max-w-[180px]">Detalle</TableHead>
+              <TableHead>Disponible en origen</TableHead>
+              <TableHead>Cantidad a traspasar</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {productos.length === 0 ? (
-              <tr>
-                <td colSpan={4}>
+              <TableRow>
+                <TableCell colSpan={4}>
                   <div className="empty">No hay productos disponibles para traspasar entre este origen y destino</div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               productos.map((p) => {
                 const disponible = disponibleEnOrigen(p.id);
                 return (
-                  <tr key={p.id}>
-                    <td>{p.sku}</td>
-                    <td>{p.detalle}</td>
-                    <td>{disponible}</td>
-                    <td>
+                  <TableRow key={p.id}>
+                    <TableCell>{p.sku}</TableCell>
+                    <TableCell className="max-w-[180px] truncate" title={p.detalle}>{p.detalle}</TableCell>
+                    <TableCell>{disponible}</TableCell>
+                    <TableCell>
                       <input
                         type="number"
                         min={0}
@@ -268,13 +271,13 @@ export default function GuiaTraspasoTab() {
                         onChange={(e) => setCantidad(p.id, Number(e.target.value) || 0)}
                         style={{ width: 90 }}
                       />
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 16, flexWrap: "wrap" }}>
@@ -294,52 +297,59 @@ export default function GuiaTraspasoTab() {
 
       <h3 style={{ marginTop: 28 }}>Guías de traslado desde Bodega</h3>
       <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Folio</th>
-              <th>Fecha</th>
-              <th>Destino</th>
-              <th>Productos</th>
-              <th>Notas</th>
-              <th>Registrado por</th>
-              {puedeBorrar && <th></th>}
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Folio</TableHead>
+              <TableHead>Fecha</TableHead>
+              <TableHead>Destino</TableHead>
+              <TableHead>Productos</TableHead>
+              <TableHead>Notas</TableHead>
+              <TableHead>Registrado por</TableHead>
+              {puedeBorrar && <TableHead className="sticky right-0 z-10 w-0 bg-background" />}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {guiasDesdeBodega.length === 0 ? (
-              <tr>
-                <td colSpan={puedeBorrar ? 7 : 6}>
+              <TableRow>
+                <TableCell colSpan={puedeBorrar ? 7 : 6}>
                   <div className="empty">Todavía no hay guías de traslado registradas desde Bodega</div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               guiasDesdeBodega.map((guia) => (
-                <tr key={guia.folio}>
-                  <td>{guia.folio}</td>
-                  <td>{new Date(guia.fecha).toLocaleString("es-CL")}</td>
-                  <td>{destinoNombre(guia.destinoId)}</td>
-                  <td>
+                <TableRow key={guia.folio}>
+                  <TableCell>{guia.folio}</TableCell>
+                  <TableCell>{new Date(guia.fecha).toLocaleString("es-CL")}</TableCell>
+                  <TableCell>{destinoNombre(guia.destinoId)}</TableCell>
+                  <TableCell>
                     {guia.lineas.map((l, i) => (
                       <div key={i}>
                         {productoNombre(l.productoId)} × {l.cantidad}
                       </div>
                     ))}
-                  </td>
-                  <td>{guia.notas || "-"}</td>
-                  <td>{guia.creadoPor || "-"}</td>
+                  </TableCell>
+                  <TableCell>{guia.notas || "-"}</TableCell>
+                  <TableCell>{guia.creadoPor || "-"}</TableCell>
                   {puedeBorrar && (
-                    <td className="row-actions">
-                      <button className="icon-btn" onClick={() => eliminarGuia(guia)}>
-                        Eliminar
-                      </button>
-                    </td>
+                    <TableCell className="sticky right-0 z-10 bg-background">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        title="Eliminar"
+                        aria-label="Eliminar"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => eliminarGuia(guia)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </TableCell>
                   )}
-                </tr>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

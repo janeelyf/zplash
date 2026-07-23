@@ -1,6 +1,16 @@
 "use client";
 
 import { useApp } from "@/context/AppContext";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function ConfirmModal({
   mensaje,
@@ -14,27 +24,28 @@ export default function ConfirmModal({
   danger?: boolean;
 }) {
   const { patchUi } = useApp();
+  const cerrar = () => patchUi({ modal: null });
 
   return (
-    <div className="modal" style={{ maxWidth: 400 }}>
-      <h3>Confirmar</h3>
-      <div style={{ color: "var(--white)", fontSize: 14, lineHeight: 1.5, marginBottom: 10 }}>
-        {mensaje || "¿Confirmas esta acción?"}
-      </div>
-      <div className="modal-actions">
-        <button className="btn ghost" onClick={() => patchUi({ modal: null })}>
-          Cancelar
-        </button>
-        <button
-          className={danger ? "btn danger" : "btn"}
-          onClick={() => {
-            onConfirm();
-            patchUi({ modal: null });
-          }}
-        >
-          {confirmLabel}
-        </button>
-      </div>
-    </div>
+    <AlertDialog open onOpenChange={(open) => !open && cerrar()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Confirmar</AlertDialogTitle>
+          <AlertDialogDescription>{mensaje || "¿Confirmas esta acción?"}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={cerrar}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            variant={danger ? "destructive" : "default"}
+            onClick={() => {
+              onConfirm();
+              cerrar();
+            }}
+          >
+            {confirmLabel}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

@@ -1,14 +1,11 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { fmtCLP } from "@/lib/helpers";
+import { getPreciosPublicos } from "@/lib/preciosPublicos";
 import FaqAccordion from "@/components/cliente/FaqAccordion";
 import ProductoBanner from "@/components/cliente/ProductoBanner";
 import CarritoBadge from "@/components/cliente/CarritoBadge";
-import { useCarrito } from "@/hooks/useCarrito";
-import type { PreciosPublicos } from "@/components/cliente/types";
+import AgregarCarritoButton from "@/components/cliente/AgregarCarritoButton";
 
 const PREGUNTAS_PLAN_MENSUAL = [
   {
@@ -33,23 +30,11 @@ const PREGUNTAS_PLAN_MENSUAL = [
   },
 ];
 
-export default function PlanMensualPage() {
-  const [precios, setPrecios] = useState<PreciosPublicos | null>(null);
-  const [agregado, setAgregado] = useState(false);
-  const { agregar } = useCarrito();
+// Ver nota en /cliente/page.tsx: precios siempre frescos desde la base.
+export const dynamic = "force-dynamic";
 
-  useEffect(() => {
-    fetch("/api/pagos/precios")
-      .then((r) => r.json())
-      .then(setPrecios)
-      .catch(() => setPrecios(null));
-  }, []);
-
-  function agregarAlCarrito() {
-    if (!precios) return;
-    agregar({ key: "plan", tipo: "plan_nuevo", nombre: "Plan Ilimitado Mensual", precio: precios.plan.precio });
-    setAgregado(true);
-  }
+export default async function PlanMensualPage() {
+  const precios = await getPreciosPublicos();
 
   return (
     <div id="app">
@@ -83,16 +68,14 @@ export default function PlanMensualPage() {
               Contrata o renueva un mes a la vez con cualquier tipo de tarjeta (Webpay Plus).
             </p>
             <div className="price-row" style={{ marginBottom: 14 }}>
-              <span className="new">{precios ? fmtCLP(precios.plan.precio) : "..."}</span>
+              <span className="new">{fmtCLP(precios.plan.precio)}</span>
               <span style={{ color: "var(--gray)", fontSize: 12.5 }}>/ mes</span>
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <Link href="/pagar?item=plan" className="btn" style={{ marginTop: 0, textDecoration: "none" }}>
                 Comprar
               </Link>
-              <button type="button" className="btn ghost" style={{ marginTop: 0 }} onClick={agregarAlCarrito} disabled={!precios}>
-                {agregado ? "Agregado ✓" : "Agregar al carrito"}
-              </button>
+              <AgregarCarritoButton item={{ key: "plan", tipo: "plan_nuevo", nombre: "Plan Ilimitado Mensual", precio: precios.plan.precio }} />
             </div>
           </div>
 
@@ -102,14 +85,12 @@ export default function PlanMensualPage() {
               Inscribe tu Tarjeta de Crédito una vez y te cobramos automáticamente cada mes, más barato.
             </p>
             <div className="price-row" style={{ marginBottom: 0 }}>
-              <span className="new">{precios ? fmtCLP(precios.planOneclick.precio) : "..."}</span>
+              <span className="new">{fmtCLP(precios.planOneclick.precio)}</span>
               <span style={{ color: "var(--gray)", fontSize: 12.5 }}>/ mes</span>
             </div>
-            {precios && (
-              <div className="save" style={{ marginTop: 6 }}>
-                Ahorras {fmtCLP(precios.plan.precio - precios.planOneclick.precio)} al mes
-              </div>
-            )}
+            <div className="save" style={{ marginTop: 6 }}>
+              Ahorras {fmtCLP(precios.plan.precio - precios.planOneclick.precio)} al mes
+            </div>
             <div style={{ marginTop: 12 }}>
               <Link href="/pagar?item=plan&auto=1" className="btn" style={{ marginTop: 0, textDecoration: "none" }}>
                 Contratar

@@ -3,6 +3,10 @@
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import type { PerfilPublico } from "@/types";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 export default function PerfilModal({ data: p }: { data: PerfilPublico | null }) {
   const { data, ui, commit, patchUi } = useApp();
@@ -12,6 +16,8 @@ export default function PerfilModal({ data: p }: { data: PerfilPublico | null })
   const actorClaveRef = useRef<HTMLInputElement>(null);
   const [err, setErr] = useState("");
   const [guardando, setGuardando] = useState(false);
+
+  const cerrar = () => patchUi({ modal: null });
 
   // Editar un perfil existente solo cambia el nombre (los módulos y la
   // clave se administran desde la misma fila en la pestaña Perfiles, si el
@@ -39,7 +45,7 @@ export default function PerfilModal({ data: p }: { data: PerfilPublico | null })
         setErr("No se pudo guardar (sin conexión). Intenta de nuevo.");
         return;
       }
-      patchUi({ modal: null });
+      cerrar();
       return;
     }
 
@@ -75,7 +81,7 @@ export default function PerfilModal({ data: p }: { data: PerfilPublico | null })
       // cambio en el estado local para que aparezca sin recargar la página.
       const nuevo: PerfilPublico = { id: json.id, nombre, modulos: [], icono };
       await commit({ perfiles: [...data.perfiles, nuevo] });
-      patchUi({ modal: null });
+      cerrar();
     } catch {
       setErr("No se pudo crear el perfil (sin conexión). Intenta de nuevo.");
     } finally {
@@ -84,40 +90,49 @@ export default function PerfilModal({ data: p }: { data: PerfilPublico | null })
   };
 
   return (
-    <div className="modal">
-      <h3>{p ? "Editar perfil" : "Nuevo perfil"}</h3>
-      <div className="field">
-        <label>Nombre</label>
-        <input ref={nombreRef} defaultValue={p?.nombre || ""} />
-      </div>
-      <div className="field">
-        <label>Ícono (emoji, opcional)</label>
-        <input ref={iconoRef} defaultValue={p?.icono || ""} maxLength={4} placeholder="👤" style={{ maxWidth: 80 }} />
-      </div>
-      {!p && (
-        <>
-          <div className="field">
-            <label>Contraseña inicial</label>
-            <input ref={claveRef} type="password" maxLength={12} />
+    <Dialog open onOpenChange={(open) => !open && cerrar()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{p ? "Editar perfil" : "Nuevo perfil"}</DialogTitle>
+        </DialogHeader>
+
+        <div className="grid gap-3">
+          <div className="grid gap-1.5">
+            <Label htmlFor="perfil-nombre">Nombre</Label>
+            <Input id="perfil-nombre" ref={nombreRef} defaultValue={p?.nombre || ""} />
           </div>
-          <div className="field">
-            <label>Tu contraseña (para confirmar)</label>
-            <input ref={actorClaveRef} type="password" maxLength={12} />
+          <div className="grid gap-1.5">
+            <Label htmlFor="perfil-icono">Ícono (emoji, opcional)</Label>
+            <Input id="perfil-icono" ref={iconoRef} defaultValue={p?.icono || ""} maxLength={4} placeholder="👤" className="max-w-20" />
           </div>
-          <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13 }}>
-            El perfil se crea sin módulos asignados — edítalo desde la pestaña Perfiles para darle acceso.
-          </div>
-        </>
-      )}
-      <div className="err">{err}</div>
-      <div className="modal-actions">
-        <button className="btn ghost" onClick={() => patchUi({ modal: null })}>
-          Cancelar
-        </button>
-        <button className="btn" onClick={guardar} disabled={guardando}>
-          {guardando ? "Guardando..." : "Guardar"}
-        </button>
-      </div>
-    </div>
+          {!p && (
+            <>
+              <div className="grid gap-1.5">
+                <Label htmlFor="perfil-clave">Contraseña inicial</Label>
+                <Input id="perfil-clave" ref={claveRef} type="password" maxLength={12} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="perfil-actor-clave">Tu contraseña (para confirmar)</Label>
+                <Input id="perfil-actor-clave" ref={actorClaveRef} type="password" maxLength={12} />
+              </div>
+              <p className="text-left text-sm text-muted-foreground">
+                El perfil se crea sin módulos asignados — edítalo desde la pestaña Perfiles para darle acceso.
+              </p>
+            </>
+          )}
+
+          {err && <p className="text-sm text-destructive">{err}</p>}
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={cerrar}>
+            Cancelar
+          </Button>
+          <Button onClick={guardar} disabled={guardando}>
+            {guardando ? "Guardando..." : "Guardar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

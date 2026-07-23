@@ -1,28 +1,16 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import Image from "next/image";
 import { fmtCLP } from "@/lib/helpers";
 import { obtenerContenidoServicio } from "@/lib/servicioContenido";
+import { getPreciosPublicos } from "@/lib/preciosPublicos";
 import ProductoBanner from "@/components/cliente/ProductoBanner";
-import type { PreciosPublicos } from "@/components/cliente/types";
 
 const WHATSAPP_URL = (nombre: string) =>
   "https://wa.me/56939059611?text=" + encodeURIComponent(`Hola, quiero agendar el servicio "${nombre}" para mi auto`);
 
-export default function ServicioLandingPage() {
-  const { id } = useParams<{ id: string }>();
-  const [precios, setPrecios] = useState<PreciosPublicos | null>(null);
-
-  useEffect(() => {
-    fetch("/api/pagos/precios")
-      .then((r) => r.json())
-      .then(setPrecios)
-      .catch(() => setPrecios(null));
-  }, []);
-
-  const servicio = precios?.servicios.find((s) => s.id === id);
+export default async function ServicioLandingPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const precios = await getPreciosPublicos();
+  const servicio = precios.servicios.find((s) => s.id === id);
   const contenido = obtenerContenidoServicio(id);
 
   return (
@@ -42,9 +30,7 @@ export default function ServicioLandingPage() {
           ← Volver a Tipos de Lavados
         </a>
 
-        {!precios ? (
-          <div className="empty">Cargando...</div>
-        ) : !servicio ? (
+        {!servicio ? (
           <div className="card">
             <p style={{ color: "var(--gray)", fontSize: 14 }}>No encontramos este servicio.</p>
           </div>

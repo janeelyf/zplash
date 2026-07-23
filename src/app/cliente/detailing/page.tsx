@@ -1,24 +1,16 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Image from "next/image";
 import { CATEGORIA_DETAILING, fmtCLP } from "@/lib/helpers";
-import type { PreciosPublicos } from "@/components/cliente/types";
+import { getPreciosPublicos } from "@/lib/preciosPublicos";
 
 const WHATSAPP_URL =
   "https://wa.me/56939059611?text=" + encodeURIComponent("Hola, quiero agendar un Servicio de Detailing para mi auto");
 
-export default function DetailingLandingPage() {
-  const [precios, setPrecios] = useState<PreciosPublicos | null>(null);
+// Ver nota en /cliente/page.tsx: precios siempre frescos desde la base.
+export const dynamic = "force-dynamic";
 
-  useEffect(() => {
-    fetch("/api/pagos/precios")
-      .then((r) => r.json())
-      .then(setPrecios)
-      .catch(() => setPrecios(null));
-  }, []);
-
-  const servicios = (precios?.servicios ?? []).filter((s) => s.categoria === CATEGORIA_DETAILING);
+export default async function DetailingLandingPage() {
+  const precios = await getPreciosPublicos();
+  const servicios = precios.servicios.filter((s) => s.categoria === CATEGORIA_DETAILING);
 
   return (
     <div id="app">
@@ -41,9 +33,7 @@ export default function DetailingLandingPage() {
       </div>
 
       <div className="content" style={{ maxWidth: 640 }}>
-        {!precios ? (
-          <div className="empty">Cargando servicios...</div>
-        ) : servicios.length === 0 ? (
+        {servicios.length === 0 ? (
           <div className="card">
             <p style={{ color: "var(--gray)", fontSize: 14 }}>
               No hay precios de Detailing publicados por el momento. Escríbenos por WhatsApp y te cotizamos.

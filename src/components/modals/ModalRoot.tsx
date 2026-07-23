@@ -12,27 +12,26 @@ import ProductoModal from "@/components/modals/ProductoModal";
 import ProveedorModal from "@/components/modals/ProveedorModal";
 import InsumoModal from "@/components/modals/InsumoModal";
 import TraspasoModal from "@/components/modals/TraspasoModal";
+import ServicioAdicionalModal from "@/components/modals/ServicioAdicionalModal";
 
 export default function ModalRoot() {
   const { ui } = useApp();
   const m = ui.modal;
   if (!m) return null;
 
-  return (
-    <div className="modal-overlay">
-      {m.type === "client" && <ClientModal data={m.data} contexto={m.contexto} />}
-      {m.type === "confirm" && (
-        <ConfirmModal mensaje={m.mensaje} onConfirm={m.onConfirm} confirmLabel={m.confirmLabel} danger={m.danger} />
-      )}
-      {m.type === "perfil" && <PerfilModal data={m.data} />}
-      {m.type === "bulk" && <BulkModal />}
-      {m.type === "pago" && <PagoModal monto={m.monto} descripcion={m.descripcion} onConfirm={m.onConfirm} />}
-      {m.type === "clienteInfo" && <ClienteInfoModal data={m.data} />}
-      {m.type === "empresa" && <EmpresaModal data={m.data} />}
-      {m.type === "producto" && <ProductoModal data={m.data} />}
-      {m.type === "proveedor" && <ProveedorModal data={m.data} />}
-      {m.type === "insumo" && <InsumoModal data={m.data} />}
-      {m.type === "traspasoInventario" && <TraspasoModal productoId={m.productoId} />}
-    </div>
-  );
+  if (m.type === "servicioAdicional") return <ServicioAdicionalModal data={m.data} />;
+  if (m.type === "confirm") {
+    return <ConfirmModal mensaje={m.mensaje} onConfirm={m.onConfirm} confirmLabel={m.confirmLabel} danger={m.danger} />;
+  }
+  if (m.type === "client") return <ClientModal data={m.data} contexto={m.contexto} />;
+  if (m.type === "perfil") return <PerfilModal data={m.data} />;
+  if (m.type === "bulk") return <BulkModal />;
+  if (m.type === "pago") return <PagoModal monto={m.monto} descripcion={m.descripcion} onConfirm={m.onConfirm} />;
+  if (m.type === "clienteInfo") return <ClienteInfoModal data={m.data} />;
+  if (m.type === "empresa") return <EmpresaModal data={m.data} />;
+  if (m.type === "producto") return <ProductoModal data={m.data} />;
+  if (m.type === "proveedor") return <ProveedorModal data={m.data} />;
+  if (m.type === "insumo") return <InsumoModal data={m.data} />;
+  if (m.type === "traspasoInventario") return <TraspasoModal productoId={m.productoId} />;
+  return null;
 }

@@ -4,6 +4,9 @@ import { useMemo } from "react";
 import { useApp } from "@/context/AppContext";
 import { fmtCLP } from "@/lib/helpers";
 import type { Insumo } from "@/types";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Pencil, Trash2 } from "lucide-react";
 
 export default function InsumosTab() {
   const { data, ui, patchUi, commit } = useApp();
@@ -63,51 +66,66 @@ export default function InsumosTab() {
       </div>
 
       <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Nombre</th>
-              <th>Categoría</th>
-              <th>Valor Compra</th>
-              <th>Stock</th>
-              <th>Stock Mín</th>
-              <th>Stock Máx</th>
-              <th>Proveedor</th>
-              <th>Estado</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="max-w-[160px]">Nombre</TableHead>
+              <TableHead>Categoría</TableHead>
+              <TableHead>Valor Compra</TableHead>
+              <TableHead>Stock</TableHead>
+              <TableHead>Stock Mín</TableHead>
+              <TableHead>Stock Máx</TableHead>
+              <TableHead>Proveedor</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead className="sticky right-0 z-10 w-0 bg-background" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {filtrados.length === 0 ? (
-              <tr>
-                <td colSpan={9}>
+              <TableRow>
+                <TableCell colSpan={9}>
                   <div className="empty">No hay insumos que coincidan</div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               filtrados.map((i) => (
-                <tr key={i.id}>
-                  <td>{i.nombre}</td>
-                  <td>{categoriaNombre(i.categoriaId)}</td>
-                  <td>{fmtCLP(i.valorCompra)}</td>
-                  <td style={i.stock < i.stockMin ? { color: "var(--red)", fontWeight: 600 } : undefined}>{i.stock}</td>
-                  <td>{i.stockMin}</td>
-                  <td>{i.stockMax || "-"}</td>
-                  <td>{proveedorNombre(i.proveedorId)}</td>
-                  <td>{i.activo ? "Activo" : "Inactivo"}</td>
-                  <td className="row-actions">
-                    <button className="icon-btn" onClick={() => patchUi({ modal: { type: "insumo", data: i } })}>
-                      Editar
-                    </button>
-                    <button className="icon-btn" onClick={() => eliminar(i)}>
-                      Eliminar
-                    </button>
-                  </td>
-                </tr>
+                <TableRow key={i.id}>
+                  <TableCell className="max-w-[160px] truncate" title={i.nombre}>{i.nombre}</TableCell>
+                  <TableCell>{categoriaNombre(i.categoriaId)}</TableCell>
+                  <TableCell>{fmtCLP(i.valorCompra)}</TableCell>
+                  <TableCell style={i.stock < i.stockMin ? { color: "var(--red)", fontWeight: 600 } : undefined}>{i.stock}</TableCell>
+                  <TableCell>{i.stockMin}</TableCell>
+                  <TableCell>{i.stockMax || "-"}</TableCell>
+                  <TableCell>{proveedorNombre(i.proveedorId)}</TableCell>
+                  <TableCell>{i.activo ? "Activo" : "Inactivo"}</TableCell>
+                  <TableCell className="sticky right-0 z-10 bg-background">
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        title="Editar"
+                        aria-label="Editar"
+                        onClick={() => patchUi({ modal: { type: "insumo", data: i } })}
+                      >
+                        <Pencil />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        title="Eliminar"
+                        aria-label="Eliminar"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => eliminar(i)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

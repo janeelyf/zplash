@@ -12,6 +12,8 @@ import {
 import type { SuscripcionOneclickInfo } from "@/lib/dataAccess";
 import { fmtDate, fmtFecha, inicioPeriodoPlan, visitasPeriodoPlan } from "@/lib/helpers";
 import type { Cliente } from "@/types";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
   const { data: appData, patchUi } = useApp();
@@ -22,6 +24,8 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
   const [suscripcion, setSuscripcion] = useState<SuscripcionOneclickInfo | null>(null);
   const [cobrando, setCobrando] = useState(false);
   const [errSuscripcion, setErrSuscripcion] = useState("");
+
+  const cerrar = () => patchUi({ modal: null });
 
   useEffect(() => {
     obtenerSuscripcionOneclick(c.patente)
@@ -91,93 +95,98 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
   }
 
   return (
-    <div className="modal" style={{ maxWidth: 400 }}>
-      <h3>Información adicional</h3>
-      <div className="info-grid">
-        <div>
-          <div className="k">Cliente</div>
-          <div className="v">{c.nombre}</div>
-        </div>
-        <div>
-          <div className="k">Patente</div>
-          <div className="v">{c.patente}</div>
-        </div>
-        <div>
-          <div className="k">Creado por</div>
-          <div className="v">{c.creadoPor || "No disponible"}</div>
-        </div>
-        <div>
-          <div className="k">Fecha de creación</div>
-          <div className="v">{c.creadoEn ? fmtDate(c.creadoEn) : "-"}</div>
-        </div>
-        <div>
-          <div className="k">Visitas último período</div>
-          <div className="v">
-            {visitasPeriodo} ({fmtFecha(inicioPeriodo.toISOString())} - {fmtFecha(finPeriodo.toISOString())})
-          </div>
-        </div>
-      </div>
+    <Dialog open onOpenChange={(open) => !open && cerrar()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Información adicional</DialogTitle>
+        </DialogHeader>
 
-      {suscripcion && (
-        <div className="info-grid" style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 14 }}>
+        <div className="grid grid-cols-2 gap-x-5 gap-y-2.5 text-sm">
           <div>
-            <div className="k">Renovación automática</div>
-            <div className="v">
-              {suscripcion.estado === "activa"
-                ? "Activa"
-                : suscripcion.estado === "suspendida"
-                  ? "Suspendida"
-                  : suscripcion.estado === "cancelada"
-                    ? "Cancelada"
-                    : "Pendiente"}
-              {suscripcion.cardUltimosDigitos ? ` (tarjeta ${suscripcion.cardUltimosDigitos})` : ""}
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Cliente</div>
+            <div className="font-medium">{c.nombre}</div>
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Patente</div>
+            <div className="font-medium">{c.patente}</div>
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Creado por</div>
+            <div className="font-medium">{c.creadoPor || "No disponible"}</div>
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Fecha de creación</div>
+            <div className="font-medium">{c.creadoEn ? fmtDate(c.creadoEn) : "-"}</div>
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Visitas último período</div>
+            <div className="font-medium">
+              {visitasPeriodo} ({fmtFecha(inicioPeriodo.toISOString())} - {fmtFecha(finPeriodo.toISOString())})
             </div>
           </div>
-          {suscripcion.proximoCobro && (
+        </div>
+
+        {suscripcion && (
+          <div className="grid grid-cols-2 gap-x-5 gap-y-2.5 border-t border-border pt-3.5 text-sm">
             <div>
-              <div className="k">Próximo cobro</div>
-              <div className="v">{fmtDate(suscripcion.proximoCobro)}</div>
-            </div>
-          )}
-          {suscripcion.ultimoCobro && (
-            <div>
-              <div className="k">Último intento</div>
-              <div className="v">
-                {suscripcion.ultimoCobro.estado === "aprobada" ? "Aprobado" : "Rechazado"} — {fmtDate(suscripcion.ultimoCobro.fecha)}
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">Renovación automática</div>
+              <div className="font-medium">
+                {suscripcion.estado === "activa"
+                  ? "Activa"
+                  : suscripcion.estado === "suspendida"
+                    ? "Suspendida"
+                    : suscripcion.estado === "cancelada"
+                      ? "Cancelada"
+                      : "Pendiente"}
+                {suscripcion.cardUltimosDigitos ? ` (tarjeta ${suscripcion.cardUltimosDigitos})` : ""}
               </div>
             </div>
-          )}
-          {(suscripcion.estado === "activa" || suscripcion.estado === "suspendida") && (
-            <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {suscripcion.ultimoCobro?.estado === "rechazada" && suscripcion.estado === "activa" && (
-                <button className="btn secondary" onClick={reintentarCobro} disabled={cobrando}>
-                  {cobrando ? "Cobrando..." : "Reintentar cobro ahora"}
-                </button>
-              )}
-              {suscripcion.estado === "activa" && (
-                <button className="btn secondary" onClick={suspender} disabled={cobrando}>
-                  Suspender
-                </button>
-              )}
-              {suscripcion.estado === "suspendida" && (
-                <button className="btn secondary" onClick={reactivar} disabled={cobrando}>
-                  {cobrando ? "Reactivando..." : "Reactivar"}
-                </button>
-              )}
-              <button className="btn danger" onClick={cancelar} disabled={cobrando}>
-                Cancelar suscripción
-              </button>
-              {errSuscripcion && <div style={{ width: "100%" }} className="err">{errSuscripcion}</div>}
-            </div>
-          )}
-        </div>
-      )}
+            {suscripcion.proximoCobro && (
+              <div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">Próximo cobro</div>
+                <div className="font-medium">{fmtDate(suscripcion.proximoCobro)}</div>
+              </div>
+            )}
+            {suscripcion.ultimoCobro && (
+              <div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">Último intento</div>
+                <div className="font-medium">
+                  {suscripcion.ultimoCobro.estado === "aprobada" ? "Aprobado" : "Rechazado"} — {fmtDate(suscripcion.ultimoCobro.fecha)}
+                </div>
+              </div>
+            )}
+            {(suscripcion.estado === "activa" || suscripcion.estado === "suspendida") && (
+              <div className="col-span-2 flex flex-wrap items-center gap-2">
+                {suscripcion.ultimoCobro?.estado === "rechazada" && suscripcion.estado === "activa" && (
+                  <Button variant="secondary" onClick={reintentarCobro} disabled={cobrando}>
+                    {cobrando ? "Cobrando..." : "Reintentar cobro ahora"}
+                  </Button>
+                )}
+                {suscripcion.estado === "activa" && (
+                  <Button variant="secondary" onClick={suspender} disabled={cobrando}>
+                    Suspender
+                  </Button>
+                )}
+                {suscripcion.estado === "suspendida" && (
+                  <Button variant="secondary" onClick={reactivar} disabled={cobrando}>
+                    {cobrando ? "Reactivando..." : "Reactivar"}
+                  </Button>
+                )}
+                <Button variant="destructive" onClick={cancelar} disabled={cobrando}>
+                  Cancelar suscripción
+                </Button>
+                {errSuscripcion && <p className="w-full text-sm text-destructive">{errSuscripcion}</p>}
+              </div>
+            )}
+          </div>
+        )}
 
-      <div className="modal-actions">
-        <button className="btn ghost" onClick={() => patchUi({ modal: null })}>
-          Cerrar
-        </button>
-      </div>
-    </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={cerrar}>
+            Cerrar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -4,6 +4,9 @@ import { useMemo } from "react";
 import { useApp } from "@/context/AppContext";
 import { fmtTelefono } from "@/lib/helpers";
 import type { Proveedor } from "@/types";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Pencil, Trash2 } from "lucide-react";
 
 export default function ProveedoresTab() {
   const { data, ui, patchUi, commit } = useApp();
@@ -40,47 +43,62 @@ export default function ProveedoresTab() {
       </div>
 
       <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Nombre</th>
-              <th>RUT</th>
-              <th>Teléfono</th>
-              <th>Email</th>
-              <th>Dirección</th>
-              <th>Contacto</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="max-w-[160px]">Nombre</TableHead>
+              <TableHead>RUT</TableHead>
+              <TableHead>Teléfono</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Dirección</TableHead>
+              <TableHead>Contacto</TableHead>
+              <TableHead className="sticky right-0 z-10 w-0 bg-background" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {filtrados.length === 0 ? (
-              <tr>
-                <td colSpan={7}>
+              <TableRow>
+                <TableCell colSpan={7}>
                   <div className="empty">No hay proveedores que coincidan</div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               filtrados.map((p) => (
-                <tr key={p.id}>
-                  <td>{p.nombre}</td>
-                  <td>{p.rut || "-"}</td>
-                  <td>{p.telefono ? fmtTelefono(p.telefono) : "-"}</td>
-                  <td>{p.email || "-"}</td>
-                  <td>{p.direccion || "-"}</td>
-                  <td>{p.contacto || "-"}</td>
-                  <td className="row-actions">
-                    <button className="icon-btn" onClick={() => patchUi({ modal: { type: "proveedor", data: p } })}>
-                      Editar
-                    </button>
-                    <button className="icon-btn" onClick={() => eliminar(p)}>
-                      Eliminar
-                    </button>
-                  </td>
-                </tr>
+                <TableRow key={p.id}>
+                  <TableCell className="max-w-[160px] truncate" title={p.nombre}>{p.nombre}</TableCell>
+                  <TableCell>{p.rut || "-"}</TableCell>
+                  <TableCell>{p.telefono ? fmtTelefono(p.telefono) : "-"}</TableCell>
+                  <TableCell>{p.email || "-"}</TableCell>
+                  <TableCell>{p.direccion || "-"}</TableCell>
+                  <TableCell>{p.contacto || "-"}</TableCell>
+                  <TableCell className="sticky right-0 z-10 bg-background">
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        title="Editar"
+                        aria-label="Editar"
+                        onClick={() => patchUi({ modal: { type: "proveedor", data: p } })}
+                      >
+                        <Pencil />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        title="Eliminar"
+                        aria-label="Eliminar"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => eliminar(p)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

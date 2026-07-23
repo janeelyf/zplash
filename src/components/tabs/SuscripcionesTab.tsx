@@ -11,6 +11,8 @@ import {
 } from "@/lib/db";
 import type { SuscripcionOneclickInfo } from "@/lib/dataAccess";
 import { fmtDate, normPlate } from "@/lib/helpers";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 
 const ESTADO_LABEL: Record<string, string> = {
   activa: "Activa",
@@ -110,84 +112,100 @@ export default function SuscripcionesTab() {
         </select>
       </div>
       <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Patente</th>
-              <th>Cliente</th>
-              <th>Tarjeta</th>
-              <th>Estado</th>
-              <th>Próximo cobro</th>
-              <th>Último cobro</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Patente</TableHead>
+              <TableHead>Cliente</TableHead>
+              <TableHead>Tarjeta</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead>Próximo cobro</TableHead>
+              <TableHead>Último cobro</TableHead>
+              <TableHead className="sticky right-0 z-10 w-0 bg-background" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {cargando ? (
-              <tr>
-                <td colSpan={7}>
+              <TableRow>
+                <TableCell colSpan={7}>
                   <div className="empty">Cargando...</div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : filtered.length === 0 ? (
-              <tr>
-                <td colSpan={7}>
+              <TableRow>
+                <TableCell colSpan={7}>
                   <div className="empty">No hay suscripciones que coincidan</div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               filtered.map((s) => (
-                <tr key={s.id}>
-                  <td className="plate-tag">{s.patente}</td>
-                  <td>{s.clienteNombre}</td>
-                  <td>{s.cardUltimosDigitos ? `${s.cardTipo || ""} ${s.cardUltimosDigitos}` : "-"}</td>
-                  <td>
+                <TableRow key={s.id}>
+                  <TableCell className="plate-tag">{s.patente}</TableCell>
+                  <TableCell>{s.clienteNombre}</TableCell>
+                  <TableCell>{s.cardUltimosDigitos ? `${s.cardTipo || ""} ${s.cardUltimosDigitos}` : "-"}</TableCell>
+                  <TableCell>
                     <span className={`status-pill ${ESTADO_CLASE[s.estado] || "warn"}`}>{ESTADO_LABEL[s.estado] || s.estado}</span>
-                  </td>
-                  <td>{s.proximoCobro ? fmtDate(s.proximoCobro) : "-"}</td>
-                  <td>
+                  </TableCell>
+                  <TableCell>{s.proximoCobro ? fmtDate(s.proximoCobro) : "-"}</TableCell>
+                  <TableCell>
                     {s.ultimoCobro ? `${s.ultimoCobro.estado === "aprobada" ? "Aprobado" : "Rechazado"} — ${fmtDate(s.ultimoCobro.fecha)}` : "-"}
-                  </td>
-                  <td className="row-actions">
-                    {s.estado === "activa" && (
-                      <>
-                        {s.ultimoCobro?.estado === "rechazada" && (
-                          <button
-                            className="icon-btn"
+                  </TableCell>
+                  <TableCell className="sticky right-0 z-10 bg-background">
+                    <div className="flex flex-wrap items-center gap-1">
+                      {s.estado === "activa" && (
+                        <>
+                          {s.ultimoCobro?.estado === "rechazada" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={procesandoId === s.id}
+                              onClick={() => ejecutar(s.id, () => cobrarSuscripcionManual(s.id))}
+                            >
+                              Reintentar cobro
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="sm" disabled={procesandoId === s.id} onClick={() => suspender(s)}>
+                            Suspender
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                             disabled={procesandoId === s.id}
-                            onClick={() => ejecutar(s.id, () => cobrarSuscripcionManual(s.id))}
+                            onClick={() => cancelar(s)}
                           >
-                            Reintentar cobro
-                          </button>
-                        )}
-                        <button className="icon-btn" disabled={procesandoId === s.id} onClick={() => suspender(s)}>
-                          Suspender
-                        </button>
-                        <button className="icon-btn" disabled={procesandoId === s.id} onClick={() => cancelar(s)}>
-                          Cancelar
-                        </button>
-                      </>
-                    )}
-                    {s.estado === "suspendida" && (
-                      <>
-                        <button
-                          className="icon-btn"
-                          disabled={procesandoId === s.id}
-                          onClick={() => ejecutar(s.id, () => reactivarSuscripcionOneclick(s.id))}
-                        >
-                          Reactivar
-                        </button>
-                        <button className="icon-btn" disabled={procesandoId === s.id} onClick={() => cancelar(s)}>
-                          Cancelar
-                        </button>
-                      </>
-                    )}
-                  </td>
-                </tr>
+                            Cancelar
+                          </Button>
+                        </>
+                      )}
+                      {s.estado === "suspendida" && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={procesandoId === s.id}
+                            onClick={() => ejecutar(s.id, () => reactivarSuscripcionOneclick(s.id))}
+                          >
+                            Reactivar
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            disabled={procesandoId === s.id}
+                            onClick={() => cancelar(s)}
+                          >
+                            Cancelar
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

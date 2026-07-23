@@ -59,6 +59,15 @@
   --sidebar-accent-foreground: var(--white);
   --sidebar-border: var(--border);
   --sidebar-ring: var(--gold);
+
+  /* Elevación: la app era toda bordes planos de 1px sin sombra. Estas dos
+     sombras le dan volumen a tarjetas/modales (ambiental, neutra) y a los
+     botones/CTAs sólidos (glow tintado en dorado de marca), en vez de un
+     shadow genérico gris que no tendría relación con la identidad ZPlash. */
+  --shadow-elevated: 0 10px 30px -14px rgba(0, 0, 0, 0.55), 0 2px 8px -2px rgba(0, 0, 0, 0.35);
+  --shadow-glow-primary: 0 4px 14px -4px rgba(255, 199, 44, 0.45), 0 1px 3px -1px rgba(255, 199, 44, 0.3);
+  --shadow-glow-primary-hover: 0 6px 20px -4px rgba(255, 199, 44, 0.6), 0 2px 4px -1px rgba(255, 199, 44, 0.35);
+  --shadow-glow-danger: 0 4px 14px -4px rgba(229, 72, 77, 0.4), 0 1px 3px -1px rgba(229, 72, 77, 0.25);
 }
 * {
   box-sizing: border-box;
@@ -144,10 +153,12 @@ h4,
   flex-direction: column;
   align-items: center;
   gap: 10px;
+  box-shadow: var(--shadow-elevated);
 }
 .role-btn:hover {
   border-color: var(--gold);
   transform: translateY(-2px);
+  box-shadow: var(--shadow-elevated), var(--shadow-glow-primary);
 }
 .role-btn .icon {
   font-size: 34px;
@@ -344,6 +355,7 @@ h4,
   padding: 32px;
   text-align: center;
   margin-bottom: 24px;
+  box-shadow: var(--shadow-elevated);
 }
 .scan-panel h2 {
   font-size: 26px;
@@ -383,28 +395,37 @@ h4,
   font-size: 14.5px;
   cursor: pointer;
   margin-top: 16px;
+  box-shadow: var(--shadow-glow-primary);
+  transition: 0.15s;
 }
 .btn:hover {
   filter: brightness(1.08);
+  box-shadow: var(--shadow-glow-primary-hover);
+  transform: translateY(-1px);
 }
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   filter: none;
+  box-shadow: none;
+  transform: none;
 }
 .btn.secondary {
   background: transparent;
   border: 1px solid var(--gold);
   color: var(--gold);
+  box-shadow: none;
 }
 .btn.ghost {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--white);
+  box-shadow: none;
 }
 .btn.danger {
   background: var(--red);
   color: #fff;
+  box-shadow: var(--shadow-glow-danger);
 }
 
 .result-card {
@@ -413,6 +434,7 @@ h4,
   border-radius: 14px;
   padding: 22px;
   margin-bottom: 20px;
+  box-shadow: var(--shadow-elevated);
 }
 .result-card.found {
   border-color: var(--green);
@@ -491,6 +513,7 @@ h4,
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 20px;
+  box-shadow: var(--shadow-elevated);
 }
 .today-log h3 {
   font-size: 18px;
@@ -527,6 +550,7 @@ h4,
   padding: 20px;
   margin-bottom: 20px;
   text-align: left;
+  box-shadow: var(--shadow-glow-primary);
 }
 .offer-card .offer-head {
   display: flex;
@@ -763,6 +787,7 @@ tr:hover td {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 18px;
+  box-shadow: var(--shadow-elevated);
 }
 .stat-card .num {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -817,6 +842,7 @@ tr:hover td {
   max-width: 440px;
   max-height: 90vh;
   overflow-y: auto;
+  box-shadow: var(--shadow-elevated);
 }
 .modal h3 {
   margin-bottom: 18px;
@@ -908,6 +934,7 @@ tr:hover td {
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 26px;
+  box-shadow: var(--shadow-elevated);
 }
 .card h3 {
   font-size: 19px;
@@ -996,10 +1023,12 @@ tr:hover td {
   overflow: hidden;
   text-decoration: none;
   border: 1px solid var(--border);
-  transition: border-color 0.15s;
+  transition: 0.15s;
+  box-shadow: var(--shadow-elevated);
 }
 .landing-banner:hover {
   border-color: var(--gold);
+  transform: translateY(-2px);
 }
 .landing-banner img {
   width: 100%;
@@ -1108,6 +1137,7 @@ tr:hover td {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 18px;
+  box-shadow: var(--shadow-elevated);
 }
 .vehicle-card .plate-tag {
   font-size: 18px;

@@ -18,6 +18,9 @@ import {
   uid,
 } from "@/lib/helpers";
 import type { Cupon, Empresa, Venta } from "@/types";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Trash2 } from "lucide-react";
 
 function valorCupon(c: Cupon): string {
   if (c.tipo === "descuento") return c.esPorcentaje ? `${c.valor}%` : fmtCLP(c.valor);
@@ -551,57 +554,64 @@ export default function VentaEmpresaTab() {
         </button>
       </div>
       <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Código</th>
-              <th>Tipo</th>
-              <th>N°</th>
-              <th>Lote</th>
-              <th>Valor c/u</th>
-              <th>Caducidad</th>
-              <th>Estado</th>
-              <th>Patente</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Código</TableHead>
+              <TableHead>Tipo</TableHead>
+              <TableHead>N°</TableHead>
+              <TableHead className="max-w-[160px]">Lote</TableHead>
+              <TableHead>Valor c/u</TableHead>
+              <TableHead>Caducidad</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead>Patente</TableHead>
+              <TableHead className="sticky right-0 z-10 w-0 bg-background" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {filtrados.length === 0 ? (
-              <tr>
-                <td colSpan={9}>
+              <TableRow>
+                <TableCell colSpan={9}>
                   <div className="empty">Sin cupones</div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               filtrados.map((c) => {
                 const est = estadoCupon(c);
                 return (
-                  <tr key={c.id}>
-                    <td className="plate-tag">{c.codigo}</td>
-                    <td>{c.tipo === "descuento" ? "Descuento" : "Vale"}</td>
-                    <td>
+                  <TableRow key={c.id}>
+                    <TableCell className="plate-tag">{c.codigo}</TableCell>
+                    <TableCell>{c.tipo === "descuento" ? "Descuento" : "Vale"}</TableCell>
+                    <TableCell>
                       {c.numeroLote}/{c.totalLote}
-                    </td>
-                    <td>{c.nombreLote}</td>
-                    <td>{valorCupon(c)}</td>
-                    <td>{new Date(c.fechaCaducidad).toLocaleDateString("es-CL")}</td>
-                    <td>
+                    </TableCell>
+                    <TableCell className="max-w-[160px] truncate" title={c.nombreLote}>{c.nombreLote}</TableCell>
+                    <TableCell>{valorCupon(c)}</TableCell>
+                    <TableCell>{new Date(c.fechaCaducidad).toLocaleDateString("es-CL")}</TableCell>
+                    <TableCell>
                       <span className={`status-pill ${est.cls}`}>{est.label}</span>
-                    </td>
-                    <td>{c.patenteUso || c.patenteAsignada || (c.tipo === "descuento" ? "Abierto" : "-")}</td>
-                    <td className="row-actions">
+                    </TableCell>
+                    <TableCell>{c.patenteUso || c.patenteAsignada || (c.tipo === "descuento" ? "Abierto" : "-")}</TableCell>
+                    <TableCell className="sticky right-0 z-10 bg-background">
                       {!c.usado && (
-                        <button className="icon-btn" onClick={() => eliminar(c)}>
-                          Eliminar
-                        </button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          title="Eliminar"
+                          aria-label="Eliminar"
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => eliminar(c)}
+                        >
+                          <Trash2 />
+                        </Button>
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

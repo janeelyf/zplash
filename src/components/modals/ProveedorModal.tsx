@@ -4,6 +4,10 @@ import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { fmtTelefono, formatTelefono, formatRut, isValidRut, RUT_FORMATO_MSG, uid } from "@/lib/helpers";
 import type { Proveedor } from "@/types";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 export default function ProveedorModal({ data: p }: { data: Proveedor | null }) {
   const { data, commit, patchUi, ui } = useApp();
@@ -19,6 +23,8 @@ export default function ProveedorModal({ data: p }: { data: Proveedor | null }) 
   const telefonoVendedorRef = useRef<HTMLInputElement>(null);
   const emailComprobantesRef = useRef<HTMLInputElement>(null);
   const [err, setErr] = useState("");
+
+  const cerrar = () => patchUi({ modal: null });
 
   const onTelefonoBlur = () => {
     const raw = telefonoRef.current?.value.trim() || "";
@@ -87,67 +93,76 @@ export default function ProveedorModal({ data: p }: { data: Proveedor | null }) 
       setErr("No se pudo guardar el cambio (sin conexión con el almacenamiento). Verifica tu conexión e inténtalo de nuevo.");
       return;
     }
-    patchUi({ modal: null });
+    cerrar();
   };
 
   return (
-    <div className="modal">
-      <h3>{p ? "Editar proveedor" : "Nuevo proveedor"}</h3>
-      <div className="field">
-        <label>Nombre</label>
-        <input ref={nombreRef} defaultValue={prov.nombre || ""} autoFocus={!p} />
-      </div>
-      <div className="field">
-        <label>RUT</label>
-        <input ref={rutRef} defaultValue={prov.rut || ""} placeholder="12.345.678-9" />
-      </div>
-      <div className="field">
-        <label>Teléfono</label>
-        <input
-          ref={telefonoRef}
-          defaultValue={prov.telefono ? fmtTelefono(prov.telefono) : ""}
-          placeholder="+569 -1111 1111"
-          onBlur={onTelefonoBlur}
-        />
-      </div>
-      <div className="field">
-        <label>Email</label>
-        <input ref={emailRef} type="email" defaultValue={prov.email || ""} />
-      </div>
-      <div className="field">
-        <label>Dirección</label>
-        <input ref={direccionRef} defaultValue={prov.direccion || ""} />
-      </div>
-      <div className="field">
-        <label>Nombre del Vendedor</label>
-        <input ref={contactoRef} defaultValue={prov.contacto || ""} />
-      </div>
-      <div className="field">
-        <label>Mail del Vendedor</label>
-        <input ref={emailVendedorRef} type="email" defaultValue={prov.emailVendedor || ""} />
-      </div>
-      <div className="field">
-        <label>Número del Vendedor</label>
-        <input
-          ref={telefonoVendedorRef}
-          defaultValue={prov.telefonoVendedor ? fmtTelefono(prov.telefonoVendedor) : ""}
-          placeholder="+569 -1111 1111"
-          onBlur={onTelefonoVendedorBlur}
-        />
-      </div>
-      <div className="field">
-        <label>Mail Comprobantes de Transferencia</label>
-        <input ref={emailComprobantesRef} type="email" defaultValue={prov.emailComprobantes || ""} />
-      </div>
-      <div className="err">{err}</div>
-      <div className="modal-actions">
-        <button className="btn ghost" onClick={() => patchUi({ modal: null })}>
-          Cancelar
-        </button>
-        <button className="btn" onClick={guardar}>
-          Guardar
-        </button>
-      </div>
-    </div>
+    <Dialog open onOpenChange={(open) => !open && cerrar()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{p ? "Editar proveedor" : "Nuevo proveedor"}</DialogTitle>
+        </DialogHeader>
+
+        <div className="grid gap-3">
+          <div className="grid gap-1.5">
+            <Label htmlFor="prov-nombre">Nombre</Label>
+            <Input id="prov-nombre" ref={nombreRef} defaultValue={prov.nombre || ""} autoFocus={!p} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="prov-rut">RUT</Label>
+            <Input id="prov-rut" ref={rutRef} defaultValue={prov.rut || ""} placeholder="12.345.678-9" />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="prov-telefono">Teléfono</Label>
+            <Input
+              id="prov-telefono"
+              ref={telefonoRef}
+              defaultValue={prov.telefono ? fmtTelefono(prov.telefono) : ""}
+              placeholder="+569 -1111 1111"
+              onBlur={onTelefonoBlur}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="prov-email">Email</Label>
+            <Input id="prov-email" ref={emailRef} type="email" defaultValue={prov.email || ""} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="prov-direccion">Dirección</Label>
+            <Input id="prov-direccion" ref={direccionRef} defaultValue={prov.direccion || ""} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="prov-contacto">Nombre del Vendedor</Label>
+            <Input id="prov-contacto" ref={contactoRef} defaultValue={prov.contacto || ""} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="prov-email-vendedor">Mail del Vendedor</Label>
+            <Input id="prov-email-vendedor" ref={emailVendedorRef} type="email" defaultValue={prov.emailVendedor || ""} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="prov-telefono-vendedor">Número del Vendedor</Label>
+            <Input
+              id="prov-telefono-vendedor"
+              ref={telefonoVendedorRef}
+              defaultValue={prov.telefonoVendedor ? fmtTelefono(prov.telefonoVendedor) : ""}
+              placeholder="+569 -1111 1111"
+              onBlur={onTelefonoVendedorBlur}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="prov-email-comprobantes">Mail Comprobantes de Transferencia</Label>
+            <Input id="prov-email-comprobantes" ref={emailComprobantesRef} type="email" defaultValue={prov.emailComprobantes || ""} />
+          </div>
+
+          {err && <p className="text-sm text-destructive">{err}</p>}
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={cerrar}>
+            Cancelar
+          </Button>
+          <Button onClick={guardar}>Guardar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { ESTADOS_CITA, esEstadoFinal, esRetrocesoInvalido } from "@/lib/agenda";
-import { fmtCLP, sumarDias, todayYMD, ymd } from "@/lib/helpers";
+import { fmtCLP, fmtTelefono, sumarDias, todayYMD, ymd } from "@/lib/helpers";
 import type { Cita, Venta } from "@/types";
 
 export default function ServiciosAdicionalesLog() {
@@ -13,9 +13,24 @@ export default function ServiciosAdicionalesLog() {
   const logList = data.ventas.filter((v) => v.esServicioAdicional && ymd(new Date(v.fecha)) === fechaLog);
 
   // Solo Gerencia (módulo "permisos", mismo criterio que PerfilesTab) puede
-  // borrar un servicio ya registrado: es destructivo y además elimina el
-  // pago Transbank asociado, si tuvo uno (ver deleteVentas en dataAccess.ts).
-  const puedeEliminarServicios = ui.perfilActual?.modulos.includes("permisos") || false;
+  // borrar o editar un servicio ya registrado: borrar es destructivo y
+  // además elimina el pago Transbank asociado, si tuvo uno (ver deleteVentas
+  // en dataAccess.ts); editar corrige datos ya guardados sin pasar por el
+  // circuito normal de registro.
+  const esGerencia = ui.perfilActual?.modulos.includes("permisos") || false;
+
+  // El teléfono no vive en la Venta: se busca en la ficha del cliente y, si
+  // no hay clienteId (venta sin cliente registrado), se cae al teléfono
+  // guardado en la Cita creada junto con este servicio.
+  const telefonoDe = (v: Venta) => {
+    const cliente = v.clienteId ? data.clientes.find((c) => c.id === v.clienteId) : undefined;
+    const telefono = cliente?.telefono || data.citas.find((c) => c.id === v.citaId)?.telefono;
+    return telefono ? fmtTelefono(telefono) : "—";
+  };
+
+  const editarServicio = (v: Venta) => {
+    patchUi({ modal: { type: "servicioAdicional", data: v } });
+  };
 
   const eliminarServicio = (v: Venta) => {
     patchUi({
@@ -83,17 +98,18 @@ export default function ServiciosAdicionalesLog() {
             <tr>
               <th>Patente</th>
               <th>Servicio</th>
+              <th>Teléfono</th>
               <th>Pago</th>
               <th>Entrega</th>
               <th>Status</th>
               <th>Precio</th>
-              {puedeEliminarServicios && <th></th>}
+              {esGerencia && <th></th>}
             </tr>
           </thead>
           <tbody>
             {logList.length === 0 ? (
               <tr>
-                <td colSpan={puedeEliminarServicios ? 7 : 6}>
+                <td colSpan={esGerencia ? 8 : 7}>
                   <div className="empty">Sin servicios registrados ese día</div>
                 </td>
               </tr>
@@ -106,6 +122,7 @@ export default function ServiciosAdicionalesLog() {
                   <td>
                     {v.nombre} — {v.tipo}
                   </td>
+                  <td>{telefonoDe(v)}</td>
                   <td>
                     {v.estadoPago && (
                       <span
@@ -139,8 +156,11 @@ export default function ServiciosAdicionalesLog() {
                     )}
                   </td>
                   <td>{fmtCLP(v.precio)}</td>
-                  {puedeEliminarServicios && (
+                  {esGerencia && (
                     <td className="row-actions">
+                      <button className="icon-btn" onClick={() => editarServicio(v)}>
+                        Editar
+                      </button>
                       <button className="icon-btn" onClick={() => eliminarServicio(v)}>
                         Eliminar
                       </button>

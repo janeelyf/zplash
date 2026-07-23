@@ -4,6 +4,9 @@ import { useMemo, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { uid, vehiculosDesdeUltimaMantencion } from "@/lib/helpers";
 import type { RegistroMantencion } from "@/types";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Trash2 } from "lucide-react";
 
 export default function RegistrosMantencionTab() {
   const { data, ui, patchUi, commit } = useApp();
@@ -161,48 +164,55 @@ export default function RegistrosMantencionTab() {
 
       <h3 style={{ marginTop: 28 }}>Historial de mantenciones</h3>
       <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Fecha</th>
-              <th>Máquina</th>
-              <th>Descripción</th>
-              <th>Vehículos desde última</th>
-              <th>Responsable</th>
-              <th>Costo</th>
-              <th>Notas</th>
-              {puedeBorrar && <th></th>}
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Fecha</TableHead>
+              <TableHead>Máquina</TableHead>
+              <TableHead className="max-w-[200px]">Descripción</TableHead>
+              <TableHead>Vehículos desde última</TableHead>
+              <TableHead>Responsable</TableHead>
+              <TableHead>Costo</TableHead>
+              <TableHead>Notas</TableHead>
+              {puedeBorrar && <TableHead className="sticky right-0 z-10 w-0 bg-background" />}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {registros.length === 0 ? (
-              <tr>
-                <td colSpan={puedeBorrar ? 8 : 7}>
+              <TableRow>
+                <TableCell colSpan={puedeBorrar ? 8 : 7}>
                   <div className="empty">Todavía no hay mantenciones registradas</div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               registros.map((r) => (
-                <tr key={r.id}>
-                  <td>{new Date(r.fecha).toLocaleString("es-CL")}</td>
-                  <td>{maquinariaNombre(r.maquinariaId)}</td>
-                  <td>{r.descripcion}</td>
-                  <td>{r.vehiculosDesdeUltima}</td>
-                  <td>{r.responsable || "-"}</td>
-                  <td>{r.costo != null ? `$${r.costo.toLocaleString("es-CL")}` : "-"}</td>
-                  <td>{r.notas || "-"}</td>
+                <TableRow key={r.id}>
+                  <TableCell>{new Date(r.fecha).toLocaleString("es-CL")}</TableCell>
+                  <TableCell>{maquinariaNombre(r.maquinariaId)}</TableCell>
+                  <TableCell className="max-w-[200px] truncate" title={r.descripcion}>{r.descripcion}</TableCell>
+                  <TableCell>{r.vehiculosDesdeUltima}</TableCell>
+                  <TableCell>{r.responsable || "-"}</TableCell>
+                  <TableCell>{r.costo != null ? `$${r.costo.toLocaleString("es-CL")}` : "-"}</TableCell>
+                  <TableCell>{r.notas || "-"}</TableCell>
                   {puedeBorrar && (
-                    <td className="row-actions">
-                      <button className="icon-btn" onClick={() => eliminarRegistro(r)}>
-                        Eliminar
-                      </button>
-                    </td>
+                    <TableCell className="sticky right-0 z-10 bg-background">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        title="Eliminar"
+                        aria-label="Eliminar"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => eliminarRegistro(r)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </TableCell>
                   )}
-                </tr>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

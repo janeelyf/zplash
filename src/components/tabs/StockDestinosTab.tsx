@@ -4,6 +4,9 @@ import { useMemo } from "react";
 import { useApp } from "@/context/AppContext";
 import { puedeBorrarCategoriaInventario, stockPorDestino } from "@/lib/helpers";
 import type { MovimientoInventario } from "@/types";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Trash2 } from "lucide-react";
 
 export default function StockDestinosTab() {
   const { data, ui, patchUi, commit } = useApp();
@@ -56,89 +59,96 @@ export default function StockDestinosTab() {
       </div>
 
       <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>SKU</th>
-              <th>Detalle</th>
-              <th>Stock total</th>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>SKU</TableHead>
+              <TableHead className="max-w-[180px]">Detalle</TableHead>
+              <TableHead>Stock total</TableHead>
               {destinosActivos.map((d) => (
-                <th key={d.id}>{d.nombre}</th>
+                <TableHead key={d.id}>{d.nombre}</TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {productosFiltrados.length === 0 ? (
-              <tr>
-                <td colSpan={3 + destinosActivos.length}>
+              <TableRow>
+                <TableCell colSpan={3 + destinosActivos.length}>
                   <div className="empty">No hay productos que coincidan</div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               productosFiltrados.map((p) => {
                 const porDestino = stockPorDestino(p, data.destinosInventario, data.movimientosInventario);
                 return (
-                  <tr key={p.id}>
-                    <td>{p.sku}</td>
-                    <td>{p.detalle}</td>
-                    <td>{p.stock}</td>
+                  <TableRow key={p.id}>
+                    <TableCell>{p.sku}</TableCell>
+                    <TableCell className="max-w-[180px] truncate" title={p.detalle}>{p.detalle}</TableCell>
+                    <TableCell>{p.stock}</TableCell>
                     {destinosActivos.map((d) => (
-                      <td key={d.id}>{porDestino.get(d.id) ?? 0}</td>
+                      <TableCell key={d.id}>{porDestino.get(d.id) ?? 0}</TableCell>
                     ))}
-                  </tr>
+                  </TableRow>
                 );
               })
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       <h3 style={{ marginTop: 28 }}>Historial de traspasos</h3>
       <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Folio</th>
-              <th>Fecha</th>
-              <th>Producto</th>
-              <th>Origen</th>
-              <th>Destino</th>
-              <th>Cantidad</th>
-              <th>Notas</th>
-              <th>Registrado por</th>
-              {puedeBorrar && <th></th>}
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Folio</TableHead>
+              <TableHead>Fecha</TableHead>
+              <TableHead className="max-w-[180px]">Producto</TableHead>
+              <TableHead>Origen</TableHead>
+              <TableHead>Destino</TableHead>
+              <TableHead>Cantidad</TableHead>
+              <TableHead>Notas</TableHead>
+              <TableHead>Registrado por</TableHead>
+              {puedeBorrar && <TableHead className="sticky right-0 z-10 w-0 bg-background" />}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {historial.length === 0 ? (
-              <tr>
-                <td colSpan={puedeBorrar ? 9 : 8}>
+              <TableRow>
+                <TableCell colSpan={puedeBorrar ? 9 : 8}>
                   <div className="empty">Todavía no hay traspasos registrados</div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               historial.map((m) => (
-                <tr key={m.id}>
-                  <td>{m.folio}</td>
-                  <td>{new Date(m.fecha).toLocaleString("es-CL")}</td>
-                  <td>{productoNombre(m.productoId)}</td>
-                  <td>{destinoNombre(m.origenId)}</td>
-                  <td>{destinoNombre(m.destinoId)}</td>
-                  <td>{m.cantidad}</td>
-                  <td>{m.notas || "-"}</td>
-                  <td>{m.creadoPor || "-"}</td>
+                <TableRow key={m.id}>
+                  <TableCell>{m.folio}</TableCell>
+                  <TableCell>{new Date(m.fecha).toLocaleString("es-CL")}</TableCell>
+                  <TableCell className="max-w-[180px] truncate" title={productoNombre(m.productoId)}>{productoNombre(m.productoId)}</TableCell>
+                  <TableCell>{destinoNombre(m.origenId)}</TableCell>
+                  <TableCell>{destinoNombre(m.destinoId)}</TableCell>
+                  <TableCell>{m.cantidad}</TableCell>
+                  <TableCell>{m.notas || "-"}</TableCell>
+                  <TableCell>{m.creadoPor || "-"}</TableCell>
                   {puedeBorrar && (
-                    <td className="row-actions">
-                      <button className="icon-btn" onClick={() => eliminarTraspaso(m)}>
-                        Eliminar
-                      </button>
-                    </td>
+                    <TableCell className="sticky right-0 z-10 bg-background">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        title="Eliminar"
+                        aria-label="Eliminar"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => eliminarTraspaso(m)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </TableCell>
                   )}
-                </tr>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

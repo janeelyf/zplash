@@ -4,6 +4,13 @@ import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { RUT_FORMATO_MSG, fmtTelefono, formatRut, formatTelefono, isValidRut, uid } from "@/lib/helpers";
 import type { Empresa } from "@/types";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+
+const SIN_CONTACTO = "sin-contacto";
 
 export default function EmpresaModal({ data: e }: { data: Empresa | null }) {
   const { data, commit, patchUi, ui } = useApp();
@@ -14,8 +21,10 @@ export default function EmpresaModal({ data: e }: { data: Empresa | null }) {
   const giroRef = useRef<HTMLInputElement>(null);
   const direccionRef = useRef<HTMLInputElement>(null);
   const telefonoRef = useRef<HTMLInputElement>(null);
-  const contactoRef = useRef<HTMLSelectElement>(null);
+  const [contacto, setContacto] = useState(emp.contactoClienteId || SIN_CONTACTO);
   const [err, setErr] = useState("");
+
+  const cerrar = () => patchUi({ modal: null });
 
   const clientesOrdenados = [...data.clientes].sort((a, b) => a.nombre.localeCompare(b.nombre));
 
@@ -39,9 +48,7 @@ export default function EmpresaModal({ data: e }: { data: Empresa | null }) {
     if (giroRef.current && !giroRef.current.value.trim() && cliente.giro) {
       giroRef.current.value = cliente.giro;
     }
-    if (contactoRef.current && !contactoRef.current.value) {
-      contactoRef.current.value = cliente.id;
-    }
+    if (contacto === SIN_CONTACTO) setContacto(cliente.id);
   };
 
   const onTelefonoBlur = () => {
@@ -72,7 +79,7 @@ export default function EmpresaModal({ data: e }: { data: Empresa | null }) {
     const direccion = direccionRef.current?.value.trim() || "";
     const telefonoRaw = telefonoRef.current?.value.trim() || "";
     const telefono = telefonoRaw ? formatTelefono(telefonoRaw) : "";
-    const contactoClienteId = contactoRef.current?.value || "";
+    const contactoClienteId = contacto === SIN_CONTACTO ? "" : contacto;
     const contactoNombre = contactoClienteId
       ? data.clientes.find((c) => c.id === contactoClienteId)?.nombre || ""
       : "";
@@ -111,57 +118,70 @@ export default function EmpresaModal({ data: e }: { data: Empresa | null }) {
       setErr("No se pudo guardar el cambio (sin conexión con el almacenamiento). Verifica tu conexión e inténtalo de nuevo.");
       return;
     }
-    patchUi({ modal: null });
+    cerrar();
   };
 
   return (
-    <div className="modal">
-      <h3>{e ? "Editar empresa" : "Nueva empresa"}</h3>
-      <div className="field">
-        <label>RUT</label>
-        <input ref={rutRef} defaultValue={emp.rut || ""} placeholder="12.345.678-9" onBlur={onRutBlur} autoFocus={!e} />
-      </div>
-      <div className="field">
-        <label>Razón Social</label>
-        <input ref={razonSocialRef} defaultValue={emp.razonSocial || ""} />
-      </div>
-      <div className="field">
-        <label>Giro</label>
-        <input ref={giroRef} defaultValue={emp.giro || ""} />
-      </div>
-      <div className="field">
-        <label>Dirección</label>
-        <input ref={direccionRef} defaultValue={emp.direccion || ""} />
-      </div>
-      <div className="field">
-        <label>Teléfono</label>
-        <input
-          ref={telefonoRef}
-          defaultValue={emp.telefono ? fmtTelefono(emp.telefono) : ""}
-          placeholder="+569 -1111 1111"
-          onBlur={onTelefonoBlur}
-        />
-      </div>
-      <div className="field">
-        <label>Persona de contacto</label>
-        <select ref={contactoRef} defaultValue={emp.contactoClienteId || ""}>
-          <option value="">Sin contacto asignado</option>
-          {clientesOrdenados.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.nombre} — {c.rut ? formatRut(c.rut) : "sin RUT"}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="err">{err}</div>
-      <div className="modal-actions">
-        <button className="btn ghost" onClick={() => patchUi({ modal: null })}>
-          Cancelar
-        </button>
-        <button className="btn" onClick={guardar}>
-          Guardar
-        </button>
-      </div>
-    </div>
+    <Dialog open onOpenChange={(open) => !open && cerrar()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{e ? "Editar empresa" : "Nueva empresa"}</DialogTitle>
+        </DialogHeader>
+
+        <div className="grid gap-3">
+          <div className="grid gap-1.5">
+            <Label htmlFor="emp-rut">RUT</Label>
+            <Input id="emp-rut" ref={rutRef} defaultValue={emp.rut || ""} placeholder="12.345.678-9" onBlur={onRutBlur} autoFocus={!e} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="emp-razon">Razón Social</Label>
+            <Input id="emp-razon" ref={razonSocialRef} defaultValue={emp.razonSocial || ""} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="emp-giro">Giro</Label>
+            <Input id="emp-giro" ref={giroRef} defaultValue={emp.giro || ""} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="emp-direccion">Dirección</Label>
+            <Input id="emp-direccion" ref={direccionRef} defaultValue={emp.direccion || ""} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="emp-telefono">Teléfono</Label>
+            <Input
+              id="emp-telefono"
+              ref={telefonoRef}
+              defaultValue={emp.telefono ? fmtTelefono(emp.telefono) : ""}
+              placeholder="+569 -1111 1111"
+              onBlur={onTelefonoBlur}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Persona de contacto</Label>
+            <Select value={contacto} onValueChange={(v) => setContacto(v ?? SIN_CONTACTO)}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SIN_CONTACTO}>Sin contacto asignado</SelectItem>
+                {clientesOrdenados.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.nombre} — {c.rut ? formatRut(c.rut) : "sin RUT"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {err && <p className="text-sm text-destructive">{err}</p>}
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={cerrar}>
+            Cancelar
+          </Button>
+          <Button onClick={guardar}>Guardar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
